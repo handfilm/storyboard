@@ -47,6 +47,12 @@ import {
   BarChart2,
   Cpu
 } from 'lucide-react';
+import {
+  CinemaToolHUD,
+  CinemaGuideToggleButton,
+  CinemaBadgeHeader,
+  CinemaHudAccent
+} from './ui/CinemaToolHUD';
 import { AnthologyFrame } from '../types/anthology';
 import { PlaybackMode } from '../types/editor';
 import { SaveState } from '../core/storage';
@@ -1120,7 +1126,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
     panel: StagePanelType;
     label: string;
     shortcut: string;
-    title: string;
+    hudId: string;
     accentHex: string;
     icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
   }> = [
@@ -1129,7 +1135,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
       panel: 'TACTILE_STAGE',
       label: 'STAGE',
       shortcut: '1',
-      title: 'Primary Cinema Stage (Alt+1)',
+      hudId: 'nav-stage',
       accentHex: '#F59E0B',
       icon: PlaySquare
     },
@@ -1138,7 +1144,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
       panel: 'SPLIT',
       label: 'REELS',
       shortcut: '2',
-      title: '9:16 Reels & Hyper-Reel Engine (Alt+2)',
+      hudId: 'nav-reels',
       accentHex: '#FB7185',
       icon: Flame
     },
@@ -1147,7 +1153,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
       panel: 'SEQUENCER',
       label: 'SCRUB',
       shortcut: '3',
-      title: 'Sub-Frame Precision Scrub (Alt+3)',
+      hudId: 'nav-scrub',
       accentHex: '#38BDF8',
       icon: Scissors
     },
@@ -1156,7 +1162,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
       panel: 'MULTICAM',
       label: 'MULTI-CAM',
       shortcut: '4',
-      title: 'Multi-Camera Cutting Grid (Alt+4)',
+      hudId: 'nav-multicam',
       accentHex: '#10B981',
       icon: LayoutGrid
     },
@@ -1165,7 +1171,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
       panel: 'OPTICAL',
       label: 'MONITOR',
       shortcut: '5',
-      title: 'Optical Cinema Monitor (Alt+5)',
+      hudId: 'nav-monitor',
       accentHex: '#A855F7',
       icon: Monitor
     }
@@ -1182,25 +1188,23 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
         data-playing={effectiveIsPlaying ? 'true' : 'false'}
         className={`nle-focus-bar relative w-full h-[32px] min-h-[32px] max-h-[32px] py-0.5 bg-[#0B0B0D]/95 backdrop-blur-xl border-b border-white/[0.08] px-2 xl:px-3 flex items-center justify-between gap-1.5 xl:gap-2.5 z-[9990] select-none shrink-0 font-sans zen-disclose-header ${className}`}
       >
-        {/* ================================================================
-            LEFT ZONE: Brand Wordmark + Tagline & Mega-Dropdown Menus
-            ================================================================ */}
+        {/* LEFT ZONE: Brand Wordmark & Mega-Dropdown Menus */}
         <div ref={navZoneRef} className="flex items-center gap-1.5 xl:gap-2.5 min-w-0 justify-self-start">
-          {/* HANDFILM Wordmark + RAW. RAPID. CINEMA. Tagline (no SYNCED badge) */}
-          <button
-            type="button"
-            data-transport-sharp="true"
-            onClick={handleHomeClick}
-            className="group flex flex-col items-start justify-center cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F59E0B] rounded-[3px] py-0 pr-1 transition-opacity hover:opacity-95 whitespace-nowrap shrink-0 text-left"
-            title="HANDFILM STUDIO — Return to Director Home"
-          >
-            <span className="font-space-grotesk font-black tracking-[0.13em] text-[12px] xl:text-[13px] leading-none text-[#F4F4F5]">
-              HAND<span className="text-[#F59E0B]">FILM</span>
-            </span>
-            <span className="mt-[1px] font-mono text-[6px] xl:text-[6.5px] font-semibold tracking-[0.18em] uppercase text-[#8E8E93] group-hover:text-[#F4F4F5] leading-none transition-colors">
-              RAW. RAPID. CINEMA.
-            </span>
-          </button>
+          <CinemaToolHUD hudId="nav-home" side="bottom">
+            <button
+              type="button"
+              data-transport-sharp="true"
+              onClick={handleHomeClick}
+              className="group flex flex-col items-start justify-center cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F59E0B] rounded-[3px] py-0 pr-1 transition-opacity hover:opacity-95 whitespace-nowrap shrink-0 text-left"
+            >
+              <span className="font-space-grotesk font-black tracking-[0.13em] text-[12px] xl:text-[13px] leading-none text-[#F4F4F5]">
+                HAND<span className="text-[#F59E0B]">FILM</span>
+              </span>
+              <span className="mt-[1px] font-mono text-[6px] xl:text-[6.5px] font-black tracking-[0.18em] uppercase text-[#8E8E93] group-hover:text-[#F4F4F5] leading-none transition-colors">
+                PRO NLE
+              </span>
+            </button>
+          </CinemaToolHUD>
 
           <span aria-hidden="true" className="hidden sm:block w-px h-4 bg-white/[0.08] shrink-0" />
 
@@ -1212,32 +1216,41 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
               onMouseEnter={() => openDropdown('HOME')}
               onMouseLeave={scheduleCloseDropdown}
             >
-              <button
-                type="button"
-                data-active={activeDropdown === 'HOME' || currentView === 'HOME' ? 'true' : 'false'}
-                style={{ '--item-accent': '#F59E0B' } as React.CSSProperties}
-                aria-expanded={activeDropdown === 'HOME'}
-                aria-haspopup="menu"
-                onClick={() => {
-                  if (currentView !== 'HOME') {
-                    handleHomeClick();
-                  } else {
-                    toggleDropdown('HOME');
-                  }
-                }}
-                className={`nle-editorial-btn h-[22px] px-2 rounded-[4px] border font-mono text-[9.5px] xl:text-[10px] font-semibold tracking-[0.08em] uppercase flex items-center gap-1 whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F59E0B] ${
-                  activeDropdown === 'HOME' || currentView === 'HOME'
-                    ? 'bg-[#171820] border-[#F59E0B]/60 text-[#F4F4F5]'
-                    : 'bg-transparent border-transparent text-zinc-300 hover:text-white hover:bg-[#14141A]'
-                }`}
+              <CinemaToolHUD
+                title="PROJECT & VAULT"
+                en="Create projects, import/save JSON, batch import media, or return home."
+                bn="নতুন প্রজেক্ট তৈরি, সেভ, মিডিয়া ইম্পোর্ট এবং হোম মেনু খুলতে চাপুন।"
+                accent="amber"
+                side="bottom"
               >
-                <span>HOME</span>
-                <ChevronDown
-                  className={`w-3 h-3 transition-transform duration-150 ${
-                    activeDropdown === 'HOME' ? 'rotate-180 text-[#F59E0B]' : 'text-[#8E8E93]'
+                <button
+                  type="button"
+                  data-active={activeDropdown === 'HOME' || currentView === 'HOME' ? 'true' : 'false'}
+                  style={{ '--item-accent': '#F59E0B' } as React.CSSProperties}
+                  aria-expanded={activeDropdown === 'HOME'}
+                  aria-haspopup="menu"
+                  onClick={() => {
+                    if (currentView !== 'HOME') {
+                      handleHomeClick();
+                    } else {
+                      toggleDropdown('HOME');
+                    }
+                  }}
+                  className={`nle-editorial-btn h-[22px] px-2 rounded-[4px] border font-mono text-[9.5px] xl:text-[10px] font-black tracking-[0.08em] uppercase flex items-center gap-1 whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F59E0B] ${
+                    activeDropdown === 'HOME' || currentView === 'HOME'
+                      ? 'bg-[#171820] border-[#F59E0B]/60 text-[#F4F4F5]'
+                      : 'bg-transparent border-transparent text-zinc-300 hover:text-white hover:bg-[#14141A]'
                   }`}
-                />
-              </button>
+                >
+                  <Home className="w-3 h-3 text-amber-400 shrink-0" strokeWidth={2.2} />
+                  <span>HOME</span>
+                  <ChevronDown
+                    className={`w-3 h-3 transition-transform duration-150 ${
+                      activeDropdown === 'HOME' ? 'rotate-180 text-[#F59E0B]' : 'text-[#8E8E93]'
+                    }`}
+                  />
+                </button>
+              </CinemaToolHUD>
 
               {activeDropdown === 'HOME' && (
                 <div
@@ -1245,181 +1258,211 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                   style={flyoutPanelStyle}
                   onMouseEnter={() => openDropdown('HOME')}
                   onMouseLeave={scheduleCloseDropdown}
-                  className="absolute left-0 top-full mt-1.5 w-[312px] bg-[#0B0B0D]/96 border border-white/[0.07] rounded-[4px] shadow-[0_24px_60px_rgba(0,0,0,0.95)] p-1.5 z-[9999] font-mono"
+                  className="absolute left-0 top-full mt-1.5 w-[276px] bg-[#0B0B0D]/98 border border-[#26282E] rounded-xl shadow-[0_24px_60px_rgba(0,0,0,0.95)] p-2 z-[9999] font-mono space-y-2"
                 >
-                  <div className="px-2.5 py-1.5 border-b border-white/[0.07] mb-1 flex items-center justify-between text-[9px] font-bold tracking-[0.12em] uppercase text-[#8E8E93] tabular-nums">
-                    <span>PROJECT &amp; VAULT</span>
-                    <span className="text-[#F59E0B]">
-                      {saveState === 'SAVING...' ? 'SAVING...' : isUnsavedOrSaving ? 'UNSAVED' : 'LOCAL OPFS'}
-                    </span>
+                  <CinemaBadgeHeader
+                    icon={<Database className="w-3 h-3" />}
+                    label={saveState === 'SAVING...' ? 'SAVING' : isUnsavedOrSaving ? 'UNSAVED' : 'LOCAL VAULT'}
+                    accent="amber"
+                  />
+
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <CinemaToolHUD
+                      title="NEW PROJECT"
+                      en="Start a fresh storyboard & cinema timeline sequence."
+                      bn="নতুন প্রজেক্ট ও শট সিকোয়েন্স শুরু করতে NEW PROJECT চাপুন।"
+                      accent="amber"
+                      side="right"
+                      blockWrapper
+                    >
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setActiveDropdown(null);
+                          if (onNewProject) onNewProject();
+                          else eventBus.emit('project:new');
+                          showNotice('NEW PROJECT');
+                        }}
+                        className="cinema-tile cinema-tile-amber w-full px-2 py-2 rounded-lg flex flex-col items-center gap-1 text-[10px] font-black tracking-wider uppercase cursor-pointer"
+                      >
+                        <FolderPlus className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                        <span>NEW PROJECT</span>
+                      </button>
+                    </CinemaToolHUD>
+
+                    <CinemaToolHUD
+                      title="IMPORT JSON"
+                      en="Restore an existing HandFilm project from .json file."
+                      bn="আগে সেভ করা .json প্রজেক্ট ফাইল লোড করতে IMPORT JSON চাপুন।"
+                      accent="cyan"
+                      side="right"
+                      blockWrapper
+                    >
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setActiveDropdown(null);
+                          if (onRestoreProjectJson) onRestoreProjectJson();
+                          else if (onOpenProjectManager) onOpenProjectManager();
+                          else eventBus.emit('studio:open_project_manager');
+                        }}
+                        className="cinema-tile cinema-tile-cyan w-full px-2 py-2 rounded-lg flex flex-col items-center gap-1 text-[10px] font-black tracking-wider uppercase cursor-pointer"
+                      >
+                        <FolderOpen className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                        <span>IMPORT JSON</span>
+                      </button>
+                    </CinemaToolHUD>
+
+                    <CinemaToolHUD
+                      title="PROJECT VAULT"
+                      en="Browse and switch saved IndexedDB studio projects."
+                      bn="সেভ করা প্রজেক্টগুলোর তালিকা দেখতে ও খুলতে VAULT চাপুন।"
+                      accent="amber"
+                      side="right"
+                      blockWrapper
+                    >
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setActiveDropdown(null);
+                          if (onOpenProjectManager) onOpenProjectManager();
+                          else eventBus.emit('studio:open_project_manager');
+                        }}
+                        className="cinema-tile cinema-tile-amber w-full px-2 py-2 rounded-lg flex flex-col items-center gap-1 text-[10px] font-black tracking-wider uppercase cursor-pointer"
+                      >
+                        <Database className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                        <span>VAULT</span>
+                      </button>
+                    </CinemaToolHUD>
+
+                    <CinemaToolHUD
+                      title="SAVE SNAPSHOT"
+                      en="Save current project checkpoint locally."
+                      bn="কাজের বর্তমান অবস্থা দ্রুত সেভ রাখতে SAVE SNAP চাপুন।"
+                      shortcut="Ctrl+S"
+                      accent="emerald"
+                      side="right"
+                      blockWrapper
+                    >
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setActiveDropdown(null);
+                          if (onSaveSnapshot) onSaveSnapshot();
+                          else eventBus.emit('project:save_snapshot');
+                          showNotice('SAVED');
+                        }}
+                        className="cinema-tile cinema-tile-emerald w-full px-2 py-2 rounded-lg flex flex-col items-center gap-1 text-[10px] font-black tracking-wider uppercase cursor-pointer"
+                      >
+                        <Save className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                        <span>SAVE SNAP</span>
+                      </button>
+                    </CinemaToolHUD>
+
+                    <CinemaToolHUD
+                      title="BATCH IMPORT MEDIA"
+                      en="Load a whole folder of videos and photos at once."
+                      bn="ফোল্ডার থেকে একসাথে অনেক ভিডিও বা ছবি আনতে BATCH MEDIA চাপুন।"
+                      accent="cyan"
+                      side="right"
+                      blockWrapper
+                    >
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setActiveDropdown(null);
+                          if (onBatchImportMedia) onBatchImportMedia();
+                          else eventBus.emit('media:batch_import');
+                        }}
+                        className="cinema-tile cinema-tile-cyan w-full px-2 py-2 rounded-lg flex flex-col items-center gap-1 text-[10px] font-black tracking-wider uppercase cursor-pointer"
+                      >
+                        <FolderInput className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                        <span>BATCH MEDIA</span>
+                      </button>
+                    </CinemaToolHUD>
+
+                    <CinemaToolHUD
+                      title="CLOUDFLARE R2 SYNC"
+                      en="Sync media assets with Cloudflare R2 edge storage."
+                      bn="ক্লাউডফ্লেয়ার R2 স্টোরেজে মিডিয়া সিঙ্ক করতে R2 SYNC চাপুন।"
+                      accent="amber"
+                      side="right"
+                      blockWrapper
+                    >
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setActiveDropdown(null);
+                          if (onOpenR2Automation) onOpenR2Automation();
+                          else eventBus.emit('studio:open_module', { module: 'R2_STORAGE' });
+                        }}
+                        className="cinema-tile cinema-tile-amber w-full px-2 py-2 rounded-lg flex flex-col items-center gap-1 text-[10px] font-black tracking-wider uppercase cursor-pointer"
+                      >
+                        <Cloud className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                        <span>R2 SYNC</span>
+                      </button>
+                    </CinemaToolHUD>
                   </div>
 
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setActiveDropdown(null);
-                      if (onNewProject) {
-                        onNewProject();
-                      } else {
-                        eventBus.emit('project:new');
-                      }
-                      showNotice('New Anthology Project Ready');
-                    }}
-                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#141417] text-[#F4F4F5]/90 hover:text-[#F4F4F5] flex items-center justify-between gap-2 cursor-pointer transition-colors group"
-                  >
-                    <span className="flex items-center gap-2.5 min-w-0">
-                      <FolderPlus className="w-3.5 h-3.5 text-[#8E8E93] group-hover:text-[#F59E0B] shrink-0 transition-colors" />
-                      <span className="text-[11px] font-semibold truncate">New Anthology Project</span>
-                    </span>
-                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#141417] border border-white/[0.07] text-[9px] text-[#8E8E93] tabular-nums shrink-0">
-                      NEW
-                    </kbd>
-                  </button>
-
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setActiveDropdown(null);
-                      if (onRestoreProjectJson) {
-                        onRestoreProjectJson();
-                      } else if (onOpenProjectManager) {
-                        onOpenProjectManager();
-                      } else {
-                        eventBus.emit('studio:open_project_manager');
-                      }
-                    }}
-                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#141417] text-[#F4F4F5]/90 hover:text-[#F4F4F5] flex items-center justify-between gap-2 cursor-pointer transition-colors group"
-                  >
-                    <span className="flex items-center gap-2.5 min-w-0">
-                      <FolderOpen className="w-3.5 h-3.5 text-[#8E8E93] group-hover:text-[#F59E0B] shrink-0 transition-colors" />
-                      <span className="text-[11px] font-semibold truncate">Open / Import Project (.json)</span>
-                    </span>
-                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#141417] border border-white/[0.07] text-[9px] text-[#8E8E93] tabular-nums shrink-0">
-                      JSON
-                    </kbd>
-                  </button>
-
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setActiveDropdown(null);
-                      if (onOpenProjectManager) onOpenProjectManager();
-                      else eventBus.emit('studio:open_project_manager');
-                    }}
-                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#141417] text-[#F4F4F5]/90 hover:text-[#F4F4F5] flex items-center justify-between gap-2 cursor-pointer transition-colors group"
-                  >
-                    <span className="flex items-center gap-2.5 min-w-0">
-                      <Database className="w-3.5 h-3.5 text-[#8E8E93] group-hover:text-[#F59E0B] shrink-0 transition-colors" />
-                      <span className="text-[11px] font-semibold truncate">Project Vault Manager</span>
-                    </span>
-                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#141417] border border-white/[0.07] text-[9px] text-[#8E8E93] tabular-nums shrink-0">
-                      IDB
-                    </kbd>
-                  </button>
-
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setActiveDropdown(null);
-                      if (onSaveSnapshot) {
-                        onSaveSnapshot();
-                      } else {
-                        eventBus.emit('project:save_snapshot');
-                      }
-                      showNotice('Snapshot Saved');
-                    }}
-                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#141417] text-[#F4F4F5]/90 hover:text-[#F4F4F5] flex items-center justify-between gap-2 cursor-pointer transition-colors group"
-                  >
-                    <span className="flex items-center gap-2.5 min-w-0">
-                      <Save className="w-3.5 h-3.5 text-[#8E8E93] group-hover:text-[#F59E0B] shrink-0 transition-colors" />
-                      <span className="text-[11px] font-semibold truncate">Save Snapshot</span>
-                    </span>
-                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#141417] border border-white/[0.07] text-[9px] text-[#8E8E93] tabular-nums shrink-0">
-                      Ctrl+S
-                    </kbd>
-                  </button>
-
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setActiveDropdown(null);
-                      if (onBatchImportMedia) {
-                        onBatchImportMedia();
-                      } else {
-                        eventBus.emit('media:batch_import');
-                      }
-                    }}
-                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#141417] text-[#F4F4F5]/90 hover:text-[#F4F4F5] flex items-center justify-between gap-2 cursor-pointer transition-colors group"
-                  >
-                    <span className="flex items-center gap-2.5 min-w-0">
-                      <FolderInput className="w-3.5 h-3.5 text-[#8E8E93] group-hover:text-[#F59E0B] shrink-0 transition-colors" />
-                      <span className="text-[11px] font-semibold truncate">Batch Import Media Folder</span>
-                    </span>
-                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#141417] border border-white/[0.07] text-[9px] text-[#8E8E93] tabular-nums shrink-0">
-                      BATCH
-                    </kbd>
-                  </button>
-
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setActiveDropdown(null);
-                      if (onOpenR2Automation) onOpenR2Automation();
-                      else eventBus.emit('studio:open_module', { module: 'R2_STORAGE' });
-                    }}
-                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#141417] text-[#F4F4F5]/90 hover:text-[#F4F4F5] flex items-center justify-between gap-2 cursor-pointer transition-colors group"
-                  >
-                    <span className="flex items-center gap-2.5 min-w-0">
-                      <Cloud className="w-3.5 h-3.5 text-[#8E8E93] group-hover:text-[#F59E0B] shrink-0 transition-colors" />
-                      <span className="text-[11px] font-semibold truncate">Cloudflare R2 Edge Sync</span>
-                    </span>
-                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#141417] border border-white/[0.07] text-[9px] text-[#8E8E93] tabular-nums shrink-0">
-                      R2
-                    </kbd>
-                  </button>
-
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={handleClearOpfsAction}
-                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#141417] text-[#8E8E93] hover:text-[#F4F4F5] flex items-center justify-between gap-2 cursor-pointer transition-colors border-t border-white/[0.07] mt-1 pt-2 group"
-                  >
-                    <span className="flex items-center gap-2.5 min-w-0">
-                      <RotateCcw className="w-3.5 h-3.5 text-[#8E8E93] group-hover:text-[#F59E0B] shrink-0 transition-colors" />
-                      <span className="text-[11px] font-semibold truncate">Clear OPFS Cache &amp; Reset</span>
-                    </span>
-                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#141417] border border-white/[0.07] text-[9px] text-[#8E8E93] group-hover:text-[#F59E0B] tabular-nums shrink-0">
-                      PURGE
-                    </kbd>
-                  </button>
-
-                  <div className="mt-1 pt-1 border-t border-white/[0.07] flex items-center justify-between px-1">
-                    <button
-                      type="button"
-                      onClick={handleHomeClick}
-                      className="text-[10px] text-[#8E8E93] hover:text-[#F59E0B] flex items-center gap-1.5 py-1 px-1.5 rounded-[2px] cursor-pointer transition-colors"
+                  <div className="grid grid-cols-3 gap-1.5 pt-1 border-t border-white/10">
+                    <CinemaToolHUD
+                      title="PURGE OPFS CACHE"
+                      en="Clear temporary proxy bitmaps without deleting metadata."
+                      bn="অস্থায়ী ক্যাশ মুছে জায়গা খালি করতে PURGE চাপুন।"
+                      accent="crimson"
+                      side="right"
+                      blockWrapper
                     >
-                      <Home className="w-3 h-3" />
-                      <span>Director Home</span>
-                    </button>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        setActiveDropdown(null);
-                        if (onOpenManifesto) onOpenManifesto();
-                        else eventBus.emit('walkthrough:open');
-                      }}
-                      className="text-[10px] text-[#8E8E93] hover:text-[#F59E0B] py-1 px-1.5 rounded-[2px] cursor-pointer transition-colors"
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={handleClearOpfsAction}
+                        className="cinema-tile cinema-tile-crimson w-full px-1.5 py-1.5 rounded-lg flex flex-col items-center gap-1 text-[9.5px] font-black tracking-wider uppercase cursor-pointer"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+                        <span>PURGE</span>
+                      </button>
+                    </CinemaToolHUD>
+
+                    <CinemaToolHUD hudId="nav-home" side="right" blockWrapper>
+                      <button
+                        type="button"
+                        onClick={handleHomeClick}
+                        className="cinema-tile cinema-tile-amber w-full px-1.5 py-1.5 rounded-lg flex flex-col items-center gap-1 text-[9.5px] font-black tracking-wider uppercase cursor-pointer"
+                      >
+                        <Home className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+                        <span>HOME</span>
+                      </button>
+                    </CinemaToolHUD>
+
+                    <CinemaToolHUD
+                      title="DIRECTOR MANIFESTO"
+                      en="Open interactive guide and sovereign cinema tenets."
+                      bn="স্টুডিওর মূল নির্দেশিকা দেখতে MANIFESTO চাপুন।"
+                      accent="cyan"
+                      side="right"
+                      blockWrapper
                     >
-                      Director's Manifesto
-                    </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setActiveDropdown(null);
+                          if (onOpenManifesto) onOpenManifesto();
+                          else eventBus.emit('walkthrough:open');
+                        }}
+                        className="cinema-tile cinema-tile-cyan w-full px-1.5 py-1.5 rounded-lg flex flex-col items-center gap-1 text-[9.5px] font-black tracking-wider uppercase cursor-pointer"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+                        <span>GUIDE</span>
+                      </button>
+                    </CinemaToolHUD>
                   </div>
                 </div>
               )}
@@ -1431,26 +1474,35 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
               onMouseEnter={() => openDropdown('FEATURES')}
               onMouseLeave={scheduleCloseDropdown}
             >
-              <button
-                type="button"
-                data-active={activeDropdown === 'FEATURES' ? 'true' : 'false'}
-                style={{ '--item-accent': '#38BDF8' } as React.CSSProperties}
-                aria-expanded={activeDropdown === 'FEATURES'}
-                aria-haspopup="menu"
-                onClick={() => toggleDropdown('FEATURES')}
-                className={`nle-editorial-btn h-[22px] px-2 rounded-[4px] border font-mono text-[9.5px] xl:text-[10px] font-semibold tracking-[0.08em] uppercase flex items-center gap-1 whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#38BDF8] ${
-                  activeDropdown === 'FEATURES'
-                    ? 'bg-[#171820] border-[#38BDF8]/60 text-[#F4F4F5]'
-                    : 'bg-transparent border-transparent text-zinc-300 hover:text-white hover:bg-[#14141A]'
-                }`}
+              <CinemaToolHUD
+                title="CINEMA ENGINES"
+                en="Quick-launch Hyper-Reel, Beat Cut, 9:16 Smart Crop, Bloom & Scopes."
+                bn="দ্রুত রিলস প্যাকার, বিট-কাট, স্মার্ট ক্রপ ও স্কোপ চালু করতে চাপুন।"
+                accent="cyan"
+                side="bottom"
               >
-                <span>FEATURES</span>
-                <ChevronDown
-                  className={`w-3 h-3 transition-transform duration-150 ${
-                    activeDropdown === 'FEATURES' ? 'rotate-180 text-[#38BDF8]' : 'text-[#8E8E93]'
+                <button
+                  type="button"
+                  data-active={activeDropdown === 'FEATURES' ? 'true' : 'false'}
+                  style={{ '--item-accent': '#38BDF8' } as React.CSSProperties}
+                  aria-expanded={activeDropdown === 'FEATURES'}
+                  aria-haspopup="menu"
+                  onClick={() => toggleDropdown('FEATURES')}
+                  className={`nle-editorial-btn h-[22px] px-2 rounded-[4px] border font-mono text-[9.5px] xl:text-[10px] font-black tracking-[0.08em] uppercase flex items-center gap-1 whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#38BDF8] ${
+                    activeDropdown === 'FEATURES'
+                      ? 'bg-[#171820] border-[#38BDF8]/60 text-[#F4F4F5]'
+                      : 'bg-transparent border-transparent text-zinc-300 hover:text-white hover:bg-[#14141A]'
                   }`}
-                />
-              </button>
+                >
+                  <Zap className="w-3 h-3 text-cyan-400 shrink-0" strokeWidth={2.2} />
+                  <span>FEATURES</span>
+                  <ChevronDown
+                    className={`w-3 h-3 transition-transform duration-150 ${
+                      activeDropdown === 'FEATURES' ? 'rotate-180 text-[#38BDF8]' : 'text-[#8E8E93]'
+                    }`}
+                  />
+                </button>
+              </CinemaToolHUD>
 
               {activeDropdown === 'FEATURES' && (
                 <div
@@ -1458,154 +1510,165 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                   style={flyoutPanelStyle}
                   onMouseEnter={() => openDropdown('FEATURES')}
                   onMouseLeave={scheduleCloseDropdown}
-                  className="absolute left-0 top-full mt-1.5 w-[316px] bg-[#0B0B0D]/96 border border-white/[0.07] rounded-[4px] shadow-[0_24px_60px_rgba(0,0,0,0.95)] p-1.5 z-[9999] font-mono"
+                  className="absolute left-0 top-full mt-1.5 w-[276px] bg-[#0B0B0D]/98 border border-[#26282E] rounded-xl shadow-[0_24px_60px_rgba(0,0,0,0.95)] p-2 z-[9999] font-mono space-y-2"
                 >
-                  <div className="px-2.5 py-1.5 border-b border-white/[0.07] mb-1 flex items-center justify-between text-[9px] font-bold tracking-[0.12em] uppercase text-[#8E8E93] tabular-nums">
-                    <span>CINEMA ENGINES</span>
-                    <span className="text-[#F59E0B]">24 / 60 FPS</span>
+                  <CinemaBadgeHeader
+                    icon={<Zap className="w-3 h-3" />}
+                    label="ENGINES"
+                    accent="cyan"
+                  />
+
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <CinemaToolHUD hudId="hyper-reel" side="right" blockWrapper>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setActiveDropdown(null);
+                          if (onTriggerHyperReelPack) {
+                            onTriggerHyperReelPack();
+                          } else {
+                            handleWorkspacePanelSelect('SPLIT');
+                            setTimeout(() => eventBus.emit('reels:pack_12s'), 60);
+                          }
+                        }}
+                        className="cinema-tile cinema-tile-crimson w-full px-2 py-2 rounded-lg flex flex-col items-center gap-1 text-[10px] font-black tracking-wider uppercase cursor-pointer"
+                      >
+                        <Flame className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                        <span>HYPER REEL</span>
+                      </button>
+                    </CinemaToolHUD>
+
+                    <CinemaToolHUD
+                      title="BEAT-DROP & FLASH CUT"
+                      en="Snap cuts to 140 BPM transients with 2-frame optical flash."
+                      bn="মিউজিকের বিটে বিটে অটো ফ্ল্যাশ-কাট দিতে BEAT CUT চাপুন।"
+                      accent="amber"
+                      side="right"
+                      blockWrapper
+                    >
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setActiveDropdown(null);
+                          if (onTriggerBeatDropEngine) {
+                            onTriggerBeatDropEngine();
+                          } else {
+                            handleWorkspacePanelSelect('SPLIT');
+                            setTimeout(() => eventBus.emit('reels:toggle_beat_fx'), 60);
+                          }
+                        }}
+                        className="cinema-tile cinema-tile-amber w-full px-2 py-2 rounded-lg flex flex-col items-center gap-1 text-[10px] font-black tracking-wider uppercase cursor-pointer"
+                      >
+                        <Zap className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                        <span>BEAT CUT</span>
+                      </button>
+                    </CinemaToolHUD>
+
+                    <CinemaToolHUD hudId="rail-crop" side="right" blockWrapper>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setActiveDropdown(null);
+                          if (onTriggerSmartCrop916) {
+                            onTriggerSmartCrop916();
+                          } else {
+                            useStudioStore.getState().setAspectRatio('9:16');
+                            handleWorkspacePanelSelect('SPLIT');
+                            setTimeout(() => eventBus.emit('reels:smart_crop_916'), 60);
+                          }
+                        }}
+                        className="cinema-tile cinema-tile-cyan w-full px-2 py-2 rounded-lg flex flex-col items-center gap-1 text-[10px] font-black tracking-wider uppercase cursor-pointer"
+                      >
+                        <Crop className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                        <span>SMART CROP</span>
+                      </button>
+                    </CinemaToolHUD>
+
+                    <CinemaToolHUD
+                      title="BLOOM SEQUENCER"
+                      en="Open interactive Bloom halation & glow sequencer."
+                      bn="আলোর গ্লো এবং ব্লুম সিকোয়েন্সার খুলতে BLOOM চাপুন।"
+                      accent="crimson"
+                      side="right"
+                      blockWrapper
+                    >
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setActiveDropdown(null);
+                          if (onOpenBloomSequencer) onOpenBloomSequencer();
+                          else eventBus.emit('studio:open_bloom');
+                        }}
+                        className="cinema-tile cinema-tile-crimson w-full px-2 py-2 rounded-lg flex flex-col items-center gap-1 text-[10px] font-black tracking-wider uppercase cursor-pointer"
+                      >
+                        <Sparkles className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                        <span>BLOOM</span>
+                      </button>
+                    </CinemaToolHUD>
+
+                    <CinemaToolHUD
+                      title="VIDEO SCOPES"
+                      en="Live IRE luminance waveform & RGB parade scopes."
+                      bn="লাইভ কালার ও এক্সপোজার স্কোপ দেখতে SCOPES চাপুন।"
+                      accent="emerald"
+                      side="right"
+                      blockWrapper
+                    >
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setActiveDropdown(null);
+                          if (onOpenVideoScopes) onOpenVideoScopes();
+                          else eventBus.emit('studio:open_scopes');
+                        }}
+                        className="cinema-tile cinema-tile-emerald w-full px-2 py-2 rounded-lg flex flex-col items-center gap-1 text-[10px] font-black tracking-wider uppercase cursor-pointer"
+                      >
+                        <BarChart2 className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                        <span>SCOPES</span>
+                      </button>
+                    </CinemaToolHUD>
+
+                    <CinemaToolHUD hudId="export-4k" side="right" blockWrapper>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={handleTriggerExport}
+                        className="cinema-tile cinema-tile-emerald w-full px-2 py-2 rounded-lg flex flex-col items-center gap-1 text-[10px] font-black tracking-wider uppercase cursor-pointer"
+                      >
+                        <Film className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                        <span>4K EXPORT</span>
+                      </button>
+                    </CinemaToolHUD>
                   </div>
 
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setActiveDropdown(null);
-                      if (onTriggerHyperReelPack) {
-                        onTriggerHyperReelPack();
-                      } else {
-                        handleWorkspacePanelSelect('SPLIT');
-                        setTimeout(() => eventBus.emit('reels:pack_12s'), 60);
-                      }
-                    }}
-                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#141417] text-[#F4F4F5]/90 hover:text-[#F4F4F5] flex items-center justify-between gap-2 cursor-pointer transition-colors group"
+                  <CinemaToolHUD
+                    title="KEYBOARD SHORTCUTS"
+                    en="View editorial transport, J-K-L shuttle & grading keys."
+                    bn="কিবোর্ডের সব শর্টকাট কী দেখতে SHORTCUTS চাপুন।"
+                    shortcut="?"
+                    accent="amber"
+                    side="right"
+                    blockWrapper
                   >
-                    <span className="flex items-center gap-2.5 min-w-0">
-                      <Flame className="w-3.5 h-3.5 text-[#8E8E93] group-hover:text-[#F59E0B] shrink-0 transition-colors" />
-                      <span className="text-[11px] font-semibold truncate">12s Hyper-Reel Auto-Packer</span>
-                    </span>
-                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#141417] border border-white/[0.07] text-[9px] text-[#8E8E93] group-hover:text-[#F59E0B] tabular-nums shrink-0">
-                      288F
-                    </kbd>
-                  </button>
-
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setActiveDropdown(null);
-                      if (onTriggerBeatDropEngine) {
-                        onTriggerBeatDropEngine();
-                      } else {
-                        handleWorkspacePanelSelect('SPLIT');
-                        setTimeout(() => eventBus.emit('reels:toggle_beat_fx'), 60);
-                      }
-                    }}
-                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#141417] text-[#F4F4F5]/90 hover:text-[#F4F4F5] flex items-center justify-between gap-2 cursor-pointer transition-colors group"
-                  >
-                    <span className="flex items-center gap-2.5 min-w-0">
-                      <Zap className="w-3.5 h-3.5 text-[#8E8E93] group-hover:text-[#F59E0B] shrink-0 transition-colors" />
-                      <span className="text-[11px] font-semibold truncate">Beat-Drop &amp; Flash-Cut Engine</span>
-                    </span>
-                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#141417] border border-white/[0.07] text-[9px] text-[#8E8E93] tabular-nums shrink-0">
-                      2F FX
-                    </kbd>
-                  </button>
-
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setActiveDropdown(null);
-                      if (onTriggerSmartCrop916) {
-                        onTriggerSmartCrop916();
-                      } else {
-                        useStudioStore.getState().setAspectRatio('9:16');
-                        handleWorkspacePanelSelect('SPLIT');
-                        setTimeout(() => eventBus.emit('reels:smart_crop_916'), 60);
-                      }
-                    }}
-                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#141417] text-[#F4F4F5]/90 hover:text-[#F4F4F5] flex items-center justify-between gap-2 cursor-pointer transition-colors group"
-                  >
-                    <span className="flex items-center gap-2.5 min-w-0">
-                      <Crop className="w-3.5 h-3.5 text-[#8E8E93] group-hover:text-[#F59E0B] shrink-0 transition-colors" />
-                      <span className="text-[11px] font-semibold truncate">9:16 Smart Subject Auto-Crop</span>
-                    </span>
-                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#141417] border border-white/[0.07] text-[9px] text-[#8E8E93] tabular-nums shrink-0">
-                      9:16
-                    </kbd>
-                  </button>
-
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setActiveDropdown(null);
-                      if (onOpenBloomSequencer) onOpenBloomSequencer();
-                      else eventBus.emit('studio:open_bloom');
-                    }}
-                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#141417] text-[#F4F4F5]/90 hover:text-[#F4F4F5] flex items-center justify-between gap-2 cursor-pointer transition-colors group"
-                  >
-                    <span className="flex items-center gap-2.5 min-w-0">
-                      <Sparkles className="w-3.5 h-3.5 text-[#8E8E93] group-hover:text-[#F59E0B] shrink-0 transition-colors" />
-                      <span className="text-[11px] font-semibold truncate">Bloom Interactive Sequencer</span>
-                    </span>
-                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#141417] border border-white/[0.07] text-[9px] text-[#8E8E93] tabular-nums shrink-0">
-                      BLOOM
-                    </kbd>
-                  </button>
-
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setActiveDropdown(null);
-                      if (onOpenVideoScopes) onOpenVideoScopes();
-                      else eventBus.emit('studio:open_scopes');
-                    }}
-                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#141417] text-[#F4F4F5]/90 hover:text-[#F4F4F5] flex items-center justify-between gap-2 cursor-pointer transition-colors group"
-                  >
-                    <span className="flex items-center gap-2.5 min-w-0">
-                      <BarChart2 className="w-3.5 h-3.5 text-[#8E8E93] group-hover:text-[#F59E0B] shrink-0 transition-colors" />
-                      <span className="text-[11px] font-semibold truncate">Live IRE &amp; RGB Video Scopes</span>
-                    </span>
-                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#141417] border border-white/[0.07] text-[9px] text-[#8E8E93] tabular-nums shrink-0">
-                      SCOPES
-                    </kbd>
-                  </button>
-
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={handleTriggerExport}
-                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#141417] text-[#F4F4F5]/90 hover:text-[#F4F4F5] flex items-center justify-between gap-2 cursor-pointer transition-colors group"
-                  >
-                    <span className="flex items-center gap-2.5 min-w-0">
-                      <Film className="w-3.5 h-3.5 text-[#8E8E93] group-hover:text-[#F59E0B] shrink-0 transition-colors" />
-                      <span className="text-[11px] font-semibold truncate">Deterministic Multi-Shot Exporter</span>
-                    </span>
-                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#141417] border border-white/[0.07] text-[9px] text-[#8E8E93] tabular-nums shrink-0">
-                      ⌘E
-                    </kbd>
-                  </button>
-
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setActiveDropdown(null);
-                      if (onOpenShortcuts) onOpenShortcuts();
-                      else eventBus.emit('shortcuts:open');
-                    }}
-                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#141417] text-[#F4F4F5]/90 hover:text-[#F4F4F5] flex items-center justify-between gap-2 cursor-pointer transition-colors border-t border-white/[0.07] mt-1 pt-2 group"
-                  >
-                    <span className="flex items-center gap-2.5 min-w-0">
-                      <Keyboard className="w-3.5 h-3.5 text-[#8E8E93] group-hover:text-[#F59E0B] shrink-0 transition-colors" />
-                      <span className="text-[11px] font-semibold truncate">Keyboard Shortcuts Map</span>
-                    </span>
-                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#141417] border border-white/[0.07] text-[9px] text-[#F59E0B] font-bold tabular-nums shrink-0">
-                      ?
-                    </kbd>
-                  </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setActiveDropdown(null);
+                        if (onOpenShortcuts) onOpenShortcuts();
+                        else eventBus.emit('shortcuts:open');
+                      }}
+                      className="cinema-tile cinema-tile-amber w-full px-2.5 py-1.5 rounded-lg flex items-center justify-center gap-1.5 text-[10px] font-black tracking-wider uppercase cursor-pointer"
+                    >
+                      <Keyboard className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+                      <span>SHORTCUTS</span>
+                    </button>
+                  </CinemaToolHUD>
                 </div>
               )}
             </div>
@@ -1616,27 +1679,35 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
               onMouseEnter={() => openDropdown('APPS')}
               onMouseLeave={scheduleCloseDropdown}
             >
-              <button
-                type="button"
-                data-active={activeDropdown === 'APPS' ? 'true' : 'false'}
-                style={{ '--item-accent': '#A855F7' } as React.CSSProperties}
-                aria-expanded={activeDropdown === 'APPS'}
-                aria-haspopup="menu"
-                onClick={() => toggleDropdown('APPS')}
-                className={`nle-editorial-btn h-[22px] px-2 rounded-[4px] border font-mono text-[9.5px] xl:text-[10px] font-semibold tracking-[0.08em] uppercase flex items-center gap-1 whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#A855F7] ${
-                  activeDropdown === 'APPS'
-                    ? 'bg-[#171820] border-[#A855F7]/60 text-[#F4F4F5]'
-                    : 'bg-transparent border-transparent text-zinc-300 hover:text-white hover:bg-[#14141A]'
-                }`}
+              <CinemaToolHUD
+                title="STUDIO LABS & APPS"
+                en="Open Recorder, AI Shot Generator, Color Lab, Audio DSP & 28 Apps."
+                bn="স্ক্রিন রেকর্ডার, এআই প্রম্পট, কালার ল্যাব ও অডিও টুলস খুলতে চাপুন।"
+                accent="amber"
+                side="bottom"
               >
-                <LayoutGrid className={`w-3 h-3 shrink-0 transition-colors ${activeDropdown === 'APPS' ? 'text-[#A855F7]' : 'text-[#F59E0B]'}`} />
-                <span>APPS</span>
-                <ChevronDown
-                  className={`w-3 h-3 transition-transform duration-150 ${
-                    activeDropdown === 'APPS' ? 'rotate-180 text-[#A855F7]' : 'text-[#8E8E93]'
+                <button
+                  type="button"
+                  data-active={activeDropdown === 'APPS' ? 'true' : 'false'}
+                  style={{ '--item-accent': '#A855F7' } as React.CSSProperties}
+                  aria-expanded={activeDropdown === 'APPS'}
+                  aria-haspopup="menu"
+                  onClick={() => toggleDropdown('APPS')}
+                  className={`nle-editorial-btn h-[22px] px-2 rounded-[4px] border font-mono text-[9.5px] xl:text-[10px] font-black tracking-[0.08em] uppercase flex items-center gap-1 whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#A855F7] ${
+                    activeDropdown === 'APPS'
+                      ? 'bg-[#171820] border-[#A855F7]/60 text-[#F4F4F5]'
+                      : 'bg-transparent border-transparent text-zinc-300 hover:text-white hover:bg-[#14141A]'
                   }`}
-                />
-              </button>
+                >
+                  <LayoutGrid className={`w-3 h-3 shrink-0 transition-colors ${activeDropdown === 'APPS' ? 'text-[#A855F7]' : 'text-[#F59E0B]'}`} />
+                  <span>APPS</span>
+                  <ChevronDown
+                    className={`w-3 h-3 transition-transform duration-150 ${
+                      activeDropdown === 'APPS' ? 'rotate-180 text-[#A855F7]' : 'text-[#8E8E93]'
+                    }`}
+                  />
+                </button>
+              </CinemaToolHUD>
 
               {activeDropdown === 'APPS' && (
                 <div
@@ -1644,139 +1715,160 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                   style={flyoutPanelStyle}
                   onMouseEnter={() => openDropdown('APPS')}
                   onMouseLeave={scheduleCloseDropdown}
-                  className="absolute left-0 top-full mt-1.5 w-[304px] bg-[#0B0B0D]/96 border border-white/[0.07] rounded-[4px] shadow-[0_24px_60px_rgba(0,0,0,0.95)] p-1.5 z-[9999] font-mono"
+                  className="absolute left-0 top-full mt-1.5 w-[276px] bg-[#0B0B0D]/98 border border-[#26282E] rounded-xl shadow-[0_24px_60px_rgba(0,0,0,0.95)] p-2 z-[9999] font-mono space-y-2"
                 >
-                  <div className="px-2.5 py-1.5 border-b border-white/[0.07] mb-1 flex items-center justify-between text-[9px] font-bold tracking-[0.12em] uppercase text-[#8E8E93] tabular-nums">
-                    <span>STUDIO LABS &amp; APPS</span>
-                    <span className="text-[#F59E0B]">READY</span>
+                  <CinemaBadgeHeader
+                    icon={<LayoutGrid className="w-3 h-3" />}
+                    label="STUDIO LABS"
+                    accent="amber"
+                  />
+
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <CinemaToolHUD
+                      title="4K SCREEN RECORDER"
+                      en="Capture display & mic audio directly into Media Vault."
+                      bn="স্ক্রিন ও ভয়েস রেকর্ড করতে RECORDER চাপুন।"
+                      shortcut="Alt+R"
+                      accent="crimson"
+                      side="right"
+                      blockWrapper
+                    >
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setActiveDropdown(null);
+                          if (onOpenRecorder) onOpenRecorder();
+                          else eventBus.emit('recorder:open');
+                        }}
+                        className="cinema-tile cinema-tile-crimson w-full px-2 py-2 rounded-lg flex flex-col items-center gap-1 text-[10px] font-black tracking-wider uppercase cursor-pointer"
+                      >
+                        <Video className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                        <span>RECORDER</span>
+                      </button>
+                    </CinemaToolHUD>
+
+                    <CinemaToolHUD
+                      title="AI SHOT PROMPT LAB"
+                      en="Generate visual prompts and AI story beats."
+                      bn="এআই শট প্রম্পট ও সিন আইডিয়া তৈরি করতে AI PROMPT চাপুন।"
+                      accent="amber"
+                      side="right"
+                      blockWrapper
+                    >
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setActiveDropdown(null);
+                          if (onOpenAiStudio) onOpenAiStudio();
+                          else setIsAIForgeOpen(true);
+                        }}
+                        className="cinema-tile cinema-tile-amber w-full px-2 py-2 rounded-lg flex flex-col items-center gap-1 text-[10px] font-black tracking-wider uppercase cursor-pointer"
+                      >
+                        <Sparkles className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                        <span>AI PROMPT</span>
+                      </button>
+                    </CinemaToolHUD>
+
+                    <CinemaToolHUD
+                      title="COLOR LUT & HALATION LAB"
+                      en="Tune 3D cinema LUTs, halation glow, and color curves."
+                      bn="কালার গ্রেডিং, লাট ও হ্যালিয়েশন সেট করতে COLOR LAB চাপুন।"
+                      accent="amber"
+                      side="right"
+                      blockWrapper
+                    >
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setActiveDropdown(null);
+                          if (onOpenColorLab) onOpenColorLab();
+                          else eventBus.emit('studio:open_module', { module: 'OPTICS' });
+                        }}
+                        className="cinema-tile cinema-tile-amber w-full px-2 py-2 rounded-lg flex flex-col items-center gap-1 text-[10px] font-black tracking-wider uppercase cursor-pointer"
+                      >
+                        <Palette className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                        <span>COLOR LAB</span>
+                      </button>
+                    </CinemaToolHUD>
+
+                    <CinemaToolHUD
+                      title="AUDIO BEAT ANALYZER"
+                      en="Detect BPM beats, transients, and vocal stems."
+                      bn="গানের বিট ও ভয়েস ওয়েভফর্ম বিশ্লেষণ করতে AUDIO DSP চাপুন।"
+                      accent="emerald"
+                      side="right"
+                      blockWrapper
+                    >
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setActiveDropdown(null);
+                          if (onOpenAudioAnalyzer) onOpenAudioAnalyzer();
+                          else if (onOpenRapSync) onOpenRapSync();
+                          else eventBus.emit('studio:open_module', { module: 'SOUND' });
+                        }}
+                        className="cinema-tile cinema-tile-emerald w-full px-2 py-2 rounded-lg flex flex-col items-center gap-1 text-[10px] font-black tracking-wider uppercase cursor-pointer"
+                      >
+                        <AudioWaveform className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                        <span>AUDIO DSP</span>
+                      </button>
+                    </CinemaToolHUD>
+
+                    <CinemaToolHUD
+                      title="HARDWARE DIAGNOSTICS"
+                      en="Verify WebCodecs GPU, OPFS storage, and frame timing."
+                      bn="আপনার ডিভাইসের জিপিইউ ও স্পিড টেস্ট করতে SELF TEST চাপুন।"
+                      accent="cyan"
+                      side="right"
+                      blockWrapper
+                    >
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setActiveDropdown(null);
+                          if (onOpenDiagnostics) onOpenDiagnostics();
+                          else eventBus.emit('diagnostics:open');
+                        }}
+                        className="cinema-tile cinema-tile-cyan w-full px-2 py-2 rounded-lg flex flex-col items-center gap-1 text-[10px] font-black tracking-wider uppercase cursor-pointer"
+                      >
+                        <Cpu className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                        <span>SELF TEST</span>
+                      </button>
+                    </CinemaToolHUD>
+
+                    <CinemaToolHUD
+                      title="ALL 28 ECOSYSTEM APPS"
+                      en="Browse the full HandFilm connected apps directory."
+                      bn="সবগুলো কানেক্টেড স্টুডিও অ্যাপস দেখতে ALL APPS চাপুন।"
+                      accent="amber"
+                      side="right"
+                      blockWrapper
+                    >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveDropdown(null);
+                          setIsAppsModalOpen(true);
+                        }}
+                        className="cinema-tile cinema-tile-amber w-full px-2 py-2 rounded-lg flex flex-col items-center gap-1 text-[10px] font-black tracking-wider uppercase cursor-pointer"
+                      >
+                        <ExternalLink className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                        <span>ALL APPS</span>
+                      </button>
+                    </CinemaToolHUD>
                   </div>
-
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setActiveDropdown(null);
-                      if (onOpenRecorder) onOpenRecorder();
-                      else eventBus.emit('recorder:open');
-                    }}
-                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#141417] text-[#F4F4F5]/90 hover:text-[#F4F4F5] flex items-center justify-between gap-2 cursor-pointer transition-colors group"
-                  >
-                    <span className="flex items-center gap-2.5 min-w-0">
-                      <Video className="w-3.5 h-3.5 text-[#8E8E93] group-hover:text-[#F59E0B] shrink-0 transition-colors" />
-                      <span className="text-[11px] font-semibold truncate">Screen &amp; Audio Recorder</span>
-                    </span>
-                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#141417] border border-white/[0.07] text-[9px] text-[#8E8E93] tabular-nums shrink-0">
-                      Alt+R
-                    </kbd>
-                  </button>
-
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setActiveDropdown(null);
-                      if (onOpenAiStudio) onOpenAiStudio();
-                      else setIsAIForgeOpen(true);
-                    }}
-                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#141417] text-[#F4F4F5]/90 hover:text-[#F4F4F5] flex items-center justify-between gap-2 cursor-pointer transition-colors group"
-                  >
-                    <span className="flex items-center gap-2.5 min-w-0">
-                      <Sparkles className="w-3.5 h-3.5 text-[#8E8E93] group-hover:text-[#F59E0B] shrink-0 transition-colors" />
-                      <span className="text-[11px] font-semibold truncate">AI Shot Prompt Generator</span>
-                    </span>
-                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#141417] border border-white/[0.07] text-[9px] text-[#8E8E93] group-hover:text-[#F59E0B] tabular-nums shrink-0">
-                      AI
-                    </kbd>
-                  </button>
-
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setActiveDropdown(null);
-                      if (onOpenColorLab) {
-                        onOpenColorLab();
-                      } else {
-                        eventBus.emit('studio:open_module', { module: 'OPTICS' });
-                      }
-                    }}
-                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#141417] text-[#F4F4F5]/90 hover:text-[#F4F4F5] flex items-center justify-between gap-2 cursor-pointer transition-colors group"
-                  >
-                    <span className="flex items-center gap-2.5 min-w-0">
-                      <Palette className="w-3.5 h-3.5 text-[#8E8E93] group-hover:text-[#F59E0B] shrink-0 transition-colors" />
-                      <span className="text-[11px] font-semibold truncate">Color LUT &amp; Halation Lab</span>
-                    </span>
-                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#141417] border border-white/[0.07] text-[9px] text-[#8E8E93] tabular-nums shrink-0">
-                      LUT
-                    </kbd>
-                  </button>
-
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setActiveDropdown(null);
-                      if (onOpenAudioAnalyzer) {
-                        onOpenAudioAnalyzer();
-                      } else if (onOpenRapSync) {
-                        onOpenRapSync();
-                      } else {
-                        eventBus.emit('studio:open_module', { module: 'SOUND' });
-                      }
-                    }}
-                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#141417] text-[#F4F4F5]/90 hover:text-[#F4F4F5] flex items-center justify-between gap-2 cursor-pointer transition-colors group"
-                  >
-                    <span className="flex items-center gap-2.5 min-w-0">
-                      <AudioWaveform className="w-3.5 h-3.5 text-[#8E8E93] group-hover:text-[#F59E0B] shrink-0 transition-colors" />
-                      <span className="text-[11px] font-semibold truncate">Audio Beat &amp; Waveform Analyzer</span>
-                    </span>
-                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#141417] border border-white/[0.07] text-[9px] text-[#8E8E93] tabular-nums shrink-0">
-                      DSP
-                    </kbd>
-                  </button>
-
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setActiveDropdown(null);
-                      if (onOpenDiagnostics) onOpenDiagnostics();
-                      else eventBus.emit('diagnostics:open');
-                    }}
-                    className="w-full px-2.5 py-2 rounded-[3px] text-left hover:bg-[#141417] text-[#F4F4F5]/90 hover:text-[#F4F4F5] flex items-center justify-between gap-2 cursor-pointer transition-colors group"
-                  >
-                    <span className="flex items-center gap-2.5 min-w-0">
-                      <Cpu className="w-3.5 h-3.5 text-[#8E8E93] group-hover:text-[#F59E0B] shrink-0 transition-colors" />
-                      <span className="text-[11px] font-semibold truncate">Hardware Diagnostics Self-Test</span>
-                    </span>
-                    <kbd className="px-1.5 py-0.5 rounded-[2px] bg-[#141417] border border-white/[0.07] text-[9px] text-[#8E8E93] tabular-nums shrink-0">
-                      TEST
-                    </kbd>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActiveDropdown(null);
-                      setIsAppsModalOpen(true);
-                    }}
-                    className="w-full mt-1 pt-2 px-2.5 py-1.5 border-t border-white/[0.07] text-[10px] text-[#8E8E93] hover:text-[#F59E0B] flex items-center justify-between cursor-pointer transition-colors"
-                  >
-                    <span className="flex items-center gap-1.5">
-                      <LayoutGrid className="w-3 h-3" />
-                      <span>All 28 Ecosystem Apps</span>
-                    </span>
-                    <ExternalLink className="w-3 h-3" />
-                  </button>
                 </div>
               )}
             </div>
           </nav>
         </div>
 
-        {/* ================================================================
-            CENTER ZONE: Editorial 5-Tab Workspace Switcher (STAGE..MONITOR)
-            ================================================================ */}
+        {/* CENTER ZONE: Editorial 5-Tab Workspace Switcher (STAGE..MONITOR) */}
         <div
           role="tablist"
           aria-label="Workspace Switcher"
@@ -1787,7 +1879,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             const TabIcon = tab.icon;
 
             return (
-              <div key={tab.id} className="relative">
+              <CinemaToolHUD key={tab.id} hudId={tab.hudId} side="bottom">
                 <button
                   type="button"
                   role="tab"
@@ -1801,28 +1893,12 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                       : undefined
                   } as React.CSSProperties}
                   onClick={() => handleWorkspacePanelSelect(tab.panel)}
-                  title={tab.title}
                   className={`nle-editorial-btn studio-workspace-tab relative group/tab h-[22px] px-[7px] xl:px-[9px] rounded-[3px] border font-mono text-[9.5px] xl:text-[10px] tracking-[0.08em] uppercase whitespace-nowrap shrink-0 flex items-center gap-1 cursor-pointer active:scale-[0.98] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F59E0B] ${
                     isActive
-                      ? 'bg-[#191A22] text-white font-bold'
-                      : 'bg-[#121318] text-zinc-300 hover:text-white font-semibold'
+                      ? 'bg-[#191A22] text-white font-black'
+                      : 'bg-[#121318] text-zinc-300 hover:text-white font-bold'
                   }`}
                 >
-                  {/* Inner subtle radial glow */}
-                  <span
-                    aria-hidden="true"
-                    className="absolute inset-0 rounded-[4px] overflow-hidden pointer-events-none"
-                  >
-                    <span
-                      style={{
-                        background: `radial-gradient(circle at 30% 50%, ${tab.accentHex}29 0%, transparent 72%)`
-                      }}
-                      className={`absolute inset-0 transition-opacity duration-200 ${
-                        isActive ? 'opacity-100' : 'opacity-0 group-hover/tab:opacity-75'
-                      }`}
-                    />
-                  </span>
-
                   <TabIcon
                     style={{ color: tab.accentHex }}
                     className="relative z-10 w-3 h-3 shrink-0 transition-transform duration-200 group-hover/tab:scale-110"
@@ -1832,7 +1908,6 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                     {tab.label}
                   </span>
 
-                  {/* Active bottom accent edge bar */}
                   <span
                     aria-hidden="true"
                     style={{
@@ -1843,17 +1918,8 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                       isActive ? 'opacity-100' : 'opacity-0 group-hover/tab:opacity-50'
                     }`}
                   />
-
-                  {/* Micro Hover Shortcut Hint [1]..[5] */}
-                  <span
-                    aria-hidden="true"
-                    style={{ color: tab.accentHex }}
-                    className="pointer-events-none opacity-0 group-hover/tab:opacity-100 transition-opacity duration-150 absolute top-full mt-1.5 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded-[3px] bg-[#0B0B0D]/95 border border-white/[0.1] text-[9px] font-mono font-bold tabular-nums whitespace-nowrap z-[9999] shadow-xl"
-                  >
-                    [{tab.shortcut}] · Alt+{tab.shortcut}
-                  </span>
                 </button>
-              </div>
+              </CinemaToolHUD>
             );
           })}
 
@@ -1876,85 +1942,97 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                 }
                 className="fixed top-12 left-72 w-80 sm:w-[356px] max-h-[82vh] overflow-y-auto bg-[#0B0B0D]/96 border border-white/[0.07] shadow-[0_24px_60px_rgba(0,0,0,0.95)] p-4 rounded-[4px] z-[9999] font-mono text-xs text-[#F4F4F5] space-y-3"
               >
-                <div className="flex items-center justify-between pb-2 border-b border-white/[0.07]">
-                  <span className="text-[10px] font-bold tracking-wider uppercase text-[#8E8E93]">
-                    DIRECTOR&apos;S COCKPIT BRIDGE
-                  </span>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-[2px] border bg-[#141417] border-white/[0.07] text-[#F59E0B] tabular-nums">
-                    {resolvedCockpitStats.isTauriActive ? 'TAURI NATIVE IPC' : 'OFFLINE READY'}
-                  </span>
-                </div>
+                <CinemaBadgeHeader
+                  icon={<Cpu className="w-3.5 h-3.5" strokeWidth={2.2} />}
+                  label="COCKPIT BRIDGE"
+                  accent="amber"
+                  rightSlot={
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded-[4px] border bg-[#111215] border-[#26282E] text-[#F59E0B] tabular-nums uppercase">
+                      {resolvedCockpitStats.isTauriActive ? 'TAURI IPC' : 'OFFLINE'}
+                    </span>
+                  }
+                />
 
                 {/* 10x10 Modular Reel Engine Quick-Jump */}
                 <div className="space-y-1.5 pb-2 border-b border-white/[0.07]">
-                  <div className="flex items-center justify-between text-[9px] font-bold tracking-wider uppercase tabular-nums">
-                    <span className="text-[#8E8E93]">
-                      10×10 MODULAR REEL (
-                      {reelLoopActive
-                        ? `REEL ${String(activeReelIndex + 1).padStart(2, '0')} · ${activeReelIndex * 10 + 1}-${Math.min(frames.length || 100, activeReelIndex * 10 + 10)}`
-                        : 'MASTER 100'}
-                      )
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setReelLoopActive(!reelLoopActive)}
-                      className={`px-1.5 py-0.5 rounded-[2px] border text-[9px] cursor-pointer transition-colors ${
-                        !reelLoopActive
-                          ? 'bg-[#F59E0B]/15 border-[#F59E0B] text-[#F4F4F5]'
-                          : 'bg-[#141417] border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5]'
-                      }`}
+                  <div className="flex items-center justify-between gap-2 tabular-nums">
+                    <CinemaBadgeHeader
+                      icon={<Film className="w-3.5 h-3.5" strokeWidth={2.2} />}
+                      label={
+                        reelLoopActive
+                          ? `REEL ${String(activeReelIndex + 1).padStart(2, '0')}`
+                          : '10×10 REEL'
+                      }
+                      accent="amber"
+                    />
+                    <CinemaToolHUD
+                      title={reelLoopActive ? 'REEL LOOP: MASTER ALL' : 'ENABLE REEL LOOP'}
+                      en="Switch between isolated 10-shot reel loop and full 100-shot master sequence."
+                      bn="১০-শটের রিল লুপ এবং পুরো ১০০ শটের মাস্টার সিকোয়েন্সের মধ্যে সুইচ করুন।"
+                      accent="amber"
                     >
-                      {reelLoopActive ? 'MASTER ALL' : 'REEL LOOP ON'}
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => setReelLoopActive(!reelLoopActive)}
+                        data-active={!reelLoopActive ? 'true' : 'false'}
+                        className="cinema-tile cinema-tile-amber px-2 py-1 rounded-[4px] font-black tracking-wider text-[10px] uppercase cursor-pointer"
+                      >
+                        {reelLoopActive ? 'ALL SHOTS' : 'LOOP ON'}
+                      </button>
+                    </CinemaToolHUD>
                   </div>
                   <div className="grid grid-cols-5 gap-1 tabular-nums">
                     {Array.from({ length: 10 }, (_, rIdx) => {
                       const isSelected = reelLoopActive && activeReelIndex === rIdx;
+                      const rLabel = `R${String(rIdx + 1).padStart(2, '0')}`;
                       return (
-                        <button
+                        <CinemaToolHUD
                           key={rIdx}
-                          type="button"
-                          onClick={() => {
-                            selectReel(rIdx);
-                            setRenderScope('reel');
-                            eventBus.emit('studio:jump_to_shot', { shotIndex: rIdx * 10 });
-                          }}
-                          className={`py-1 rounded-[2px] text-[10px] font-bold border transition-colors cursor-pointer ${
-                            isSelected
-                              ? 'bg-[#F59E0B]/15 border-[#F59E0B] text-[#F4F4F5]'
-                              : 'bg-[#141417] border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5] hover:border-[#F59E0B]/50'
-                          }`}
+                          title={`MODULAR ${rLabel} (SHOTS ${rIdx * 10 + 1}-${rIdx * 10 + 10})`}
+                          en={`Jump playhead and scope render to Reel block ${rIdx + 1}.`}
+                          bn={`রিল ব্লক ${rIdx + 1}-এ প্লেহেড নিন এবং এই ১০টি শট আলাদাভাবে দেখুন।`}
+                          accent="amber"
+                          blockWrapper
                         >
-                          R{String(rIdx + 1).padStart(2, '0')}
-                        </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              selectReel(rIdx);
+                              setRenderScope('reel');
+                              eventBus.emit('studio:jump_to_shot', { shotIndex: rIdx * 10 });
+                            }}
+                            data-active={isSelected ? 'true' : 'false'}
+                            className="cinema-tile cinema-tile-amber w-full py-1.5 rounded-[4px] text-[10px] font-black tracking-wider cursor-pointer"
+                          >
+                            {rLabel}
+                          </button>
+                        </CinemaToolHUD>
                       );
                     })}
                   </div>
                 </div>
 
                 {/* Live Project Manifest Stats */}
-                <div className="grid grid-cols-2 gap-2 text-[11px] tabular-nums">
-                  <div className="p-2 rounded-[3px] bg-[#141417] border border-white/[0.07]">
-                    <div className="text-[9px] text-[#8E8E93] uppercase">TOTAL SHOTS</div>
-                    <div className="text-sm font-bold text-[#F4F4F5]">{resolvedCockpitStats.totalShots}</div>
+                <div className="grid grid-cols-2 gap-1.5 text-[10px] tabular-nums">
+                  <div className="p-2 rounded-[4px] bg-[#111215] border border-[#26282E]">
+                    <div className="text-[9px] text-[#8E8E93] font-black uppercase tracking-wider">SHOTS</div>
+                    <div className="text-sm font-black text-[#F4F4F5]">{resolvedCockpitStats.totalShots}</div>
                   </div>
-                  <div className="p-2 rounded-[3px] bg-[#141417] border border-white/[0.07]">
-                    <div className="text-[9px] text-[#8E8E93] uppercase">ACTIVE LIGHTS</div>
-                    <div className="text-sm font-bold text-[#F59E0B]">
+                  <div className="p-2 rounded-[4px] bg-[#111215] border border-[#26282E]">
+                    <div className="text-[9px] text-[#8E8E93] font-black uppercase tracking-wider">LIGHTS</div>
+                    <div className="text-sm font-black text-[#F59E0B]">
                       {resolvedCockpitStats.activeLightsCount} RIGS
                     </div>
                   </div>
-                  <div className="p-2 rounded-[3px] bg-[#141417] border border-white/[0.07]">
-                    <div className="text-[9px] text-[#8E8E93] uppercase">MASTER AUDIO</div>
-                    <div className="text-xs font-bold text-[#F4F4F5] truncate">
-                      {resolvedCockpitStats.audioSynced
-                        ? `SYNCED · ${resolvedCockpitStats.audioTrackName || 'TRACK'}`
-                        : 'STANDBY / UNROUTED'}
+                  <div className="p-2 rounded-[4px] bg-[#111215] border border-[#26282E]">
+                    <div className="text-[9px] text-[#8E8E93] font-black uppercase tracking-wider">AUDIO</div>
+                    <div className="text-[11px] font-black text-[#F4F4F5] truncate">
+                      {resolvedCockpitStats.audioSynced ? 'SYNCED' : 'STANDBY'}
                     </div>
                   </div>
-                  <div className="p-2 rounded-[3px] bg-[#141417] border border-white/[0.07]">
-                    <div className="text-[9px] text-[#8E8E93] uppercase">SEQUENCE RUNTIME</div>
-                    <div className="text-sm font-bold text-[#F4F4F5]">
+                  <div className="p-2 rounded-[4px] bg-[#111215] border border-[#26282E]">
+                    <div className="text-[9px] text-[#8E8E93] font-black uppercase tracking-wider">RUNTIME</div>
+                    <div className="text-sm font-black text-[#F4F4F5]">
                       {resolvedCockpitStats.totalDurationSec.toFixed(1)}s
                     </div>
                   </div>
@@ -2061,49 +2139,66 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
 
                   return (
                     <div className="pt-2 border-t border-white/[0.07] space-y-2 tabular-nums">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[9px] font-bold tracking-wider uppercase text-[#8E8E93]">
-                          OFFLINE RENDER PIPELINE
-                        </span>
+                      <div className="flex items-center justify-between gap-1">
+                        <CinemaBadgeHeader
+                          icon={<Video className="w-3.5 h-3.5" strokeWidth={2.2} />}
+                          label="RENDER"
+                          accent="amber"
+                        />
                         <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => setRenderScope('reel')}
-                            className={`px-1.5 py-0.5 rounded-[2px] text-[9px] font-bold border cursor-pointer transition-colors ${
-                              renderScope === 'reel'
-                                ? 'bg-[#F59E0B]/15 border-[#F59E0B] text-[#F4F4F5]'
-                                : 'bg-[#141417] border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5]'
-                            }`}
+                          <CinemaToolHUD
+                            title={`SCOPE: REEL ${String(activeReelIndex + 1).padStart(2, '0')} (10 SHOTS)`}
+                            en="Render or export only the active 10-shot Reel block."
+                            bn="শুধু বর্তমান ১০-শটের রিল ব্লকটি রেন্ডার বা এক্সপোর্ট করতে এই স্কোপ চাপুন।"
+                            accent="amber"
                           >
-                            REEL {String(activeReelIndex + 1).padStart(2, '0')} (10)
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setRenderScope('master')}
-                            className={`px-1.5 py-0.5 rounded-[2px] text-[9px] font-bold border cursor-pointer transition-colors ${
-                              renderScope === 'master'
-                                ? 'bg-[#F59E0B]/15 border-[#F59E0B] text-[#F4F4F5]'
-                                : 'bg-[#141417] border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5]'
-                            }`}
+                            <button
+                              type="button"
+                              onClick={() => setRenderScope('reel')}
+                              data-active={renderScope === 'reel' ? 'true' : 'false'}
+                              className="cinema-tile cinema-tile-amber px-2 py-1 rounded-[4px] text-[10px] font-black tracking-wider uppercase cursor-pointer"
+                            >
+                              R{String(activeReelIndex + 1).padStart(2, '0')} (10)
+                            </button>
+                          </CinemaToolHUD>
+                          <CinemaToolHUD
+                            title={`SCOPE: MASTER (${totalCount} SHOTS)`}
+                            en="Render or export the complete master storyboard sequence."
+                            bn="পুরো মাস্টার সিকোয়েন্স রেন্ডার করতে MASTER চাপুন।"
+                            accent="amber"
                           >
-                            MASTER ({totalCount})
-                          </button>
+                            <button
+                              type="button"
+                              onClick={() => setRenderScope('master')}
+                              data-active={renderScope === 'master' ? 'true' : 'false'}
+                              className="cinema-tile cinema-tile-amber px-2 py-1 rounded-[4px] text-[10px] font-black tracking-wider uppercase cursor-pointer"
+                            >
+                              ALL ({totalCount})
+                            </button>
+                          </CinemaToolHUD>
                         </div>
                       </div>
 
                       {isRenderingOffline && renderTelemetry && (
-                        <div className="p-2 rounded-[3px] bg-[#141417] border border-[#F59E0B]/50 space-y-1.5 tabular-nums">
-                          <div className="flex items-center justify-between text-[9px] font-bold text-[#F59E0B]">
+                        <div className="p-2 rounded-[4px] bg-[#111215] border border-[#F59E0B]/50 space-y-1.5 tabular-nums">
+                          <div className="flex items-center justify-between text-[9px] font-black text-[#F59E0B]">
                             <span className="truncate pr-2">
-                              {`RENDERING SHOT ${String(renderTelemetry.currentShotIndex).padStart(2, '0')}/${String(renderTelemetry.totalShots).padStart(2, '0')}...`}
+                              {`SHOT ${String(renderTelemetry.currentShotIndex).padStart(2, '0')}/${String(renderTelemetry.totalShots).padStart(2, '0')}`}
                             </span>
-                            <button
-                              type="button"
-                              onClick={() => renderAbortRef.current?.abort()}
-                              className="text-[#8E8E93] hover:text-[#F4F4F5] underline shrink-0 cursor-pointer"
+                            <CinemaToolHUD
+                              title="ABORT OFFLINE RENDER"
+                              en="Immediately cancel active offline video rendering."
+                              bn="চলমান রেন্ডারিং বন্ধ করতে ABORT চাপুন।"
+                              accent="crimson"
                             >
-                              ABORT
-                            </button>
+                              <button
+                                type="button"
+                                onClick={() => renderAbortRef.current?.abort()}
+                                className="cinema-tile cinema-tile-crimson px-1.5 py-0.5 rounded text-[9px] font-black uppercase cursor-pointer"
+                              >
+                                ABORT
+                              </button>
+                            </CinemaToolHUD>
                           </div>
                           <div className="w-full h-1.5 rounded-full bg-[#0B0B0D] overflow-hidden">
                             <div
@@ -2111,270 +2206,357 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                               style={{ width: `${Math.max(4, Math.min(100, renderTelemetry.percent))}%` }}
                             />
                           </div>
-                          <div className="text-[8.5px] text-[#8E8E93] truncate">
-                            {renderTelemetry.statusText}
-                          </div>
                         </div>
                       )}
 
                       <div className="grid grid-cols-3 gap-1.5">
-                        <button
-                          type="button"
-                          disabled={isRenderingOffline}
-                          onClick={() => runOfflineVideoRender('mp4')}
-                          className="px-2 py-1.5 rounded-[2px] bg-[#141417] hover:bg-[#1B1B20] disabled:opacity-40 border border-white/[0.07] hover:border-[#F59E0B]/60 text-[#F4F4F5] font-bold text-[10px] cursor-pointer transition-colors"
+                        <CinemaToolHUD
+                          title="OFFLINE MP4 RENDER"
+                          en="Encode scoped shots directly to MP4 master in browser."
+                          bn="সরাসরি ব্রাউজারে MP4 ভিডিও তৈরি ও ডাউনলোড করুন।"
+                          accent="amber"
+                          blockWrapper
                         >
-                          MP4
-                        </button>
-                        <button
-                          type="button"
-                          disabled={isRenderingOffline}
-                          onClick={() => runOfflineVideoRender('vp9')}
-                          className="px-2 py-1.5 rounded-[2px] bg-[#141417] hover:bg-[#1B1B20] disabled:opacity-40 border border-white/[0.07] hover:border-[#F59E0B]/60 text-[#F4F4F5] font-bold text-[10px] cursor-pointer transition-colors"
+                          <button
+                            type="button"
+                            disabled={isRenderingOffline}
+                            onClick={() => runOfflineVideoRender('mp4')}
+                            className="cinema-tile cinema-tile-amber w-full py-2 rounded-[4px] flex flex-col items-center justify-center gap-1 disabled:opacity-40 font-black tracking-wider text-[10px] cursor-pointer"
+                          >
+                            <Film className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                            <span>MP4</span>
+                          </button>
+                        </CinemaToolHUD>
+                        <CinemaToolHUD
+                          title="OFFLINE VP9 WEBM"
+                          en="Encode scoped shots as high-efficiency VP9 WebM video."
+                          bn="উচ্চ-দক্ষতার VP9 WebM ভিডিও এক্সপোর্ট করতে চাপুন।"
+                          accent="cyan"
+                          blockWrapper
                         >
-                          VP9 WEBM
-                        </button>
-                        <button
-                          type="button"
-                          disabled={isRenderingOffline}
-                          onClick={() => runOfflineVideoRender('png')}
-                          className="px-2 py-1.5 rounded-[2px] bg-[#141417] hover:bg-[#1B1B20] disabled:opacity-40 border border-white/[0.07] hover:border-[#F59E0B]/60 text-[#F4F4F5] font-bold text-[10px] cursor-pointer transition-colors"
+                          <button
+                            type="button"
+                            disabled={isRenderingOffline}
+                            onClick={() => runOfflineVideoRender('vp9')}
+                            className="cinema-tile cinema-tile-cyan w-full py-2 rounded-[4px] flex flex-col items-center justify-center gap-1 disabled:opacity-40 font-black tracking-wider text-[10px] cursor-pointer"
+                          >
+                            <Video className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                            <span>WEBM</span>
+                          </button>
+                        </CinemaToolHUD>
+                        <CinemaToolHUD
+                          title="PNG SEQUENCE ZIP"
+                          en="Export lossless still frame sequence packaged in ZIP."
+                          bn="সব ফ্রেমের লসলেস PNG ইমেজ জিপ হিসেবে ডাউনলোড করুন।"
+                          accent="emerald"
+                          blockWrapper
                         >
-                          PNG SEQ
-                        </button>
+                          <button
+                            type="button"
+                            disabled={isRenderingOffline}
+                            onClick={() => runOfflineVideoRender('png')}
+                            className="cinema-tile cinema-tile-emerald w-full py-2 rounded-[4px] flex flex-col items-center justify-center gap-1 disabled:opacity-40 font-black tracking-wider text-[10px] cursor-pointer"
+                          >
+                            <Download className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                            <span>PNG SEQ</span>
+                          </button>
+                        </CinemaToolHUD>
                       </div>
 
                       <div className="grid grid-cols-2 gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const bridgeShots = buildScopedBridgeShots();
-                            const xml = generatePremiereXml(bridgeShots, null, {
-                              fps: 24,
-                              projectName:
-                                renderScope === 'reel'
-                                  ? `HANDFILM_REEL_${String(activeReelIndex + 1).padStart(2, '0')}`
-                                  : 'HANDFILM_MASTER_100'
-                            });
-                            triggerBrowserDownload(
-                              xml,
-                              `HANDFILM_${renderScope === 'reel' ? `REEL_${String(activeReelIndex + 1).padStart(2, '0')}` : 'MASTER'}_Premiere.xml`,
-                              'application/xml'
-                            );
-                            setCockpitFeedback('PREMIERE XMEML EXPORTED');
-                            setTimeout(() => setCockpitFeedback(null), 4000);
-                          }}
-                          className="px-2 py-1.5 rounded-[2px] bg-[#141417] hover:bg-[#1B1B20] border border-white/[0.07] hover:border-[#F59E0B]/60 text-[#F4F4F5] font-bold text-[10px] cursor-pointer transition-colors"
+                        <CinemaToolHUD
+                          title="ADOBE PREMIERE XML"
+                          en="Generate scoped XMEML timeline for Premiere Pro import."
+                          bn="প্রিমিয়ার প্রো-তে ইমপোর্ট করার জন্য XML ফাইল ডাউনলোড করুন।"
+                          accent="cyan"
+                          blockWrapper
                         >
-                          PREMIERE XML
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const bridgeShots = buildScopedBridgeShots();
-                            const json = generateCapCutDraftJson(bridgeShots, null, {
-                              fps: 24,
-                              projectName:
-                                renderScope === 'reel'
-                                  ? `HANDFILM_REEL_${String(activeReelIndex + 1).padStart(2, '0')}`
-                                  : 'HANDFILM_MASTER_100'
-                            });
-                            triggerBrowserDownload(
-                              json,
-                              `draft_content_${renderScope === 'reel' ? `R${String(activeReelIndex + 1).padStart(2, '0')}` : 'MASTER'}.json`,
-                              'application/json'
-                            );
-                            setCockpitFeedback('CAPCUT DRAFT JSON EXPORTED');
-                            setTimeout(() => setCockpitFeedback(null), 4000);
-                          }}
-                          className="px-2 py-1.5 rounded-[2px] bg-[#141417] hover:bg-[#1B1B20] border border-white/[0.07] hover:border-[#F59E0B]/60 text-[#F4F4F5] font-bold text-[10px] cursor-pointer transition-colors"
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const bridgeShots = buildScopedBridgeShots();
+                              const xml = generatePremiereXml(bridgeShots, null, {
+                                fps: 24,
+                                projectName:
+                                  renderScope === 'reel'
+                                    ? `HANDFILM_REEL_${String(activeReelIndex + 1).padStart(2, '0')}`
+                                    : 'HANDFILM_MASTER_100'
+                              });
+                              triggerBrowserDownload(
+                                xml,
+                                `HANDFILM_${renderScope === 'reel' ? `REEL_${String(activeReelIndex + 1).padStart(2, '0')}` : 'MASTER'}_Premiere.xml`,
+                                'application/xml'
+                              );
+                              setCockpitFeedback('PREMIERE XMEML EXPORTED');
+                              setTimeout(() => setCockpitFeedback(null), 4000);
+                            }}
+                            className="cinema-tile cinema-tile-cyan w-full py-2 rounded-[4px] flex items-center justify-center gap-1.5 font-black tracking-wider text-[10px] cursor-pointer"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+                            <span>PREMIERE</span>
+                          </button>
+                        </CinemaToolHUD>
+                        <CinemaToolHUD
+                          title="CAPCUT DRAFT JSON"
+                          en="Export CapCut Desktop compatible timeline draft JSON."
+                          bn="ক্যাপকাট ডেস্কটপের জন্য ডাইরেক্ট JSON ড্রাফট ডাউনলোড করুন।"
+                          accent="amber"
+                          blockWrapper
                         >
-                          CAPCUT JSON
-                        </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const bridgeShots = buildScopedBridgeShots();
+                              const json = generateCapCutDraftJson(bridgeShots, null, {
+                                fps: 24,
+                                projectName:
+                                  renderScope === 'reel'
+                                    ? `HANDFILM_REEL_${String(activeReelIndex + 1).padStart(2, '0')}`
+                                    : 'HANDFILM_MASTER_100'
+                              });
+                              triggerBrowserDownload(
+                                json,
+                                `draft_content_${renderScope === 'reel' ? `R${String(activeReelIndex + 1).padStart(2, '0')}` : 'MASTER'}.json`,
+                                'application/json'
+                              );
+                              setCockpitFeedback('CAPCUT DRAFT JSON EXPORTED');
+                              setTimeout(() => setCockpitFeedback(null), 4000);
+                            }}
+                            className="cinema-tile cinema-tile-amber w-full py-2 rounded-[4px] flex items-center justify-center gap-1.5 font-black tracking-wider text-[10px] cursor-pointer"
+                          >
+                            <Zap className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+                            <span>CAPCUT</span>
+                          </button>
+                        </CinemaToolHUD>
                       </div>
                     </div>
                   );
                 })()}
 
                 {cockpitFeedback && (
-                  <div className="px-2.5 py-1.5 rounded-[3px] bg-[#F59E0B]/15 border border-[#F59E0B]/50 text-[10px] font-bold text-[#F59E0B] tabular-nums">
+                  <div className="px-2.5 py-1.5 rounded-[4px] bg-[#F59E0B]/15 border border-[#F59E0B]/50 text-[10px] font-black text-[#F59E0B] tabular-nums uppercase">
                     {cockpitFeedback}
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 gap-1.5 pt-1 border-t border-white/[0.07]">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (currentView === 'HOME') {
-                        eventBus.emit('cockpit:action', { type: 'nle_xml' });
-                      } else {
-                        const bridgeShots: CockpitShotBridge[] = frames.map((f, idx) => ({
-                          shotId: `shot_${String(idx + 1).padStart(2, '0')}`,
-                          shotNumber: String(idx + 1).padStart(2, '0'),
-                          titleEn: f.title || `Shot ${idx + 1}`,
-                          titleBn: f.bengaliTitle || '',
-                          personality: 'KINETIC',
-                          inPoint: 0,
-                          outPoint: f.durationSec || f.slideHoldSec || 12.0,
-                          durationSec: f.durationSec || f.slideHoldSec || 12.0,
-                          mediaUrl: f.videoSrc || f.imageUrl,
-                          lutFilter: f.lutFilter,
-                          lensSpec: f.cameraSpec?.focalLength,
-                          directorNotes: f.directorNotes,
-                          lightId: f.lightId,
-                          lightName: f.lightId ? getLightingPresetById(f.lightId)?.name : undefined
-                        }));
-                        const xml = generateNLETimelineXML(bridgeShots, null, {
-                          fps: 24,
-                          projectName: 'HANDFILM_SEQUENCE'
-                        });
-                        triggerBrowserDownload(
-                          xml,
-                          `HANDFILM_SEQUENCE_${Date.now()}.fcpxml`,
-                          'application/xml'
-                        );
-                        setCockpitFeedback('FCPXML exported');
-                        setTimeout(() => setCockpitFeedback(null), 4000);
-                      }
-                    }}
-                    className="w-full px-3 py-2 rounded-[3px] bg-[#141417] hover:bg-[#1B1B20] border border-white/[0.07] hover:border-[#F59E0B]/60 text-[#F4F4F5] font-bold text-xs flex items-center justify-between cursor-pointer active:scale-95 transition-all"
+                <div className="grid grid-cols-2 gap-1.5 pt-2 border-t border-white/[0.07]">
+                  <CinemaToolHUD
+                    title="FINAL CUT FCPXML v1.9"
+                    en="Export universal FCPXML timeline for Final Cut Pro and DaVinci Resolve."
+                    bn="ফাইনাল কাট বা ডাভিঞ্চি রিজল্ভের জন্য FCPXML ফাইল নিন।"
+                    accent="cyan"
+                    blockWrapper
                   >
-                    <span>FCPXML v1.9</span>
-                    <span className="text-[9px] text-[#8E8E93]">ALL SHOTS</span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (currentView === 'HOME') {
+                          eventBus.emit('cockpit:action', { type: 'nle_xml' });
+                        } else {
+                          const bridgeShots: CockpitShotBridge[] = frames.map((f, idx) => ({
+                            shotId: `shot_${String(idx + 1).padStart(2, '0')}`,
+                            shotNumber: String(idx + 1).padStart(2, '0'),
+                            titleEn: f.title || `Shot ${idx + 1}`,
+                            titleBn: f.bengaliTitle || '',
+                            personality: 'KINETIC',
+                            inPoint: 0,
+                            outPoint: f.durationSec || f.slideHoldSec || 12.0,
+                            durationSec: f.durationSec || f.slideHoldSec || 12.0,
+                            mediaUrl: f.videoSrc || f.imageUrl,
+                            lutFilter: f.lutFilter,
+                            lensSpec: f.cameraSpec?.focalLength,
+                            directorNotes: f.directorNotes,
+                            lightId: f.lightId,
+                            lightName: f.lightId ? getLightingPresetById(f.lightId)?.name : undefined
+                          }));
+                          const xml = generateNLETimelineXML(bridgeShots, null, {
+                            fps: 24,
+                            projectName: 'HANDFILM_SEQUENCE'
+                          });
+                          triggerBrowserDownload(
+                            xml,
+                            `HANDFILM_SEQUENCE_${Date.now()}.fcpxml`,
+                            'application/xml'
+                          );
+                          setCockpitFeedback('FCPXML EXPORTED');
+                          setTimeout(() => setCockpitFeedback(null), 4000);
+                        }
+                      }}
+                      className="cinema-tile cinema-tile-cyan w-full py-2 rounded-[4px] flex items-center justify-center gap-1.5 font-black tracking-wider text-[10px] cursor-pointer"
+                    >
+                      <Film className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+                      <span>FCPXML</span>
+                    </button>
+                  </CinemaToolHUD>
 
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (currentView === 'HOME') {
-                        eventBus.emit('cockpit:action', { type: 'capcut_pack' });
-                      } else {
-                        const bridgeShots: CockpitShotBridge[] = frames.map((f, idx) => ({
-                          shotId: `shot_${String(idx + 1).padStart(2, '0')}`,
-                          shotNumber: String(idx + 1).padStart(2, '0'),
-                          titleEn: f.title || `Shot ${idx + 1}`,
-                          titleBn: f.bengaliTitle || '',
-                          personality: 'KINETIC',
-                          inPoint: 0,
-                          outPoint: f.durationSec || f.slideHoldSec || 12.0,
-                          durationSec: f.durationSec || f.slideHoldSec || 12.0,
-                          mediaUrl: f.videoSrc || f.imageUrl,
-                          lutFilter: f.lutFilter,
-                          lensSpec: f.cameraSpec?.focalLength,
-                          directorNotes: f.directorNotes,
-                          lightId: f.lightId,
-                          lightName: f.lightId ? getLightingPresetById(f.lightId)?.name : undefined
-                        }));
-                        const zipBlob = await buildCapCutQuickPackZip(bridgeShots, null, null, {
-                          fps: 24,
-                          projectName: 'HANDFILM_REEL'
-                        });
-                        triggerBrowserDownload(
-                          zipBlob,
-                          `HANDFILM_CapCut_Pack_${Date.now()}.zip`,
-                          'application/zip'
-                        );
-                        setCockpitFeedback('CapCut Pack exported');
-                        setTimeout(() => setCockpitFeedback(null), 4000);
-                      }
-                    }}
-                    className="w-full px-3 py-2 rounded-[3px] bg-[#141417] hover:bg-[#1B1B20] border border-white/[0.07] hover:border-[#F59E0B]/60 text-[#F4F4F5] font-bold text-xs flex items-center justify-between cursor-pointer active:scale-95 transition-all"
+                  <CinemaToolHUD
+                    title="CAPCUT QUICK PACK ZIP"
+                    en="Bundle CapCut JSON draft and shot sheet into one ZIP archive."
+                    bn="ক্যাপকাট প্যাক ও শট শিট একসাথে ZIP হিসেবে ডাউনলোড করুন।"
+                    accent="amber"
+                    blockWrapper
                   >
-                    <span>CAPCUT PACK</span>
-                    <span className="text-[9px] text-[#8E8E93]">JSON + SHEET</span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (currentView === 'HOME') {
+                          eventBus.emit('cockpit:action', { type: 'capcut_pack' });
+                        } else {
+                          const bridgeShots: CockpitShotBridge[] = frames.map((f, idx) => ({
+                            shotId: `shot_${String(idx + 1).padStart(2, '0')}`,
+                            shotNumber: String(idx + 1).padStart(2, '0'),
+                            titleEn: f.title || `Shot ${idx + 1}`,
+                            titleBn: f.bengaliTitle || '',
+                            personality: 'KINETIC',
+                            inPoint: 0,
+                            outPoint: f.durationSec || f.slideHoldSec || 12.0,
+                            durationSec: f.durationSec || f.slideHoldSec || 12.0,
+                            mediaUrl: f.videoSrc || f.imageUrl,
+                            lutFilter: f.lutFilter,
+                            lensSpec: f.cameraSpec?.focalLength,
+                            directorNotes: f.directorNotes,
+                            lightId: f.lightId,
+                            lightName: f.lightId ? getLightingPresetById(f.lightId)?.name : undefined
+                          }));
+                          const zipBlob = await buildCapCutQuickPackZip(bridgeShots, null, null, {
+                            fps: 24,
+                            projectName: 'HANDFILM_REEL'
+                          });
+                          triggerBrowserDownload(
+                            zipBlob,
+                            `HANDFILM_CapCut_Pack_${Date.now()}.zip`,
+                            'application/zip'
+                          );
+                          setCockpitFeedback('CAPCUT PACK EXPORTED');
+                          setTimeout(() => setCockpitFeedback(null), 4000);
+                        }
+                      }}
+                      className="cinema-tile cinema-tile-amber w-full py-2 rounded-[4px] flex items-center justify-center gap-1.5 font-black tracking-wider text-[10px] cursor-pointer"
+                    >
+                      <Download className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+                      <span>CAPCUT ZIP</span>
+                    </button>
+                  </CinemaToolHUD>
 
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (currentView === 'HOME') {
-                        eventBus.emit('cockpit:action', { type: 'freeze_all' });
-                      } else {
-                        const activeCanvas = document.querySelector('canvas');
-                        const bridgeShots: CockpitShotBridge[] = frames.slice(0, 14).map((f, idx) => ({
-                          shotId: `shot_${String(idx + 1).padStart(2, '0')}`,
-                          shotNumber: String(idx + 1).padStart(2, '0'),
-                          titleEn: f.title || `Shot ${idx + 1}`,
-                          titleBn: f.bengaliTitle || '',
-                          personality: 'KINETIC',
-                          inPoint: 0,
-                          outPoint: f.durationSec || f.slideHoldSec || 12.0,
-                          durationSec: f.durationSec || f.slideHoldSec || 12.0
-                        }));
-                        const res = await freezeAllShotFrames(bridgeShots, () =>
-                          activeCanvas ? activeCanvas.toDataURL('image/png', 1.0) : null
-                        );
-                        setCockpitFeedback(res.message);
-                        setTimeout(() => setCockpitFeedback(null), 4000);
-                      }
-                    }}
-                    className="w-full px-3 py-2 rounded-[3px] bg-[#141417] hover:bg-[#1B1B20] border border-white/[0.07] hover:border-[#F59E0B]/60 text-[#F4F4F5] font-bold text-xs flex items-center justify-between cursor-pointer active:scale-95 transition-all"
+                  <CinemaToolHUD
+                    title="FREEZE ALL FRAMES"
+                    en="Capture lossless PNG stills for all storyboard shots."
+                    bn="সব শটের লসলেস PNG স্টিল ফ্রেম একসাথে ক্যাপচার করুন।"
+                    accent="emerald"
+                    blockWrapper
                   >
-                    <span>FREEZE ALL FRAMES</span>
-                    <span className="text-[9px] text-[#8E8E93]">LOSSLESS PNG</span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (currentView === 'HOME') {
+                          eventBus.emit('cockpit:action', { type: 'freeze_all' });
+                        } else {
+                          const activeCanvas = document.querySelector('canvas');
+                          const bridgeShots: CockpitShotBridge[] = frames.slice(0, 14).map((f, idx) => ({
+                            shotId: `shot_${String(idx + 1).padStart(2, '0')}`,
+                            shotNumber: String(idx + 1).padStart(2, '0'),
+                            titleEn: f.title || `Shot ${idx + 1}`,
+                            titleBn: f.bengaliTitle || '',
+                            personality: 'KINETIC',
+                            inPoint: 0,
+                            outPoint: f.durationSec || f.slideHoldSec || 12.0,
+                            durationSec: f.durationSec || f.slideHoldSec || 12.0
+                          }));
+                          const res = await freezeAllShotFrames(bridgeShots, () =>
+                            activeCanvas ? activeCanvas.toDataURL('image/png', 1.0) : null
+                          );
+                          setCockpitFeedback(res.message);
+                          setTimeout(() => setCockpitFeedback(null), 4000);
+                        }
+                      }}
+                      className="cinema-tile cinema-tile-emerald w-full py-2 rounded-[4px] flex items-center justify-center gap-1.5 font-black tracking-wider text-[10px] cursor-pointer"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+                      <span>FREEZE ALL</span>
+                    </button>
+                  </CinemaToolHUD>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsCockpitHudOpen(false);
-                      eventBus.emit('cockpit:action', { type: 'open_modal' });
-                    }}
-                    className="w-full px-3 py-1.5 rounded-[3px] bg-[#F59E0B]/15 hover:bg-[#F59E0B]/25 border border-[#F59E0B]/60 text-[#F4F4F5] font-bold text-[10px] text-center cursor-pointer transition-colors"
+                  <CinemaToolHUD
+                    title="OPEN INTERCHANGE HUB"
+                    en="Launch full-screen NLE, CapCut & render interchange hub."
+                    bn="সম্পূর্ণ ইন্টারচেঞ্জ এক্সপোর্ট হাব মডাল ওপেন করুন।"
+                    accent="amber"
+                    blockWrapper
                   >
-                    OPEN FULL INTERCHANGE HUB
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsCockpitHudOpen(false);
+                        eventBus.emit('cockpit:action', { type: 'open_modal' });
+                      }}
+                      data-active="true"
+                      className="cinema-tile cinema-tile-amber w-full py-2 rounded-[4px] flex items-center justify-center gap-1.5 font-black tracking-wider text-[10px] cursor-pointer"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+                      <span>OPEN HUB</span>
+                    </button>
+                  </CinemaToolHUD>
                 </div>
 
                 {/* Telemetry & Spectral Overlay Toggles */}
                 <div className="pt-2 border-t border-white/[0.07] space-y-1.5">
-                  <div className="text-[9px] font-bold tracking-wider uppercase text-[#8E8E93]">
-                    TELEMETRY &amp; SPECTRAL HUD LAYERS
-                  </div>
-                  <div className="grid grid-cols-1 gap-1">
-                    <button
-                      type="button"
-                      onClick={() => eventBus.emit('cockpit:toggle_telemetry')}
-                      className={`w-full px-2.5 py-1.5 rounded-[2px] border text-[10px] font-bold flex items-center justify-between cursor-pointer transition-colors ${
-                        isTelemetryLayerOn
-                          ? 'bg-[#F59E0B]/15 border-[#F59E0B]/70 text-[#F4F4F5]'
-                          : 'bg-[#141417] border-white/[0.07] hover:border-white/20 text-[#8E8E93] hover:text-[#F4F4F5]'
-                      }`}
+                  <CinemaBadgeHeader
+                    icon={<Activity className="w-3.5 h-3.5" strokeWidth={2.2} />}
+                    label="HUD LAYERS"
+                    accent="cyan"
+                  />
+                  <div className="grid grid-cols-3 gap-1.5">
+                    <CinemaToolHUD
+                      title="MODULAR TELEMETRY RACK"
+                      en="Toggle live stage telemetry rack overlay."
+                      bn="স্টেজের ওপর লাইভ টেলিমেট্রি র‍্যাক অন বা অফ করুন।"
+                      accent="amber"
+                      blockWrapper
                     >
-                      <span>MODULAR TELEMETRY RACK</span>
-                      <span className={isTelemetryLayerOn ? 'text-[#F59E0B]' : 'text-[#8E8E93]'}>
-                        {isTelemetryLayerOn ? 'ACTIVE' : 'HIDDEN'}
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => eventBus.emit('cockpit:toggle_spectrum')}
-                      className={`w-full px-2.5 py-1.5 rounded-[2px] border text-[10px] font-bold flex items-center justify-between cursor-pointer transition-colors ${
-                        isSpectrumLayerOn
-                          ? 'bg-[#F59E0B]/15 border-[#F59E0B]/70 text-[#F4F4F5]'
-                          : 'bg-[#141417] border-white/[0.07] hover:border-white/20 text-[#8E8E93] hover:text-[#F4F4F5]'
-                      }`}
+                      <button
+                        type="button"
+                        onClick={() => eventBus.emit('cockpit:toggle_telemetry')}
+                        data-active={isTelemetryLayerOn ? 'true' : 'false'}
+                        className="cinema-tile cinema-tile-amber w-full py-2 px-1 rounded-[4px] flex flex-col items-center justify-center gap-1 font-black tracking-wider text-[10px] cursor-pointer"
+                      >
+                        <Activity className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+                        <span>TELEMETRY</span>
+                      </button>
+                    </CinemaToolHUD>
+                    <CinemaToolHUD
+                      title="SPECTRAL ENERGY ANALYZER"
+                      en="Toggle real-time audio spectrum visualizer HUD."
+                      bn="লাইভ অডিও স্পেকট্রাম এনার্জি অ্যানালাইজার অন বা অফ করুন।"
+                      accent="cyan"
+                      blockWrapper
                     >
-                      <span>SPECTRAL ENERGY ANALYZER</span>
-                      <span className={isSpectrumLayerOn ? 'text-[#F59E0B]' : 'text-[#8E8E93]'}>
-                        {isSpectrumLayerOn ? 'ACTIVE' : 'HIDDEN'}
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => eventBus.emit('cockpit:toggle_zoom')}
-                      className={`w-full px-2.5 py-1.5 rounded-[2px] border text-[10px] font-bold flex items-center justify-between cursor-pointer transition-colors ${
-                        isZoomHudLayerOn
-                          ? 'bg-[#F59E0B]/15 border-[#F59E0B]/70 text-[#F4F4F5]'
-                          : 'bg-[#141417] border-white/[0.07] hover:border-white/20 text-[#8E8E93] hover:text-[#F4F4F5]'
-                      }`}
+                      <button
+                        type="button"
+                        onClick={() => eventBus.emit('cockpit:toggle_spectrum')}
+                        data-active={isSpectrumLayerOn ? 'true' : 'false'}
+                        className="cinema-tile cinema-tile-cyan w-full py-2 px-1 rounded-[4px] flex flex-col items-center justify-center gap-1 font-black tracking-wider text-[10px] cursor-pointer"
+                      >
+                        <BarChart2 className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+                        <span>SPECTRUM</span>
+                      </button>
+                    </CinemaToolHUD>
+                    <CinemaToolHUD
+                      title="MULTI-LAYER PARALLAX ZOOM"
+                      en="Toggle 3D parallax zoom controls on stage."
+                      bn="মাল্টি-লেয়ার প্যারালাক্স জুম কন্ট্রোল ওভারলে চালু বা বন্ধ করুন।"
+                      accent="emerald"
+                      blockWrapper
                     >
-                      <span>MULTI-LAYER PARALLAX ZOOM</span>
-                      <span className={isZoomHudLayerOn ? 'text-[#F59E0B]' : 'text-[#8E8E93]'}>
-                        {isZoomHudLayerOn ? 'ACTIVE' : 'HIDDEN'}
-                      </span>
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => eventBus.emit('cockpit:toggle_zoom')}
+                        data-active={isZoomHudLayerOn ? 'true' : 'false'}
+                        className="cinema-tile cinema-tile-emerald w-full py-2 px-1 rounded-[4px] flex flex-col items-center justify-center gap-1 font-black tracking-wider text-[10px] cursor-pointer"
+                      >
+                        <Search className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+                        <span>PARALLAX</span>
+                      </button>
+                    </CinemaToolHUD>
                   </div>
                 </div>
               </div>,
@@ -2382,11 +2564,8 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             )}
         </div>
 
-        {/* ================================================================
-            RIGHT ZONE: Search, Telemetry, STUDIO, Export, Record & 3-Dots Menu
-            ================================================================ */}
+        {/* RIGHT ZONE: Search, Telemetry, GUIDE, STUDIO, TRY FREE, Export, Record & Menu */}
         <div className="flex items-center gap-1 xl:gap-1.5 min-w-0">
-          {/* Brief inline feedback notice when snapshot/cache action completes */}
           {headerNotice && (
             <span className="hidden 2xl:inline-flex items-center gap-1 text-[9.5px] font-mono text-[#F59E0B] whitespace-nowrap shrink-0">
               <Check className="w-3 h-3" />
@@ -2396,60 +2575,61 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
 
           {/* 1. Compact Command Search (Cmd+K / /) */}
           <div ref={searchContainerRef} className="relative shrink-0">
-            <div className="relative flex items-center h-[22px] w-24 sm:w-28 xl:w-32 2xl:w-44 bg-[#141417] border border-white/[0.07] hover:border-white/20 focus-within:border-[#F59E0B]/70 rounded-full px-2 gap-1 transition-colors">
-              <Search className="w-3 h-3 text-[#8E8E93] shrink-0" />
-              <input
-                ref={searchInputRef}
-                type="text"
-                aria-label="Command Search"
-                value={globalSearchQuery}
-                onChange={(e) => {
-                  setGlobalSearchQuery(e.target.value);
-                  setSearchHighlightIdx(0);
-                  if (!isGlobalSearchOpen) setIsGlobalSearchOpen(true);
-                }}
-                onFocus={() => {
-                  setActiveDropdown(null);
-                  setIsGlobalSearchOpen(true);
-                }}
-                onKeyDown={handleSearchKeyDown}
-                placeholder="Search shots, tools..."
-                className="w-full min-w-0 bg-transparent text-[10px] font-mono text-[#F4F4F5] placeholder:text-[#8E8E93] focus:outline-none"
-              />
-              {globalSearchQuery ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setGlobalSearchQuery('');
-                    searchInputRef.current?.focus();
+            <CinemaToolHUD
+              title="COMMAND SEARCH"
+              en="Search shots by number, Bangla/English title, focal length, or tool."
+              bn="যেকোনো শট নম্বর বা টুল দ্রুত খুঁজে পেতে এখানে লিখে এন্টার চাপুন।"
+              shortcut="⌘K"
+              accent="cyan"
+              side="bottom"
+            >
+              <div className="relative flex items-center h-[22px] w-24 sm:w-28 xl:w-32 2xl:w-40 bg-[#141417] border border-white/[0.07] hover:border-cyan-400/50 focus-within:border-[#F59E0B]/70 rounded-full px-2 gap-1 transition-colors">
+                <Search className="w-3 h-3 text-[#8E8E93] shrink-0" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  aria-label="Command Search"
+                  value={globalSearchQuery}
+                  onChange={(e) => {
+                    setGlobalSearchQuery(e.target.value);
+                    setSearchHighlightIdx(0);
+                    if (!isGlobalSearchOpen) setIsGlobalSearchOpen(true);
                   }}
-                  className="text-[#8E8E93] hover:text-[#F4F4F5] p-0.5 cursor-pointer shrink-0"
-                  title="Clear Search"
-                  aria-label="Clear Search"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              ) : (
-                <kbd className="hidden xl:inline-flex items-center text-[9px] font-mono text-[#8E8E93] border border-white/[0.07] bg-[#0B0B0D] rounded-[3px] px-1 py-0 pointer-events-none tabular-nums shrink-0">
-                  ⌘K
-                </kbd>
-              )}
-            </div>
+                  onFocus={() => {
+                    setActiveDropdown(null);
+                    setIsGlobalSearchOpen(true);
+                  }}
+                  onKeyDown={handleSearchKeyDown}
+                  placeholder="SEARCH..."
+                  className="w-full min-w-0 bg-transparent text-[10px] font-mono font-bold text-[#F4F4F5] placeholder:text-[#8E8E93] focus:outline-none"
+                />
+                {globalSearchQuery ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGlobalSearchQuery('');
+                      searchInputRef.current?.focus();
+                    }}
+                    className="text-[#8E8E93] hover:text-[#F4F4F5] p-0.5 cursor-pointer shrink-0"
+                    aria-label="Clear Search"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                ) : (
+                  <kbd className="hidden xl:inline-flex items-center text-[9px] font-mono text-[#8E8E93] border border-white/[0.07] bg-[#0B0B0D] rounded-[3px] px-1 py-0 pointer-events-none tabular-nums shrink-0">
+                    ⌘K
+                  </kbd>
+                )}
+              </div>
+            </CinemaToolHUD>
 
             {isGlobalSearchOpen && (
               <div
                 style={flyoutPanelStyle}
-                className="absolute top-full right-0 mt-1.5 w-80 sm:w-[420px] max-h-[460px] overflow-y-auto bg-[#0B0B0D]/96 border border-white/[0.07] rounded-[4px] shadow-[0_24px_60px_rgba(0,0,0,0.95)] p-2 space-y-1.5 z-[9999] font-mono text-xs select-none"
+                className="absolute top-full right-0 mt-1.5 w-80 sm:w-[400px] max-h-[460px] overflow-y-auto bg-[#0B0B0D]/98 border border-[#26282E] rounded-xl shadow-[0_24px_60px_rgba(0,0,0,0.95)] p-2 space-y-1.5 z-[9999] font-mono text-xs select-none"
               >
-                <div className="flex flex-col gap-1.5 px-1 pb-1.5 border-b border-white/[0.07]">
-                  <div className="flex items-center justify-between text-[9px] text-[#8E8E93] uppercase tracking-widest px-0.5">
-                    <span className="font-bold">COMMAND SEARCH · SHOTS / LENS / TOOLS</span>
-                    <span className="text-[#F59E0B] font-bold tabular-nums">
-                      {globalSearchQuery ? `${unifiedSearchResults.length} FOUND` : 'QUICK JUMP'}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-1 pt-0.5">
+                <div className="flex items-center justify-between gap-1 px-1 pb-1.5 border-b border-white/[0.07]">
+                  <div className="flex items-center gap-1">
                     {(['ALL', 'SHOTS', 'TOOLS', 'APPS'] as const).map((tab) => (
                       <button
                         key={tab}
@@ -2458,7 +2638,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                           setSearchFilterTab(tab);
                           setSearchHighlightIdx(0);
                         }}
-                        className={`px-2 py-0.5 text-[9px] font-mono font-bold rounded-[2px] tracking-wider uppercase transition-colors cursor-pointer border ${
+                        className={`px-2 py-0.5 text-[9px] font-black rounded tracking-wider uppercase transition-colors cursor-pointer border ${
                           searchFilterTab === tab
                             ? 'bg-[#F59E0B]/15 text-[#F4F4F5] border-[#F59E0B]/60'
                             : 'bg-[#141417] text-[#8E8E93] border-white/[0.07] hover:text-[#F4F4F5]'
@@ -2468,21 +2648,24 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                       </button>
                     ))}
                   </div>
+                  <span className="text-[#F59E0B] text-[9px] font-black tabular-nums">
+                    {unifiedSearchResults.length}
+                  </span>
                 </div>
 
                 <div className="py-1 space-y-0.5">
                   {unifiedSearchResults.length === 0 ? (
-                    <div className="p-5 text-center text-[#8E8E93] text-xs font-mono space-y-2">
-                      <p>No results match &ldquo;{globalSearchQuery}&rdquo;</p>
+                    <div className="p-4 text-center text-[#8E8E93] text-[10px] font-black uppercase space-y-2">
+                      <div>NO MATCH</div>
                       <button
                         type="button"
                         onClick={() => {
                           setIsGlobalSearchOpen(false);
                           setIsAppsModalOpen(true);
                         }}
-                        className="text-[10px] text-[#F59E0B] hover:underline font-bold cursor-pointer"
+                        className="text-[10px] text-[#F59E0B] hover:underline font-black cursor-pointer uppercase"
                       >
-                        Browse All 28 Ecosystem Apps
+                        ALL APPS
                       </button>
                     </div>
                   ) : (
@@ -2494,170 +2677,147 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                           type="button"
                           onClick={() => handleSelectSearchResult(item)}
                           onMouseEnter={() => setSearchHighlightIdx(idx)}
-                          className={`w-full px-2.5 py-2 rounded-[3px] flex items-center justify-between gap-3 text-left transition-colors cursor-pointer border ${
+                          className={`w-full px-2.5 py-1.5 rounded-lg flex items-center justify-between gap-2 text-left transition-colors cursor-pointer border ${
                             isSelected
                               ? 'bg-[#141417] border-[#F59E0B]/50 text-[#F4F4F5]'
                               : 'bg-transparent border-transparent text-[#F4F4F5]/85 hover:bg-[#141417]/70'
                           }`}
                         >
-                          <div className="shrink-0 flex items-center justify-center">
-                            {item.type === 'shot' ? (
-                              item.thumbnailUrl ? (
-                                <div className="w-9 h-7 rounded-[2px] overflow-hidden border border-white/[0.07] bg-[#0B0B0D] shrink-0">
-                                  <img
-                                    src={item.thumbnailUrl}
-                                    alt=""
-                                    className="w-full h-full object-cover"
-                                    loading="lazy"
-                                  />
-                                </div>
-                              ) : (
-                                <div className="w-8 h-7 rounded-[2px] border border-white/[0.07] flex items-center justify-center bg-[#141417] text-[9px] font-mono text-[#F59E0B] font-bold tabular-nums">
-                                  #{String((item.shotIndex ?? 0) + 1).padStart(2, '0')}
-                                </div>
-                              )
-                            ) : item.type === 'panel' ? (
-                              <div className="w-8 h-7 rounded-[2px] border border-white/[0.07] bg-[#141417] flex items-center justify-center text-[#8E8E93]">
-                                <LayoutGrid className="w-3.5 h-3.5" />
-                              </div>
-                            ) : item.type === 'studio-tool' ? (
-                              <div className="w-8 h-7 rounded-[2px] border border-[#F59E0B]/30 bg-[#F59E0B]/10 flex items-center justify-center text-[#F59E0B]">
-                                <Zap className="w-3.5 h-3.5" />
-                              </div>
-                            ) : (
-                              <div className="w-8 h-7 rounded-[2px] border border-white/[0.07] bg-[#141417] flex items-center justify-center text-[#8E8E93]">
-                                <ExternalLink className="w-3.5 h-3.5" />
-                              </div>
-                            )}
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#111215] border border-[#26282E] font-black text-amber-400 tabular-nums shrink-0">
+                              {item.badge}
+                            </span>
+                            <span className="font-black text-[10.5px] uppercase tracking-wider truncate">
+                              {item.title}
+                            </span>
                           </div>
-
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-[11px] truncate">{item.title}</span>
-                              <span
-                                className={`text-[8px] px-1.5 py-0.2 rounded-[2px] border font-semibold uppercase tracking-wider tabular-nums shrink-0 ${
-                                  item.badgeColor || 'text-[#8E8E93] bg-[#141417] border-white/[0.07]'
-                                }`}
-                              >
-                                {item.badge}
-                              </span>
-                            </div>
-                            <p className="text-[9.5px] text-[#8E8E93] truncate mt-0.5">{item.sub}</p>
-                          </div>
-
                           <span className="text-[9px] text-[#8E8E93] shrink-0">↵</span>
                         </button>
                       );
                     })
                   )}
                 </div>
-
-                <div className="pt-1.5 border-t border-white/[0.07] flex items-center justify-between px-2 text-[9px] text-[#8E8E93] font-mono">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsGlobalSearchOpen(false);
-                      setIsAppsModalOpen(true);
-                    }}
-                    className="text-[#F59E0B] hover:underline font-bold tracking-wider uppercase cursor-pointer"
-                  >
-                    VIEW ALL 28 APPS
-                  </button>
-                  <span>[ESC] CLOSE · [/] FOCUS</span>
-                </div>
               </div>
             )}
           </div>
 
-          {/* 2. Live Engine Telemetry (visible on wider desktops 2xl+) */}
-          <div
-            className="hidden 2xl:flex h-[22px] px-2 rounded-full bg-[#141417] border border-white/[0.07] items-center gap-1.5 font-mono text-[9px] tabular-nums whitespace-nowrap shrink-0"
-            title={`Engine Telemetry: ${resolvedFps} FPS · ${resolvedAspectRatio} · ${vaultClipCount} Clips in Vault/OPFS`}
+          {/* 2. Live Engine Telemetry */}
+          <CinemaToolHUD
+            title="ENGINE TELEMETRY"
+            en={`Running at ${resolvedFps} FPS · ${resolvedAspectRatio} scope · ${vaultClipCount} clips loaded.`}
+            bn="বর্তমান প্রজেক্টের ফ্রেম রেট, আসপেক্ট রেশিও ও ক্লিপ সংখ্যা দেখাচ্ছে।"
+            accent="amber"
+            side="bottom"
           >
-            <span className="text-[#F4F4F5] font-semibold">{resolvedFps} FPS</span>
-            <span aria-hidden="true" className="text-[#8E8E93]">·</span>
-            <span className="text-[#F59E0B] font-semibold">{resolvedAspectRatio}</span>
-            <span aria-hidden="true" className="text-[#8E8E93]">·</span>
-            <span className="text-[#8E8E93] font-semibold">
-              {vaultClipCount} {vaultClipCount === 1 ? 'CLIP' : 'CLIPS'}
-            </span>
-          </div>
+            <div className="hidden 2xl:flex h-[22px] px-2 rounded-full bg-[#141417] border border-white/[0.07] items-center gap-1.5 font-mono text-[9px] tabular-nums whitespace-nowrap shrink-0">
+              <span className="text-[#F4F4F5] font-semibold">{resolvedFps} FPS</span>
+              <span aria-hidden="true" className="text-[#8E8E93]">·</span>
+              <span className="text-[#F59E0B] font-semibold">{resolvedAspectRatio}</span>
+              <span aria-hidden="true" className="text-[#8E8E93]">·</span>
+              <span className="text-[#8E8E93] font-semibold">{vaultClipCount}</span>
+            </div>
+          </CinemaToolHUD>
 
-          {/* 3. STUDIO Red Pill Button (Enters Studio from Home; toggles Focus Mode in Studio) */}
-          <button
-            type="button"
-            data-transport-sharp="true"
-            aria-pressed={currentView === 'STUDIO' ? isZenMode : false}
-            onClick={handleStudioOrFocusToggle}
-            style={{ '--item-accent': '#E50914' } as React.CSSProperties}
-            title={
+          {/* 2b. Global ? Guide Toggle */}
+          <CinemaGuideToggleButton compact className="h-[22px] min-h-[22px] px-1.5" />
+
+          {/* 3. STUDIO Red Pill Button */}
+          <CinemaToolHUD
+            title={currentView === 'HOME' ? 'LAUNCH STUDIO' : isZenMode ? 'EXIT FOCUS MODE' : 'FOCUS ZEN MODE'}
+            en={
               currentView === 'HOME'
-                ? 'Enter Active Cinema Studio'
-                : isZenMode
-                ? 'Focus Mode Active — Click to Restore Side Rail & Dock (Z)'
-                : 'STUDIO — Click to Toggle Focus Mode (Z)'
+                ? 'Enter the full 24fps NLE studio.'
+                : 'Toggle clean full-screen cinema focus mode hiding side rails.'
             }
-            className={`nle-editorial-btn h-[22px] px-2 rounded-full font-mono text-[9.5px] font-black tracking-[0.11em] uppercase flex items-center gap-1 whitespace-nowrap shrink-0 cursor-pointer active:scale-[0.97] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#E50914] ${
-              currentView === 'STUDIO' && isZenMode
-                ? 'bg-[#E50914] border border-red-400 text-white shadow-[0_0_16px_rgba(229,9,20,0.65)]'
-                : 'bg-[#E50914]/90 hover:bg-[#E50914] border border-red-500/70 text-white shadow-[0_0_10px_rgba(229,9,20,0.4)]'
-            }`}
+            bn="সাইডবার লুকিয়ে বড় স্ক্রিনে ভিডিও দেখতে STUDIO বা Z কী চাপুন।"
+            shortcut="Z"
+            accent="crimson"
+            side="bottom"
           >
-            {currentView === 'STUDIO' && isZenMode && (
-              <Minimize2 className="w-2.5 h-2.5 text-white shrink-0" />
-            )}
-            <span>STUDIO</span>
-          </button>
+            <button
+              type="button"
+              data-transport-sharp="true"
+              aria-pressed={currentView === 'STUDIO' ? isZenMode : false}
+              onClick={handleStudioOrFocusToggle}
+              style={{ '--item-accent': '#E50914' } as React.CSSProperties}
+              className={`nle-editorial-btn h-[22px] px-2 rounded-full font-mono text-[9.5px] font-black tracking-[0.11em] uppercase flex items-center gap-1 whitespace-nowrap shrink-0 cursor-pointer active:scale-[0.97] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#E50914] ${
+                currentView === 'STUDIO' && isZenMode
+                  ? 'bg-[#E50914] border border-red-400 text-white shadow-[0_0_16px_rgba(229,9,20,0.65)]'
+                  : 'bg-[#E50914]/90 hover:bg-[#E50914] border border-red-500/70 text-white shadow-[0_0_10px_rgba(229,9,20,0.4)]'
+              }`}
+            >
+              {currentView === 'STUDIO' && isZenMode && (
+                <Minimize2 className="w-2.5 h-2.5 text-white shrink-0" />
+              )}
+              <span>STUDIO</span>
+            </button>
+          </CinemaToolHUD>
 
-          {/* 3b. Unified CapCut-Style Primary CTA: TRY FREE / DOWNLOAD */}
-          <button
-            type="button"
-            data-testid="header-try-download-btn"
-            data-transport-sharp="true"
-            onClick={() => openOnboardingFlow()}
-            title={
+          {/* 3b. Unified Primary CTA: TRY FREE */}
+          <CinemaToolHUD
+            title="HANDFILM STUDIO DOWNLOAD"
+            en={
               license?.authenticated
-                ? `Account: ${license.email} (${license.tier === 'pro' ? (license.proTier || 'pro').toUpperCase() : license.tier === 'trial' ? `TRIAL · ${license.daysRemaining}D LEFT` : 'FREE'}) — Manage Plan or Download Desktop/Android`
-                : 'Try Free for 30 Days & Download HandFilm Studio (Windows .EXE / Android .APK / Web)'
+                ? `Active plan: ${(license.proTier || license.tier).toUpperCase()}. Manage account or installers.`
+                : 'Start 30-day free trial or download Windows .EXE & Android .APK.'
             }
-            className="h-[22px] px-2.5 rounded-full bg-gradient-to-r from-[#22D3EE] via-[#38BDF8] to-[#F59E0B] hover:brightness-110 text-[#0B0B0D] font-space-grotesk text-[9.5px] font-black tracking-[0.06em] uppercase flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer active:scale-[0.98] transition-all shadow-[0_0_14px_rgba(34,211,238,0.28)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-300"
+            bn="৩০ দিনের ফ্রি ট্রায়াল নিতে বা পিসি/অ্যান্ড্রয়েড অ্যাপ নামাতে TRY FREE চাপুন।"
+            accent="cyan"
+            side="bottom"
           >
-            <Download className="w-2.5 h-2.5 shrink-0 stroke-[2.5]" />
-            <span>TRY FREE / DOWNLOAD</span>
-          </button>
+            <button
+              type="button"
+              data-testid="header-try-download-btn"
+              data-transport-sharp="true"
+              onClick={() => openOnboardingFlow()}
+              className="h-[22px] px-2.5 rounded-full bg-gradient-to-r from-[#22D3EE] via-[#38BDF8] to-[#F59E0B] hover:brightness-110 text-[#0B0B0D] font-space-grotesk text-[9.5px] font-black tracking-[0.06em] uppercase flex items-center gap-1 whitespace-nowrap shrink-0 cursor-pointer active:scale-[0.98] transition-all shadow-[0_0_14px_rgba(34,211,238,0.28)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-300"
+            >
+              <Download className="w-2.5 h-2.5 shrink-0 stroke-[2.5]" />
+              <span>TRY FREE</span>
+            </button>
+          </CinemaToolHUD>
 
           {/* 4. Circular Golden Export Action Button */}
-          <button
-            type="button"
-            data-transport-sharp="true"
-            onClick={handleTriggerExport}
-            aria-label="Export Master Render"
-            title="Open Unified Render & Export Studio (⌘E)"
-            style={{ '--item-accent': '#F59E0B' } as React.CSSProperties}
-            className="nle-editorial-btn w-[22px] h-[22px] rounded-full bg-[#18150D] hover:bg-[#F59E0B] border border-[#F59E0B]/55 text-[#F59E0B] hover:text-[#0B0B0D] flex items-center justify-center shrink-0 cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F59E0B] shadow-[0_0_10px_rgba(245,158,11,0.25)]"
-          >
-            <Download className="w-2.5 h-2.5 shrink-0" />
-          </button>
+          <CinemaToolHUD hudId="export-4k" shortcut="⌘E" side="bottom">
+            <button
+              type="button"
+              data-transport-sharp="true"
+              onClick={handleTriggerExport}
+              aria-label="Export Master Render"
+              style={{ '--item-accent': '#F59E0B' } as React.CSSProperties}
+              className="nle-editorial-btn w-[22px] h-[22px] rounded-full bg-[#18150D] hover:bg-[#F59E0B] border border-[#F59E0B]/55 text-[#F59E0B] hover:text-[#0B0B0D] flex items-center justify-center shrink-0 cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F59E0B] shadow-[0_0_10px_rgba(245,158,11,0.25)]"
+            >
+              <Download className="w-2.5 h-2.5 shrink-0" />
+            </button>
+          </CinemaToolHUD>
 
-          {/* 5. Circular Screen & Audio Record Button (Crimson Red reserved strictly for Record trigger) */}
-          <button
-            type="button"
-            data-transport-sharp="true"
-            onClick={() => {
-              setActiveDropdown(null);
-              if (onOpenRecorder) onOpenRecorder();
-              else eventBus.emit('recorder:open');
-            }}
-            aria-label="Screen and Audio Recorder"
-            title="Screen & Audio Recorder Studio (Alt+R)"
-            style={{ '--item-accent': '#E50914' } as React.CSSProperties}
-            className="nle-editorial-btn w-[22px] h-[22px] rounded-full bg-[#141417] hover:bg-[#E50914]/15 border border-white/[0.1] hover:border-[#E50914]/75 flex items-center justify-center shrink-0 cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#E50914]"
+          {/* 5. Circular Screen & Audio Record Button */}
+          <CinemaToolHUD
+            title="4K SCREEN & VOICE RECORDER"
+            en="Capture screen video & microphone voiceover directly to Vault."
+            bn="স্ক্রিন বা ভয়েস রেকর্ড করতে লাল ডট বাটনে চাপুন।"
+            shortcut="Alt+R"
+            accent="crimson"
+            side="bottom"
           >
-            <span
-              aria-hidden="true"
-              className="w-2 h-2 rounded-full bg-[#E50914] shadow-[0_0_8px_rgba(229,9,20,0.85)]"
-            />
-          </button>
+            <button
+              type="button"
+              data-transport-sharp="true"
+              onClick={() => {
+                setActiveDropdown(null);
+                if (onOpenRecorder) onOpenRecorder();
+                else eventBus.emit('recorder:open');
+              }}
+              aria-label="Screen and Audio Recorder"
+              style={{ '--item-accent': '#E50914' } as React.CSSProperties}
+              className="nle-editorial-btn w-[22px] h-[22px] rounded-full bg-[#141417] hover:bg-[#E50914]/15 border border-white/[0.1] hover:border-[#E50914]/75 flex items-center justify-center shrink-0 cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#E50914]"
+            >
+              <span
+                aria-hidden="true"
+                className="w-2 h-2 rounded-full bg-[#E50914] shadow-[0_0_8px_rgba(229,9,20,0.85)]"
+              />
+            </button>
+          </CinemaToolHUD>
 
           {/* 6. Three-Dots Whole Overflow Workspace Dropdown Menu */}
           <OverflowSettingsMenu
@@ -2833,83 +2993,94 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-3 border-b border-white/[0.07]">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-[4px] bg-[#141417] border border-white/[0.07] text-[#F59E0B]">
-                  <Database className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-xs sm:text-sm font-bold text-[#F4F4F5] tracking-wider uppercase">
-                    OPFS &amp; IndexedDB Cache Manager
-                  </h3>
-                  <p className="text-[10px] text-[#8E8E93]">
-                    Local Media Proxy Buffers &amp; Browser Vault Telemetry
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsCacheManagerOpen(false)}
-                className="p-1.5 rounded-[3px] bg-[#141417] hover:bg-[#1B1B20] border border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5] transition-colors cursor-pointer"
-                aria-label="Close Cache Manager"
+              <CinemaBadgeHeader
+                icon={<Database className="w-4 h-4" strokeWidth={2.2} />}
+                label="CACHE VAULT"
+                accent="amber"
+              />
+              <CinemaToolHUD
+                title="CLOSE CACHE MANAGER"
+                en="Dismiss storage cache inspector."
+                bn="ক্যাশ ম্যানেজার বন্ধ করতে চাপুন।"
+                accent="crimson"
               >
-                <X className="w-4 h-4" />
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setIsCacheManagerOpen(false)}
+                  className="cinema-tile cinema-tile-crimson p-2 rounded-[4px] min-h-[40px] cursor-pointer"
+                  aria-label="Close Cache Manager"
+                >
+                  <X className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                </button>
+              </CinemaToolHUD>
             </div>
 
             <div className="grid grid-cols-2 gap-3 text-xs tabular-nums">
-              <div className="p-3.5 rounded-[4px] bg-[#141417] border border-white/[0.07]">
-                <div className="text-[10px] text-[#8E8E93] uppercase mb-1">Active Vault Usage</div>
-                <div className="text-base font-bold text-[#F4F4F5]">
+              <div className="p-3.5 rounded-[4px] bg-[#111215] border border-[#26282E]">
+                <div className="text-[10px] text-[#8E8E93] font-black tracking-wider uppercase mb-1">USED</div>
+                <div className="text-base font-black text-[#F4F4F5]">
                   {(cacheUsageBytes / (1024 * 1024)).toFixed(2)} MB
                 </div>
               </div>
-              <div className="p-3.5 rounded-[4px] bg-[#141417] border border-white/[0.07]">
-                <div className="text-[10px] text-[#8E8E93] uppercase mb-1">Available Quota</div>
-                <div className="text-base font-bold text-[#F59E0B]">
+              <div className="p-3.5 rounded-[4px] bg-[#111215] border border-[#26282E]">
+                <div className="text-[10px] text-[#8E8E93] font-black tracking-wider uppercase mb-1">QUOTA</div>
+                <div className="text-base font-black text-[#F59E0B]">
                   {cacheQuotaBytes > 0
                     ? `${(cacheQuotaBytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
-                    : 'Unlimited'}
+                    : 'UNLIMITED'}
                 </div>
               </div>
             </div>
 
-            <p className="text-xs text-[#8E8E93] leading-relaxed">
-              Purging clears OPFS proxy/media cache and temporary canvas bitmaps from IndexedDB without deleting saved storyboard metadata.
-            </p>
-
             {cachePurgeFeedback && (
-              <div className="p-3 rounded-[4px] bg-[#141417] border border-[#F59E0B]/50 text-[#F4F4F5] text-xs flex items-center gap-2">
+              <div className="p-3 rounded-[4px] bg-[#111215] border border-[#F59E0B]/50 text-[#F4F4F5] text-xs font-bold flex items-center gap-2">
                 <Check className="w-4 h-4 text-[#F59E0B] shrink-0" />
                 <span>{cachePurgeFeedback}</span>
               </div>
             )}
 
             <div className="pt-2 border-t border-white/[0.07] flex items-center justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setIsCacheManagerOpen(false)}
-                className="px-4 py-2 rounded-[4px] bg-[#141417] hover:bg-[#1B1B20] border border-white/[0.07] text-xs font-bold text-[#8E8E93] hover:text-[#F4F4F5] transition-colors cursor-pointer"
+              <CinemaToolHUD
+                title="CLOSE MANAGER"
+                en="Return to the studio without purging cache."
+                bn="ক্যাশ পরিষ্কার না করেই স্টুডিওতে ফিরে যান।"
+                accent="cyan"
               >
-                Close
-              </button>
-              <button
-                type="button"
-                disabled={isPurgingCache}
-                onClick={handleExecuteCachePurge}
-                className="px-4 py-2 rounded-[4px] bg-[#F59E0B]/15 hover:bg-[#F59E0B] border border-[#F59E0B]/60 text-xs font-bold text-[#F4F4F5] hover:text-[#0B0B0D] transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                <button
+                  type="button"
+                  onClick={() => setIsCacheManagerOpen(false)}
+                  className="cinema-tile cinema-tile-cyan px-4 py-2 min-h-[44px] rounded-[4px] flex items-center gap-1.5 text-[11px] font-black tracking-wider uppercase cursor-pointer"
+                >
+                  <X className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                  <span>CLOSE</span>
+                </button>
+              </CinemaToolHUD>
+              <CinemaToolHUD
+                title="PURGE OPFS & INDEXEDDB CACHE"
+                en="Clear temporary media proxy buffers while keeping storyboard data safe."
+                bn="স্টোরিবোর্ড ডেটা অক্ষত রেখে অস্থায়ী মিডিয়া ক্যাশ মুছে ফেলতে PURGE চাপুন।"
+                accent="crimson"
               >
-                {isPurgingCache ? (
-                  <>
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>Purging...</span>
-                  </>
-                ) : (
-                  <>
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Purge Cache</span>
-                  </>
-                )}
-              </button>
+                <button
+                  type="button"
+                  disabled={isPurgingCache}
+                  onClick={handleExecuteCachePurge}
+                  data-active={isPurgingCache ? 'true' : 'false'}
+                  className="cinema-tile cinema-tile-crimson px-4 py-2 min-h-[44px] rounded-[4px] text-[11px] font-black tracking-wider uppercase flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {isPurgingCache ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin cinema-tile-icon" strokeWidth={2.2} />
+                      <span>PURGING</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                      <span>PURGE CACHE</span>
+                    </>
+                  )}
+                </button>
+              </CinemaToolHUD>
             </div>
           </div>
         </div>

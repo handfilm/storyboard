@@ -25,9 +25,9 @@ import {
   Server
 } from 'lucide-react';
 import { audioEngine } from '../../utils/audioEngine';
+import { CinemaToolHUD, CinemaBadgeHeader } from '../../components/ui/CinemaToolHUD';
 
 export const CloudR2SlidePanel: React.FC = () => {
-  // Credentials in localStorage
   const [accountId, setAccountId] = useState(() => {
     try {
       return localStorage.getItem('handfilm_r2_account_id') || 'cf-r2-dhaka-node-01';
@@ -53,15 +53,11 @@ export const CloudR2SlidePanel: React.FC = () => {
   });
 
   const [savedBadge, setSavedBadge] = useState(false);
-
-  // Sync state
   const [backupProgress, setBackupProgress] = useState<number | null>(null);
   const [backupChunk, setBackupChunk] = useState<string>('');
   const [cloneProgress, setCloneProgress] = useState<number | null>(null);
   const [cloneStatus, setCloneStatus] = useState<string>('');
-
-  // Telemetry
-  const [latencyMs, setLatencyMs] = useState(28);
+  const [latencyMs] = useState(28);
 
   const handleSaveCredentials = (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,14 +71,13 @@ export const CloudR2SlidePanel: React.FC = () => {
     setTimeout(() => setSavedBadge(false), 2500);
   };
 
-  // Chunked upload simulation
   const handleBackupToR2 = () => {
     try {
       audioEngine.playShutterClick();
     } catch {}
 
     setBackupProgress(0);
-    setBackupChunk('Initializing multi-part S3 upload (100 shots)...');
+    setBackupChunk('SYNCING 0/100');
 
     let current = 0;
     const interval = setInterval(() => {
@@ -90,23 +85,22 @@ export const CloudR2SlidePanel: React.FC = () => {
       if (current >= 100) {
         clearInterval(interval);
         setBackupProgress(100);
-        setBackupChunk('✓ Complete: 100 shots synced to Cloudflare R2 (1.4 GB / 0 egress).');
+        setBackupChunk('100/100 SYNCED');
         setTimeout(() => setBackupProgress(null), 4000);
       } else {
         setBackupProgress(current);
-        setBackupChunk(`Chunk ${Math.round(current)}/100 • Transfer speed: 48.2 MB/s • AES-256`);
+        setBackupChunk(`CHUNK ${Math.round(current)}/100`);
       }
     }, 250);
   };
 
-  // Clone cloud reel to browser
   const handleCloneToBrowser = () => {
     try {
       audioEngine.playShutterClick();
     } catch {}
 
     setCloneProgress(0);
-    setCloneStatus('Fetching 100-shot media index from bucket...');
+    setCloneStatus('FETCHING INDEX');
 
     let current = 0;
     const interval = setInterval(() => {
@@ -114,190 +108,198 @@ export const CloudR2SlidePanel: React.FC = () => {
       if (current >= 100) {
         clearInterval(interval);
         setCloneProgress(100);
-        setCloneStatus('✓ Synced 100 master shots into IndexedDB for zero-latency offline play!');
+        setCloneStatus('100 SHOTS READY');
         setTimeout(() => setCloneProgress(null), 4000);
       } else {
         setCloneProgress(current);
-        setCloneStatus(`Hydrating local store: Shot ${Math.round(current)} of 100 synced`);
+        setCloneStatus(`SHOT ${Math.round(current)}/100`);
       }
     }, 280);
   };
 
   return (
-    <div className="space-y-6">
-      {/* 1. Header Banner */}
-      <div className="bg-[#12131a] border border-[#F5A623]/40 rounded p-4 relative overflow-hidden shadow-[0_0_20px_rgba(245,166,35,0.15)]">
-        <div className="flex items-center gap-2 text-[#F5A623] mb-1">
-          <Cloud className="w-4 h-4 animate-pulse" />
-          <span className="font-mono-tech text-[11px] font-bold tracking-widest uppercase">
-            [ MODULE 13 // CLOUDFLARE R2 VAULT ]
-          </span>
-        </div>
-        <p className="text-xs text-zinc-400 font-mono-tech">
-          Zero-egress S3 byte-range streaming & resilient local-to-cloud sync
-        </p>
-      </div>
+    <div className="space-y-4">
+      <CinemaBadgeHeader
+        icon={<Cloud className="w-4 h-4" strokeWidth={2.2} />}
+        label="R2 VAULT"
+        accent="amber"
+      />
 
-      {/* 2. Credentials HUD */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5 text-xs font-mono-tech font-bold text-white uppercase tracking-wider">
-            <Lock className="w-3.5 h-3.5 text-[#F5A623]" />
-            <span>Credentials HUD (Local Encrypted)</span>
-          </div>
-          {savedBadge && (
-            <span className="text-[10px] font-mono-tech text-emerald-400 flex items-center gap-1 animate-in fade-in">
-              <CheckCircle2 className="w-3 h-3" /> SAVED
-            </span>
-          )}
-        </div>
+      {/* Credentials HUD */}
+      <div className="space-y-2.5">
+        <CinemaBadgeHeader
+          icon={<Lock className="w-3.5 h-3.5" strokeWidth={2.2} />}
+          label="CREDENTIALS"
+          accent="amber"
+          rightSlot={
+            savedBadge ? (
+              <span className="text-[10px] font-black text-emerald-400 flex items-center gap-1 uppercase">
+                <CheckCircle2 className="w-3.5 h-3.5" /> SAVED
+              </span>
+            ) : undefined
+          }
+        />
 
-        <form onSubmit={handleSaveCredentials} className="space-y-2.5 font-mono-tech text-[11px]">
+        <form onSubmit={handleSaveCredentials} className="space-y-2 font-mono-tech text-[11px]">
           <div>
-            <label className="text-[10px] text-zinc-400 mb-1 block uppercase">Account ID:</label>
+            <label className="text-[10px] font-black tracking-wider text-zinc-400 mb-1 block uppercase">ACCOUNT ID</label>
             <input
               type="text"
               value={accountId}
               onChange={(e) => setAccountId(e.target.value)}
-              placeholder="e.g. cf-r2-dhaka-node-01"
-              className="w-full bg-black/60 border border-white/15 rounded px-3 py-1.5 text-zinc-200 focus:outline-none focus:border-[#F5A623]"
+              placeholder="cf-r2-dhaka-node-01"
+              className="w-full bg-black/60 border border-[#26282E] rounded px-3 py-2 text-zinc-200 focus:outline-none focus:border-[#F59E0B]"
             />
           </div>
 
           <div>
-            <label className="text-[10px] text-zinc-400 mb-1 block uppercase">Access Key ID:</label>
+            <label className="text-[10px] font-black tracking-wider text-zinc-400 mb-1 block uppercase">ACCESS KEY</label>
             <input
               type="password"
               value={accessKey}
               onChange={(e) => setAccessKey(e.target.value)}
-              placeholder="e.g. r2_ak_..."
-              className="w-full bg-black/60 border border-white/15 rounded px-3 py-1.5 text-zinc-200 focus:outline-none focus:border-[#F5A623]"
+              placeholder="r2_ak_..."
+              className="w-full bg-black/60 border border-[#26282E] rounded px-3 py-2 text-zinc-200 focus:outline-none focus:border-[#F59E0B]"
             />
           </div>
 
           <div>
-            <label className="text-[10px] text-zinc-400 mb-1 block uppercase">Bucket Name:</label>
+            <label className="text-[10px] font-black tracking-wider text-zinc-400 mb-1 block uppercase">BUCKET</label>
             <input
               type="text"
               value={bucketName}
               onChange={(e) => setBucketName(e.target.value)}
-              placeholder="e.g. handfilm-master-vault"
-              className="w-full bg-black/60 border border-white/15 rounded px-3 py-1.5 text-zinc-200 focus:outline-none focus:border-[#F5A623]"
+              placeholder="handfilm-master-vault"
+              className="w-full bg-black/60 border border-[#26282E] rounded px-3 py-2 text-zinc-200 focus:outline-none focus:border-[#F59E0B]"
             />
           </div>
 
-          <button
-            type="submit"
-            className="w-full py-1.5 bg-white/10 hover:bg-[#F5A623] hover:text-black font-bold uppercase tracking-wider text-[10px] rounded transition-colors cursor-pointer"
+          <CinemaToolHUD
+            title="SAVE R2 CREDENTIALS"
+            en="Store Cloudflare R2 Account ID, Access Key, and Bucket locally."
+            bn="ব্রাউজারের লোকাল স্টোরেজে R2 বাকেট ও কী সংরক্ষণ করতে SAVE KEYS চাপুন।"
+            accent="amber"
+            blockWrapper
           >
-            Save Credentials in LocalStorage
-          </button>
+            <button
+              type="submit"
+              className="cinema-tile cinema-tile-amber w-full min-h-[44px] py-2 font-black uppercase tracking-wider text-[11px] rounded-md flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <Key className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+              <span>SAVE KEYS</span>
+            </button>
+          </CinemaToolHUD>
         </form>
       </div>
 
-      {/* 3. Local Vault vs Cloud Telemetry Gauge */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between text-xs font-mono-tech font-bold uppercase tracking-wider text-white">
-          <div className="flex items-center gap-1.5">
-            <Activity className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Telemetry: Local Vault vs Cloud</span>
-          </div>
-          <span className="text-[10px] text-emerald-400 font-mono-tech flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            {latencyMs}ms LATENCY
-          </span>
-        </div>
+      {/* Telemetry Gauge */}
+      <div className="space-y-2">
+        <CinemaBadgeHeader
+          icon={<Activity className="w-3.5 h-3.5" strokeWidth={2.2} />}
+          label="VAULT LINK"
+          accent="cyan"
+          rightSlot={
+            <span className="text-[10px] font-black text-emerald-400 flex items-center gap-1 uppercase">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              {latencyMs}ms
+            </span>
+          }
+        />
 
-        <div className="bg-[#101117] border border-white/10 rounded p-3 space-y-3 font-mono-tech text-[10.5px]">
-          {/* IndexedDB Gauge */}
+        <div className="bg-[#111215] border border-[#26282E] rounded-md p-3 space-y-2.5 font-mono-tech text-[10.5px]">
           <div>
             <div className="flex items-center justify-between text-zinc-300 mb-1">
-              <span className="flex items-center gap-1">
-                <HardDrive className="w-3 h-3 text-[#F5A623]" />
-                IndexedDB Local:
+              <span className="flex items-center gap-1 font-black uppercase">
+                <HardDrive className="w-3.5 h-3.5 text-[#F59E0B]" />
+                INDEXEDDB
               </span>
-              <span className="font-bold text-white">1.4 GB / 50 GB (2.8%)</span>
+              <span className="font-black text-white">1.4 / 50 GB</span>
             </div>
             <div className="w-full h-2 bg-black/60 rounded-full overflow-hidden border border-white/10">
-              <div className="h-full bg-gradient-to-r from-[#F5A623] to-[#e09612] w-[2.8%]" />
+              <div className="h-full bg-[#F59E0B] w-[2.8%]" />
             </div>
           </div>
 
-          {/* Cloudflare R2 Gauge */}
           <div>
             <div className="flex items-center justify-between text-zinc-300 mb-1">
-              <span className="flex items-center gap-1">
-                <Server className="w-3 h-3 text-cyan-400" />
-                Cloudflare R2:
+              <span className="flex items-center gap-1 font-black uppercase">
+                <Server className="w-3.5 h-3.5 text-cyan-400" />
+                CLOUD R2
               </span>
-              <span className="font-bold text-cyan-300">Connected ({latencyMs}ms)</span>
+              <span className="font-black text-cyan-300">ONLINE</span>
             </div>
             <div className="w-full h-2 bg-black/60 rounded-full overflow-hidden border border-white/10">
-              <div className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 w-[100%]" />
+              <div className="h-full bg-cyan-400 w-[100%]" />
             </div>
-          </div>
-
-          <div className="pt-1 text-[9.5px] text-zinc-400 flex items-center justify-between border-t border-white/5">
-            <span>S3 BYTE-RANGE PROTOCOL:</span>
-            <span className="text-emerald-400 font-bold">READY (ZERO-EGRESS)</span>
           </div>
         </div>
       </div>
 
-      {/* 4. Sync Control Matrix */}
-      <div className="space-y-2.5 pt-1">
-        <button
-          type="button"
-          onClick={handleBackupToR2}
-          disabled={backupProgress !== null}
-          className="w-full py-3 px-4 bg-gradient-to-r from-[#F5A623] to-[#e09612] hover:from-[#ffb43b] hover:to-[#f5a623] text-black font-mono-tech font-bold text-xs uppercase tracking-wider rounded shadow-[0_0_15px_rgba(245,166,35,0.3)] flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.98] disabled:opacity-50"
+      {/* Sync Control Matrix */}
+      <div className="grid grid-cols-2 gap-2 pt-1">
+        <CinemaToolHUD
+          title="BACKUP LOCAL VAULT TO R2"
+          en="Upload local IndexedDB storyboard assets to Cloudflare R2 bucket."
+          bn="লোকাল ব্রাউজারের সব শট ক্লাউডফ্লেয়ার R2-এ ব্যাকআপ রাখতে চাপুন।"
+          accent="amber"
+          blockWrapper
         >
-          <UploadCloud className="w-4 h-4" />
-          <span>[ ☁ BACKUP LOCAL VAULT TO R2 ]</span>
-        </button>
+          <button
+            type="button"
+            onClick={handleBackupToR2}
+            disabled={backupProgress !== null}
+            data-active={backupProgress !== null ? 'true' : 'false'}
+            className="cinema-tile cinema-tile-amber w-full min-h-[56px] py-2.5 px-2 font-black text-[10px] sm:text-[11px] uppercase tracking-wider rounded-lg flex flex-col items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
+          >
+            <UploadCloud className="w-5 h-5 cinema-tile-icon" strokeWidth={2.2} />
+            <span>BACKUP R2</span>
+          </button>
+        </CinemaToolHUD>
 
-        {backupProgress !== null && (
-          <div className="p-3 bg-black/60 border border-[#F5A623]/40 rounded font-mono-tech text-[10.5px] space-y-1.5 animate-in fade-in">
-            <div className="flex justify-between text-zinc-300">
-              <span>Syncing chunked assets...</span>
-              <span className="text-[#F5A623] font-bold">{backupProgress}%</span>
-            </div>
-            <div className="w-full h-2 bg-black rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-[#F5A623] transition-all duration-200"
-                style={{ width: `${backupProgress}%` }}
-              />
-            </div>
-            <div className="text-[9.5px] text-zinc-400 truncate">{backupChunk}</div>
-          </div>
-        )}
-
-        <button
-          type="button"
-          onClick={handleCloneToBrowser}
-          disabled={cloneProgress !== null}
-          className="w-full py-3 px-4 bg-[#141520] hover:bg-[#1c1e2e] text-[#00F0FF] border border-[#00F0FF]/40 font-mono-tech font-bold text-xs uppercase tracking-wider rounded flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.98] disabled:opacity-50"
+        <CinemaToolHUD
+          title="CLONE CLOUD REEL TO BROWSER"
+          en="Sync remote Cloudflare R2 assets into local browser IndexedDB."
+          bn="ক্লাউড বাকেট থেকে ১০০ শট সরাসরি ব্রাউজারে নামাতে CLONE R2 চাপুন।"
+          accent="cyan"
+          blockWrapper
         >
-          <DownloadCloud className="w-4 h-4 text-[#00F0FF]" />
-          <span>[ ⤓ CLONE CLOUD REEL TO BROWSER ]</span>
-        </button>
-
-        {cloneProgress !== null && (
-          <div className="p-3 bg-black/60 border border-cyan-500/40 rounded font-mono-tech text-[10.5px] space-y-1.5 animate-in fade-in">
-            <div className="flex justify-between text-zinc-300">
-              <span>Hydrating 100-shot sequence...</span>
-              <span className="text-cyan-400 font-bold">{cloneProgress}%</span>
-            </div>
-            <div className="w-full h-2 bg-black rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-cyan-400 transition-all duration-200"
-                style={{ width: `${cloneProgress}%` }}
-              />
-            </div>
-            <div className="text-[9.5px] text-zinc-400 truncate">{cloneStatus}</div>
-          </div>
-        )}
+          <button
+            type="button"
+            onClick={handleCloneToBrowser}
+            disabled={cloneProgress !== null}
+            data-active={cloneProgress !== null ? 'true' : 'false'}
+            className="cinema-tile cinema-tile-cyan w-full min-h-[56px] py-2.5 px-2 font-black text-[10px] sm:text-[11px] uppercase tracking-wider rounded-lg flex flex-col items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
+          >
+            <DownloadCloud className="w-5 h-5 cinema-tile-icon" strokeWidth={2.2} />
+            <span>CLONE R2</span>
+          </button>
+        </CinemaToolHUD>
       </div>
+
+      {backupProgress !== null && (
+        <div className="p-2.5 bg-black/60 border border-[#F59E0B]/40 rounded font-mono-tech text-[10.5px] space-y-1.5">
+          <div className="flex justify-between text-zinc-300 font-black uppercase">
+            <span>{backupChunk}</span>
+            <span className="text-[#F59E0B]">{backupProgress}%</span>
+          </div>
+          <div className="w-full h-2 bg-black rounded-full overflow-hidden">
+            <div className="h-full bg-[#F59E0B] transition-all duration-200" style={{ width: `${backupProgress}%` }} />
+          </div>
+        </div>
+      )}
+
+      {cloneProgress !== null && (
+        <div className="p-2.5 bg-black/60 border border-cyan-500/40 rounded font-mono-tech text-[10.5px] space-y-1.5">
+          <div className="flex justify-between text-zinc-300 font-black uppercase">
+            <span>{cloneStatus}</span>
+            <span className="text-cyan-400">{cloneProgress}%</span>
+          </div>
+          <div className="w-full h-2 bg-black rounded-full overflow-hidden">
+            <div className="h-full bg-cyan-400 transition-all duration-200" style={{ width: `${cloneProgress}%` }} />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+

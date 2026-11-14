@@ -34,6 +34,7 @@ import {
   CATEGORY_LABELS 
 } from '../../services/customShortcutsService';
 import { keyScopeManager, KeyScopeLayer } from '../../core/keyScopeManager';
+import { CinemaToolHUD, CinemaBadgeHeader } from '../ui/CinemaToolHUD';
 
 export interface KeyboardShortcutsModalProps {
   isOpen: boolean;
@@ -235,144 +236,146 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Header Bar */}
-        <div className="px-5 py-4 border-b border-zinc-800/80 bg-[#0E0E14] flex flex-wrap items-center justify-between gap-3 shrink-0">
+        <div className="px-5 py-3.5 border-b border-zinc-800/80 bg-[#0E0E14] flex flex-wrap items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#E50914] to-[#B20710] flex items-center justify-center shadow-lg shadow-red-950/40 text-white">
-              <Keyboard className="w-4 h-4" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-sm sm:text-base font-bold font-mono tracking-wider text-white">
-                  HANDFILM // KEYBOARD SHORTCUTS
-                </h2>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#F5A623]/15 border border-[#F5A623]/30 text-[10px] font-mono font-semibold text-[#F5A623]">
-                  <Layers className="w-2.5 h-2.5" />
-                  SCOPE: {activeLayer}
-                </span>
-                <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-[10px] font-mono font-semibold text-emerald-400">
-                  PRESS [?] TO TOGGLE
-                </span>
-              </div>
-              <p className="text-[11px] text-zinc-400 mt-0.5">
-                Complete tactile control reference grouped by category for Playback, Navigation, Visual FX, & Export
-              </p>
-            </div>
+            <CinemaBadgeHeader
+              icon={<Keyboard className="w-4 h-4 text-[#fbbf24]" strokeWidth={2.2} />}
+              label="HOTKEYS"
+              accent="amber"
+            />
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#F5A623]/15 border border-[#F5A623]/30 text-[10px] font-black text-[#F5A623] uppercase">
+              <Layers className="w-2.5 h-2.5" />
+              {activeLayer}
+            </span>
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              onClick={handleCopyMarkdown}
-              title="Copy shortcuts as Markdown table"
-              className="px-2.5 py-1.5 rounded-md bg-zinc-800/80 hover:bg-zinc-700/80 text-zinc-300 hover:text-white border border-zinc-700/50 text-[11px] font-mono flex items-center gap-1.5 transition-colors cursor-pointer"
+            <CinemaToolHUD
+              title="COPY MARKDOWN"
+              en="Copy all keyboard shortcuts as a Markdown cheatsheet."
+              bn="কীভাবে ব্যবহার করবেন: শর্টকাট তালিকা কপি করতে ক্লিক করুন।"
+              accent="cyan"
+              side="bottom"
             >
-              {copiedMarkdown ? (
-                <>
-                  <Check className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="text-emerald-400">Copied</span>
-                </>
-              ) : (
-                <>
-                  <Copy className="w-3.5 h-3.5 text-zinc-400" />
-                  <span className="hidden sm:inline">Copy MD</span>
-                </>
-              )}
-            </button>
-            <button
-              onClick={onClose}
-              className="p-1.5 rounded-md text-zinc-400 hover:text-white hover:bg-zinc-800/80 transition-colors cursor-pointer"
+              <button
+                onClick={handleCopyMarkdown}
+                data-active={copiedMarkdown ? 'true' : 'false'}
+                className="cinema-tile cinema-tile-cyan min-h-[38px] px-3 py-1.5 flex items-center gap-1.5"
+              >
+                {copiedMarkdown ? <Check className="w-3.5 h-3.5" strokeWidth={2.2} /> : <Copy className="w-3.5 h-3.5" strokeWidth={2.2} />}
+                <span className="font-black tracking-wider text-[10px] uppercase">{copiedMarkdown ? 'COPIED' : 'COPY MD'}</span>
+              </button>
+            </CinemaToolHUD>
+            <CinemaToolHUD
+              title="CLOSE HOTKEYS"
+              en="Close the keyboard shortcuts reference modal."
+              bn="কীভাবে ব্যবহার করবেন: বন্ধ করতে ক্লিক করুন বা ESC চাপুন।"
+              shortcut="ESC"
+              accent="crimson"
+              side="left"
             >
-              <X className="w-5 h-5" />
-            </button>
+              <button
+                onClick={onClose}
+                className="cinema-tile cinema-tile-crimson min-h-[38px] px-2.5 flex items-center gap-1"
+                aria-label="Close Shortcuts"
+              >
+                <X className="w-4 h-4" strokeWidth={2.2} />
+                <span className="font-black tracking-wider text-[10px] uppercase">CLOSE</span>
+              </button>
+            </CinemaToolHUD>
           </div>
         </div>
 
         {/* Live Keypress Tester & Status Banner */}
-        <div className="px-5 py-2.5 bg-gradient-to-r from-zinc-900/90 via-[#12121A] to-zinc-900/90 border-b border-zinc-800/70 shrink-0 flex items-center justify-between text-xs">
+        <div className="px-5 py-2 bg-gradient-to-r from-zinc-900/90 via-[#12121A] to-zinc-900/90 border-b border-zinc-800/70 shrink-0 flex items-center justify-between text-xs">
           <div className="flex items-center gap-2">
             <Sparkles className="w-3.5 h-3.5 text-[#F5A623]" />
-            <span className="text-[11px] font-mono text-zinc-400">
-              Interactive Hotkey Listener:
-            </span>
-            {detectedKey ? (
-              <span className="text-emerald-400 animate-pulse flex items-center gap-1 font-mono text-[11px]">
-                Key Detected:
-                <span className="font-bold uppercase text-white bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-500/40">
-                  [{detectedKey}]
-                </span>
-              </span>
-            ) : (
-              <span className="text-zinc-500 font-mono text-[10px]">
-                Press any physical key to test and highlight its shortcut
+            <span className="text-[10px] font-black tracking-wider text-zinc-400 uppercase">KEY TEST</span>
+            {detectedKey && (
+              <span className="font-black uppercase text-emerald-300 bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-500/40 text-[10px]">
+                [{detectedKey}]
               </span>
             )}
           </div>
-          <span className="text-[10px] font-mono text-zinc-500">
-            {filteredShortcuts.length} of {shortcuts.length} commands visible
+          <span className="text-[10px] font-black tracking-wider text-zinc-400 uppercase">
+            {filteredShortcuts.length} / {shortcuts.length}
           </span>
         </div>
 
         {/* Search Input Bar & Category Filters */}
         <div className="p-4 border-b border-zinc-800/70 bg-[#0B0B10] flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
-          {/* Real-Time Search Field */}
-          <div className="relative w-full sm:w-80 shrink-0">
+          <div className="relative w-full sm:w-72 shrink-0">
             <Search className="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               ref={searchInputRef}
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search shortcuts in real-time (e.g. Space, Shuttle, FX, Export)..."
-              className="w-full pl-9 pr-8 py-2 text-xs bg-zinc-900/90 border border-zinc-700/80 rounded-lg text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-[#F5A623] focus:ring-1 focus:ring-[#F5A623]/50 transition-all font-mono"
+              placeholder="SEARCH HOTKEYS..."
+              className="w-full pl-9 pr-8 py-2 text-xs bg-zinc-900/90 border border-zinc-700/80 rounded-lg text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-[#F5A623] font-mono uppercase"
             />
             {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-100 p-0.5"
-                title="Clear search"
+              <CinemaToolHUD
+                title="CLEAR SEARCH"
+                en="Clear shortcut search filter."
+                bn="কীভাবে ব্যবহার করবেন: সার্চ মুছতে ক্লিক করুন।"
+                accent="crimson"
+                side="top"
               >
-                <X className="w-3.5 h-3.5" />
-              </button>
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-100 p-0.5 cursor-pointer"
+                  aria-label="Clear search"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </CinemaToolHUD>
             )}
           </div>
 
-          {/* Category Tabs */}
           <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto no-scrollbar pb-1 sm:pb-0">
-            <button
-              onClick={() => setSelectedCategory('all')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-mono flex items-center gap-1.5 whitespace-nowrap transition-all cursor-pointer ${
-                selectedCategory === 'all'
-                  ? 'bg-zinc-100 text-zinc-950 font-bold shadow-md shadow-white/10'
-                  : 'bg-zinc-900/80 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/80 border border-zinc-800/80'
-              }`}
+            <CinemaToolHUD
+              title="ALL SHORTCUTS"
+              en="Display shortcuts from all studio categories."
+              bn="কীভাবে ব্যবহার করবেন: সব ক্যাটাগরির শর্টকাট দেখতে ক্লিক করুন।"
+              accent="amber"
+              side="top"
             >
-              <span>All Categories</span>
-              <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${selectedCategory === 'all' ? 'bg-zinc-800 text-white' : 'bg-black/50 text-zinc-500'}`}>
-                {shortcuts.length}
-              </span>
-            </button>
+              <button
+                onClick={() => setSelectedCategory('all')}
+                data-active={selectedCategory === 'all' ? 'true' : 'false'}
+                className="cinema-tile cinema-tile-amber min-h-[38px] px-3 py-1.5 flex items-center gap-1.5 whitespace-nowrap"
+              >
+                <span className="font-black tracking-wider text-[10px] uppercase">ALL</span>
+                <span className="text-[10px] opacity-75">{shortcuts.length}</span>
+              </button>
+            </CinemaToolHUD>
 
             {ORDERED_CATEGORIES.map((catKey) => {
               const Icon = CATEGORY_ICONS[catKey];
-              const label = CATEGORY_LABELS[catKey];
+              const label = CATEGORY_LABELS[catKey].split('&')[0].trim().toUpperCase();
               const count = shortcuts.filter((s) => s.category === catKey).length;
               const isSelected = selectedCategory === catKey;
 
               return (
-                <button
+                <CinemaToolHUD
                   key={catKey}
-                  onClick={() => setSelectedCategory(catKey)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-mono flex items-center gap-1.5 whitespace-nowrap transition-all cursor-pointer ${
-                    isSelected
-                      ? 'bg-zinc-100 text-zinc-950 font-bold shadow-md shadow-white/10'
-                      : 'bg-zinc-900/80 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/80 border border-zinc-800/80'
-                  }`}
+                  title={`${label} SHORTCUTS`}
+                  en={`Show keyboard shortcuts for ${label}.`}
+                  bn="কীভাবে ব্যবহার করবেন: এই ক্যাটাগরির শর্টকাট ফিল্টার করতে চাপুন।"
+                  accent="amber"
+                  side="top"
                 >
-                  <Icon className="w-3.5 h-3.5 shrink-0" />
-                  <span>{label.split('&')[0].trim()}</span>
-                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${isSelected ? 'bg-zinc-800 text-white' : 'bg-black/50 text-zinc-500'}`}>
-                    {count}
-                  </span>
-                </button>
+                  <button
+                    onClick={() => setSelectedCategory(catKey)}
+                    data-active={isSelected ? 'true' : 'false'}
+                    className="cinema-tile cinema-tile-amber min-h-[38px] px-3 py-1.5 flex items-center gap-1.5 whitespace-nowrap"
+                  >
+                    <Icon className="w-3.5 h-3.5 shrink-0" strokeWidth={2.2} />
+                    <span className="font-black tracking-wider text-[10px] uppercase">{label}</span>
+                    <span className="text-[10px] opacity-75">{count}</span>
+                  </button>
+                </CinemaToolHUD>
               );
             })}
           </div>
@@ -381,42 +384,42 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
         {/* Categorized Shortcuts List Content */}
         <div className="p-5 overflow-y-auto max-h-[55vh] space-y-6 custom-scrollbar bg-[#08080B]">
           {filteredShortcuts.length === 0 ? (
-            <div className="py-14 text-center text-zinc-500 font-mono text-xs">
-              <Keyboard className="w-9 h-9 mx-auto mb-3 opacity-30 text-zinc-400" />
-              <p className="text-zinc-300 font-semibold">No keyboard shortcuts match "{searchQuery}"</p>
-              <p className="text-zinc-500 mt-1">Try searching by key name, action, or scope</p>
-              <button 
-                onClick={() => setSearchQuery('')}
-                className="mt-3 px-3 py-1 bg-zinc-800 text-[#F5A623] hover:bg-zinc-700 rounded text-xs transition-colors"
+            <div className="py-12 text-center text-zinc-500 font-mono text-xs flex flex-col items-center gap-3">
+              <Keyboard className="w-8 h-8 opacity-30 text-zinc-400" />
+              <span className="font-black tracking-wider text-[10px] uppercase">NO MATCHES</span>
+              <CinemaToolHUD
+                title="CLEAR FILTER"
+                en="Reset shortcut search query."
+                bn="কীভাবে ব্যবহার করবেন: সার্চ ফিল্টার মুছতে ক্লিক করুন।"
+                accent="amber"
+                side="top"
               >
-                Clear search filter
-              </button>
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="cinema-tile cinema-tile-amber px-3.5 py-1.5 text-[10px] font-black tracking-wider uppercase"
+                >
+                  CLEAR SEARCH
+                </button>
+              </CinemaToolHUD>
             </div>
           ) : (
             ORDERED_CATEGORIES.map((catKey) => {
               const items = groupedShortcuts[catKey];
               if (!items || items.length === 0) return null;
               const Icon = CATEGORY_ICONS[catKey];
-              const label = CATEGORY_LABELS[catKey];
+              const label = CATEGORY_LABELS[catKey].split('&')[0].trim().toUpperCase();
 
               return (
                 <div key={catKey} className="space-y-2.5">
-                  {/* Category Group Header */}
                   <div className="flex items-center justify-between pb-1.5 border-b border-zinc-800/80">
-                    <div className="flex items-center gap-2">
-                      <div className="w-5 h-5 rounded bg-zinc-800/80 border border-zinc-700/60 flex items-center justify-center text-[#F5A623]">
-                        <Icon className="w-3 h-3" />
-                      </div>
-                      <h3 className="text-xs font-bold font-mono tracking-wider text-zinc-200 uppercase">
-                        {label}
-                      </h3>
-                    </div>
-                    <span className="text-[10px] font-mono text-zinc-500">
-                      {items.length} command{items.length > 1 ? 's' : ''}
-                    </span>
+                    <CinemaBadgeHeader
+                      icon={<Icon className="w-3.5 h-3.5 text-[#F5A623]" strokeWidth={2.2} />}
+                      label={label}
+                      accent="amber"
+                    />
+                    <span className="text-[10px] font-black text-zinc-500">{items.length}</span>
                   </div>
 
-                  {/* Commands Grid for this category */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
                     {items.map((item) => {
                       const isItemHighlighted =
@@ -424,50 +427,38 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
                         highlightedKey === item.defaultKey;
 
                       return (
-                        <div
+                        <CinemaToolHUD
                           key={item.id}
-                          onClick={() => onSelectAction?.(item.id)}
-                          className={`p-3 rounded-lg border transition-all flex items-start justify-between gap-3 group cursor-pointer ${
-                            isItemHighlighted
-                              ? 'bg-[#F5A623]/10 border-[#F5A623] shadow-[0_0_15px_rgba(245,166,35,0.25)] ring-1 ring-[#F5A623]'
-                              : 'bg-zinc-900/40 hover:bg-zinc-900/90 border-zinc-800/80 hover:border-zinc-700/80'
-                          }`}
+                          title={item.name.toUpperCase()}
+                          en={item.description}
+                          bn={`কীভাবে ব্যবহার করবেন: কিবোর্ডে "${item.currentKey}" চাপুন অথবা সরাসরি চালাতে ক্লিক করুন।`}
+                          shortcut={item.currentKey}
+                          accent="amber"
+                          side="top"
+                          blockWrapper
                         >
-                          <div className="space-y-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-xs font-semibold text-zinc-100 group-hover:text-white transition-colors">
+                          <button
+                            type="button"
+                            onClick={() => onSelectAction?.(item.id)}
+                            data-active={isItemHighlighted ? 'true' : 'false'}
+                            className="cinema-tile cinema-tile-amber w-full min-h-[48px] p-3 flex items-center justify-between gap-3 text-left"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="font-black tracking-wider text-[10px] sm:text-[11px] uppercase truncate">
                                 {item.name}
                               </span>
                               {item.tag && (
-                                <span className={`text-[9px] font-mono px-1.5 py-0.2 rounded border uppercase font-bold tracking-wider ${
-                                  item.tag === 'ESSENTIAL'
-                                    ? 'bg-red-950/60 text-[#E50914] border-red-800/50'
-                                    : item.tag === 'PRO TRANSPORT'
-                                    ? 'bg-cyan-950/60 text-cyan-400 border-cyan-800/50'
-                                    : item.tag === 'EXPORT'
-                                    ? 'bg-emerald-950/60 text-emerald-400 border-emerald-800/50'
-                                    : 'bg-zinc-800 text-zinc-400 border-zinc-700'
-                                }`}>
+                                <span className="text-[8.5px] font-black px-1.5 py-0.5 rounded bg-black/50 border border-white/10 text-zinc-300 uppercase shrink-0">
                                   {item.tag}
                                 </span>
                               )}
-                              {item.scope && (
-                                <span className="text-[9px] font-mono text-zinc-500">
-                                  [{item.scope}]
-                                </span>
-                              )}
                             </div>
-                            <p className="text-[11px] text-zinc-400 leading-relaxed">
-                              {item.description}
-                            </p>
-                          </div>
 
-                          <div className="shrink-0 flex items-center pt-0.5">
-                            <kbd className="px-2.5 py-1 rounded-md bg-black/90 border border-zinc-700/80 text-zinc-200 text-xs font-mono font-bold shadow-md shadow-black tracking-wider text-center min-w-[36px] group-hover:border-[#F5A623]/60 group-hover:text-[#FFE066] transition-colors">
+                            <kbd className="px-2.5 py-1 rounded-md bg-black/90 border border-zinc-700/80 text-[#FFE066] text-xs font-mono font-bold tracking-wider shrink-0">
                               {item.currentKey}
                             </kbd>
-                          </div>
-                        </div>
+                          </button>
+                        </CinemaToolHUD>
                       );
                     })}
                   </div>
@@ -477,20 +468,10 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
           )}
         </div>
 
-        {/* Footer with Pro Tips & Context Status */}
-        <div className="px-5 py-3 border-t border-zinc-800/80 bg-[#09090E] flex flex-col sm:flex-row items-center justify-between gap-2.5 text-[11px] text-zinc-500 font-mono shrink-0">
-          <div className="flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            <span className="text-zinc-400">
-              Tip: Press <kbd className="px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 text-[10px]">?</kbd> to toggle, or rebind keys anytime in Settings
-            </span>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            <span>Press <kbd className="px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 text-[10px]">Esc</kbd> to exit</span>
-            <span className="text-zinc-600">|</span>
-            <span className="text-[#F5A623] font-semibold">HANDFILM DIRECTOR CORE</span>
-          </div>
+        {/* Footer */}
+        <div className="px-5 py-2.5 border-t border-zinc-800/80 bg-[#09090E] flex items-center justify-between text-[10px] font-black tracking-wider text-zinc-500 uppercase shrink-0">
+          <span>[?] TOGGLE</span>
+          <span className="text-[#F5A623]">HANDFILM CORE</span>
         </div>
       </div>
     </div>

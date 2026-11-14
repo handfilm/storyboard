@@ -32,6 +32,7 @@ import {
   AlertTriangle,
   X
 } from 'lucide-react';
+import { CinemaToolHUD, CinemaBadgeHeader } from '../../components/ui/CinemaToolHUD';
 
 export const BoardStudio: React.FC = () => {
   const {
@@ -243,192 +244,197 @@ export const BoardStudio: React.FC = () => {
   return (
     <div className="w-full h-full flex flex-col bg-[#050505] text-[#EDEDED] font-mono select-none overflow-hidden">
       {/* Board View Toolbar */}
-      <div className="h-12 border-b border-[#D4AF37]/20 bg-[#0B0B0B] px-4 flex items-center justify-between gap-3 shrink-0">
+      <div className="h-14 border-b border-[#D4AF37]/20 bg-[#0B0B0B] px-4 flex items-center justify-between gap-2 shrink-0 overflow-x-auto no-scrollbar">
         {/* Left: View Switcher (1-7) */}
-        <div className="flex items-center gap-1 bg-[#121212] p-1 rounded border border-[#D4AF37]/20 text-xs">
-          <button
-            onClick={() => setBoardView('grid')}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded transition-colors ${
-              boardView === 'grid' ? 'bg-[#D4AF37] text-black font-bold' : 'text-[#8A8A8A] hover:text-[#EDEDED]'
-            }`}
-            title="1: Grid View (100 Frames)"
-          >
-            <LayoutGrid className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">GRID</span>
-          </button>
-          <button
-            onClick={() => setBoardView('row')}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded transition-colors ${
-              boardView === 'row' ? 'bg-[#D4AF37] text-black font-bold' : 'text-[#8A8A8A] hover:text-[#EDEDED]'
-            }`}
-            title="2: Row Sheet View"
-          >
-            <AlignJustify className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">ROW</span>
-          </button>
-          <button
-            onClick={() => setBoardView('filmstrip')}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded transition-colors ${
-              boardView === 'filmstrip' ? 'bg-[#D4AF37] text-black font-bold' : 'text-[#8A8A8A] hover:text-[#EDEDED]'
-            }`}
-            title="3: Continuous Filmstrip"
-          >
-            <Film className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">REEL</span>
-          </button>
-          <button
-            onClick={() => setBoardView('corkboard')}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded transition-colors ${
-              boardView === 'corkboard' ? 'bg-[#D4AF37] text-black font-bold' : 'text-[#8A8A8A] hover:text-[#EDEDED]'
-            }`}
-            title="4: Pin Corkboard"
-          >
-            <Trello className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">PINS</span>
-          </button>
-          <button
-            onClick={() => setBoardView('kanban')}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded transition-colors ${
-              boardView === 'kanban' ? 'bg-[#D4AF37] text-black font-bold' : 'text-[#8A8A8A] hover:text-[#EDEDED]'
-            }`}
-            title="5: Production Kanban"
-          >
-            <Columns3 className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">KANBAN</span>
-          </button>
-          <button
-            onClick={() => setBoardView('timeline')}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded transition-colors ${
-              boardView === 'timeline' ? 'bg-[#D4AF37] text-black font-bold' : 'text-[#8A8A8A] hover:text-[#EDEDED]'
-            }`}
-            title="6: Timeline Track"
-          >
-            <Clock className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">TRACK</span>
-          </button>
-          <button
-            onClick={() => setBoardView('outline')}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded transition-colors ${
-              boardView === 'outline' ? 'bg-[#D4AF37] text-black font-bold' : 'text-[#8A8A8A] hover:text-[#EDEDED]'
-            }`}
-            title="7: Script Outline"
-          >
-            <ListTree className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">TREE</span>
-          </button>
+        <div className="flex items-center gap-1 text-xs shrink-0">
+          {([
+            { id: 'grid', label: 'GRID', icon: LayoutGrid, en: '100-frame visual storyboard grid view', bn: 'কীভাবে ব্যবহার করবেন: সব শট গ্রিড আকারে দেখতে চাপুন।' },
+            { id: 'row', label: 'ROW', icon: AlignJustify, en: 'Compact horizontal shot list rows', bn: 'কীভাবে ব্যবহার করবেন: শটগুলো রো লিস্ট আকারে দেখতে চাপুন।' },
+            { id: 'filmstrip', label: 'REEL', icon: Film, en: 'Continuous 35mm filmstrip reel', bn: 'কীভাবে ব্যবহার করবেন: ৩৫মিমি ফিল্মস্ট্রিপ রিল ভিউ দেখতে চাপুন।' },
+            { id: 'corkboard', label: 'PINS', icon: Trello, en: 'Pinned storyboard scene cards', bn: 'কীভাবে ব্যবহার করবেন: কর্কবোর্ড পিন কার্ড ভিউ দেখতে চাপুন।' },
+            { id: 'kanban', label: 'KANBAN', icon: Columns3, en: 'Production status Kanban columns', bn: 'কীভাবে ব্যবহার করবেন: ড্রাফট ও অ্যাপ্রুভড কলাম দেখতে চাপুন।' },
+            { id: 'timeline', label: 'TRACK', icon: Clock, en: 'Horizontal storyboard sequence track', bn: 'কীভাবে ব্যবহার করবেন: সিকোয়েন্স ট্র্যাক ভিউ দেখতে চাপুন।' },
+            { id: 'outline', label: 'TREE', icon: ListTree, en: 'Script structure hierarchy outline', bn: 'কীভাবে ব্যবহার করবেন: স্ক্রিপ্ট আউটলাইন ট্রি দেখতে চাপুন।' }
+          ] as const).map(v => {
+            const VIcon = v.icon;
+            const active = boardView === v.id;
+            return (
+              <CinemaToolHUD key={v.id} title={`${v.label} VIEW`} en={v.en} bn={v.bn} accent="amber">
+                <button
+                  onClick={() => setBoardView(v.id)}
+                  data-active={active ? 'true' : 'false'}
+                  className="cinema-tile cinema-tile-amber flex items-center gap-1.5 px-2.5 py-1.5 min-h-[36px] cursor-pointer"
+                >
+                  <VIcon className="w-3.5 h-3.5" strokeWidth={2.2} />
+                  <span className="hidden sm:inline font-black tracking-wider text-[10px] sm:text-[11px] uppercase">{v.label}</span>
+                </button>
+              </CinemaToolHUD>
+            );
+          })}
         </div>
 
         {/* Center: Search & Filter */}
-        <div className="relative flex-1 max-w-xs">
+        <div className="relative flex-1 max-w-xs min-w-[120px]">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#8A8A8A]" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search shots (EN, দৃশ্য, #)..."
-            className="w-full bg-[#121212] border border-[#D4AF37]/20 rounded pl-8 pr-3 py-1 text-xs text-[#EDEDED] focus:outline-none focus:border-[#D4AF37]"
+            placeholder="Search..."
+            className="w-full bg-[#121212] border border-[#D4AF37]/20 rounded pl-8 pr-3 py-1.5 text-xs text-[#EDEDED] focus:outline-none focus:border-[#D4AF37]"
           />
         </div>
 
         {/* Right: Card Zoom & Bulk Edit */}
-        <div className="flex items-center gap-3 text-xs">
+        <div className="flex items-center gap-2 text-xs shrink-0">
           {boardView === 'grid' && (
-            <div className="hidden md:flex items-center gap-2">
-              <span className="text-[#8A8A8A] text-[10px]">ZOOM</span>
-              <input
-                type="range"
-                min="160"
-                max="340"
-                value={cardSize}
-                onChange={(e) => setCardSize(Number(e.target.value))}
-                className="w-20 accent-[#D4AF37]"
-              />
-            </div>
+            <CinemaToolHUD
+              title="CARD ZOOM"
+              en="Resize storyboard grid thumbnails"
+              bn="কীভাবে ব্যবহার করবেন: স্লাইডার টেনে শট কার্ডের সাইজ ছোট বা বড় করুন।"
+              accent="amber"
+            >
+              <div className="hidden md:flex items-center gap-2">
+                <span className="text-[#8A8A8A] text-[10px] font-black tracking-wider uppercase">ZOOM</span>
+                <input
+                  type="range"
+                  min="160"
+                  max="340"
+                  value={cardSize}
+                  onChange={(e) => setCardSize(Number(e.target.value))}
+                  className="w-20 accent-[#D4AF37] cursor-pointer"
+                />
+              </div>
+            </CinemaToolHUD>
           )}
 
           {boardNotice && (
-            <span className="hidden lg:inline-block px-2 py-0.5 px-2! py-0.5! rounded bg-emerald-950/90 border border-emerald-500/40 text-[10px] text-emerald-300 tabular-nums">
+            <span className="hidden lg:inline-block px-2 py-0.5 rounded bg-emerald-950/90 border border-emerald-500/40 text-[10px] font-black uppercase text-emerald-300 tabular-nums">
               {boardNotice}
             </span>
           )}
 
           {selectedShots.length > 0 && (
-            <button
-              onClick={() => setConfirmDeleteBatch(true)}
-              data-testid="board-delete-selected-btn"
-              className="flex items-center gap-1.5 px-3 py-1 px-3! py-1! rounded border border-rose-500/55 bg-rose-600/20 hover:bg-rose-600 hover:text-white text-rose-200 text-xs font-bold transition-colors cursor-pointer whitespace-nowrap shrink-0 tabular-nums"
-              title="Permanently delete selected frames"
+            <CinemaToolHUD
+              title="DELETE SELECTED"
+              en="Permanently remove all selected storyboard frames"
+              bn="কীভাবে ব্যবহার করবেন: সিলেক্ট করা ফ্রেমগুলো চিরতরে মুছতে চাপুন।"
+              accent="crimson"
             >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>Delete Selected ({selectedShots.length})</span>
-            </button>
+              <button
+                onClick={() => setConfirmDeleteBatch(true)}
+                data-testid="board-delete-selected-btn"
+                className="cinema-tile cinema-tile-crimson flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] cursor-pointer whitespace-nowrap shrink-0 tabular-nums"
+              >
+                <Trash2 className="w-3.5 h-3.5" strokeWidth={2.2} />
+                <span className="font-black tracking-wider text-[10px] uppercase">DELETE ({selectedShots.length})</span>
+              </button>
+            </CinemaToolHUD>
           )}
 
-          <button
-            onClick={() => setIsBulkBarOpen(!isBulkBarOpen)}
-            className={`flex items-center gap-1.5 px-2.5 py-1 px-2.5! py-1! rounded border text-xs transition-colors cursor-pointer whitespace-nowrap shrink-0 tabular-nums ${
-              isBulkBarOpen || selectedShots.length > 0
-                ? 'border-[#D4AF37] bg-[#D4AF37]/20 text-[#FFE066]'
-                : 'border-[#D4AF37]/20 text-[#8A8A8A] hover:text-[#EDEDED]'
-            }`}
+          <CinemaToolHUD
+            title="BULK SELECT"
+            en="Toggle multi-shot selection toolbar (Shift+Click for range)"
+            bn="কীভাবে ব্যবহার করবেন: একসাথে একাধিক শট সিলেক্ট করে এডিট করতে চাপুন।"
+            accent="amber"
           >
-            <CheckSquare className="w-3.5 h-3.5" />
-            <span>BULK ({selectedShots.length})</span>
-          </button>
+            <button
+              onClick={() => setIsBulkBarOpen(!isBulkBarOpen)}
+              data-active={isBulkBarOpen || selectedShots.length > 0 ? 'true' : 'false'}
+              className="cinema-tile cinema-tile-amber flex items-center gap-1.5 px-2.5 py-1.5 min-h-[36px] cursor-pointer whitespace-nowrap shrink-0 tabular-nums"
+            >
+              <CheckSquare className="w-3.5 h-3.5" strokeWidth={2.2} />
+              <span className="font-black tracking-wider text-[10px] uppercase">BULK ({selectedShots.length})</span>
+            </button>
+          </CinemaToolHUD>
         </div>
       </div>
 
-      {/* Bulk Action Bar (Expandable or Auto-Shown When Frames Selected) */}
+      {/* Bulk Action Bar */}
       {(isBulkBarOpen || selectedShots.length > 0) && (
-        <div className="h-10 bg-[#121212] border-b border-[#D4AF37]/30 px-4 px-4! flex items-center justify-between text-xs animate-in fade-in duration-150">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={selectAll}
-              className="text-[#FFE066] hover:underline cursor-pointer tabular-nums"
+        <div className="min-h-[44px] bg-[#121212] border-b border-[#D4AF37]/30 px-4 py-1.5 flex items-center justify-between text-xs animate-in fade-in duration-150 gap-2 overflow-x-auto no-scrollbar">
+          <div className="flex items-center gap-2 shrink-0">
+            <CinemaToolHUD
+              title="SELECT ALL"
+              en="Select or deselect all filtered storyboard frames"
+              bn="কীভাবে ব্যবহার করবেন: সব ফ্রেম একসাথে সিলেক্ট বা আনসিলেক্ট করতে চাপুন।"
+              accent="amber"
             >
-              {selectedShots.length === filteredShots.length ? 'Deselect All' : `Select All (${filteredShots.length})`}
-            </button>
-            {selectedShots.length > 0 && (
               <button
-                onClick={() => setSelectedShots([])}
-                className="text-[#8A8A8A] hover:text-white underline cursor-pointer"
+                onClick={selectAll}
+                className="cinema-tile cinema-tile-amber px-2.5 py-1 font-black tracking-wider text-[10px] uppercase cursor-pointer tabular-nums"
               >
-                Clear
+                {selectedShots.length === filteredShots.length ? 'NONE' : `ALL (${filteredShots.length})`}
               </button>
+            </CinemaToolHUD>
+            {selectedShots.length > 0 && (
+              <CinemaToolHUD
+                title="CLEAR SELECTION"
+                en="Clear current frame selection"
+                bn="কীভাবে ব্যবহার করবেন: সিলেকশন খালি করতে চাপুন।"
+                accent="cyan"
+              >
+                <button
+                  onClick={() => setSelectedShots([])}
+                  className="cinema-tile cinema-tile-cyan px-2.5 py-1 font-black tracking-wider text-[10px] uppercase cursor-pointer"
+                >
+                  CLEAR
+                </button>
+              </CinemaToolHUD>
             )}
-            <span className="text-[#8A8A8A]">·</span>
-            <span className="text-[#8A8A8A] tabular-nums">{selectedShots.length} frames selected (Shift+Click for range)</span>
+            <span className="text-[#8A8A8A] font-black tracking-wider text-[10px] uppercase tabular-nums">{selectedShots.length} SELECTED</span>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => {
-                selectedShots.forEach(idx => setShotPanY(idx, 50));
-                setSelectedShots([]);
-              }}
-              disabled={selectedShots.length === 0}
-              className="px-2.5 py-1 px-2.5! py-1! bg-[#050505] border border-[#D4AF37]/30 hover:border-[#D4AF37] rounded text-[11px] cursor-pointer disabled:opacity-40 whitespace-nowrap"
+          <div className="flex items-center gap-2 shrink-0">
+            <CinemaToolHUD
+              title="CENTER PAN"
+              en="Reset vertical framing Pan Y to 50% on selected shots"
+              bn="কীভাবে ব্যবহার করবেন: সিলেক্ট করা শটগুলোর ফ্রেমিং মাঝে (৫০%) আনতে চাপুন।"
+              accent="cyan"
             >
-              Center Pan (50%)
-            </button>
-            <button
-              onClick={() => {
-                selectedShots.forEach(idx => updateShot(idx, { status: 'approved' }));
-                setSelectedShots([]);
-              }}
-              disabled={selectedShots.length === 0}
-              className="px-2.5 py-1 px-2.5! py-1! bg-[#D4AF37] text-black font-bold rounded text-[11px] cursor-pointer disabled:opacity-40 whitespace-nowrap"
-            >
-              Mark Approved
-            </button>
-            {selectedShots.length > 0 && (
               <button
-                onClick={() => setConfirmDeleteBatch(true)}
-                className="px-3 py-1 px-3! py-1! bg-rose-600/25 hover:bg-rose-600 border border-rose-500/60 text-rose-200 hover:text-white font-bold rounded text-[11px] flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap tabular-nums"
+                onClick={() => {
+                  selectedShots.forEach(idx => setShotPanY(idx, 50));
+                  setSelectedShots([]);
+                }}
+                disabled={selectedShots.length === 0}
+                className="cinema-tile cinema-tile-cyan px-2.5 py-1 font-black tracking-wider text-[10px] uppercase cursor-pointer disabled:opacity-40 whitespace-nowrap"
               >
-                <Trash2 className="w-3 h-3" />
-                <span>Delete Selected ({selectedShots.length})</span>
+                CENTER PAN
               </button>
+            </CinemaToolHUD>
+            <CinemaToolHUD
+              title="APPROVE SHOTS"
+              en="Mark all selected frames as Approved"
+              bn="কীভাবে ব্যবহার করবেন: সিলেক্ট করা শটগুলো অ্যাপ্রুভ করতে চাপুন।"
+              accent="emerald"
+            >
+              <button
+                onClick={() => {
+                  selectedShots.forEach(idx => updateShot(idx, { status: 'approved' }));
+                  setSelectedShots([]);
+                }}
+                disabled={selectedShots.length === 0}
+                className="cinema-tile cinema-tile-emerald px-2.5 py-1 font-black tracking-wider text-[10px] uppercase cursor-pointer disabled:opacity-40 whitespace-nowrap"
+              >
+                APPROVE
+              </button>
+            </CinemaToolHUD>
+            {selectedShots.length > 0 && (
+              <CinemaToolHUD
+                title="DELETE SELECTED"
+                en="Open permanent deletion confirmation dialog"
+                bn="কীভাবে ব্যবহার করবেন: সিলেক্ট করা শটগুলো মুছে ফেলতে চাপুন।"
+                accent="crimson"
+              >
+                <button
+                  onClick={() => setConfirmDeleteBatch(true)}
+                  className="cinema-tile cinema-tile-crimson px-3 py-1 font-black tracking-wider text-[10px] uppercase flex items-center gap-1.5 cursor-pointer whitespace-nowrap tabular-nums"
+                >
+                  <Trash2 className="w-3 h-3" strokeWidth={2.2} />
+                  <span>DELETE ({selectedShots.length})</span>
+                </button>
+              </CinemaToolHUD>
             )}
           </div>
         </div>
@@ -496,16 +502,22 @@ export const BoardStudio: React.FC = () => {
                       <span className="px-1 py-0.2 bg-[#121212] border border-[#D4AF37]/20 rounded text-[9px] text-[#D4AF37]">
                         {shot.shotType}
                       </span>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleJumpToStage(shot.id);
-                        }}
-                        className="opacity-0 group-hover:opacity-100 text-[#8A8A8A] hover:text-[#FFE066] transition-opacity"
-                        title="Jump to Stage"
+                      <CinemaToolHUD
+                        title="OPEN STAGE"
+                        en="Jump directly to Stage Monitor with this shot active"
+                        bn="কীভাবে ব্যবহার করবেন: এই শট স্টেজে ওপেন করতে চাপুন।"
+                        accent="amber"
                       >
-                        <Maximize2 className="w-3 h-3" />
-                      </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleJumpToStage(shot.id);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 text-[#8A8A8A] hover:text-[#FFE066] transition-opacity cursor-pointer"
+                        >
+                          <Maximize2 className="w-3 h-3" />
+                        </button>
+                      </CinemaToolHUD>
                     </div>
                   </div>
 
@@ -526,27 +538,33 @@ export const BoardStudio: React.FC = () => {
                     )}
 
                     {/* Quick Media Upload Button on Hover */}
-                    <label 
-                      onClick={(e) => e.stopPropagation()} 
-                      className="absolute top-1 right-1 p-1 bg-black/85 hover:bg-black border border-white/20 text-white hover:text-[#FFE066] rounded cursor-pointer opacity-0 group-hover/thumb:opacity-100 transition-opacity z-20"
-                      title="Upload 4K Video or Image to Shot"
+                    <CinemaToolHUD
+                      title="UPLOAD SHOT MEDIA"
+                      en="Replace this shot plate with a 4K video or image"
+                      bn="কীভাবে ব্যবহার করবেন: এই শটে নতুন ভিডিও বা ছবি আপলোড করতে চাপুন।"
+                      accent="cyan"
                     >
-                      <Upload className="w-2.5 h-2.5" />
-                      <input 
-                        type="file" 
-                        accept="image/*,video/*,.mp4,.webm,.mov,.ogg,.m4v"
-                        className="hidden" 
-                        onChange={(e) => {
-                          if (e.target.files && e.target.files[0]) {
-                            const file = e.target.files[0];
-                            const isVid = file.type.startsWith('video/') || /\.(mp4|webm|mov|ogg|m4v|mkv)$/i.test(file.name);
-                            const url = URL.createObjectURL(file);
-                            updateShot(shot.id, { imageUrl: url, isVideo: isVid });
-                          }
-                          e.target.value = '';
-                        }}
-                      />
-                    </label>
+                      <label 
+                        onClick={(e) => e.stopPropagation()} 
+                        className="absolute top-1 right-1 p-1 bg-black/85 hover:bg-black border border-white/20 text-white hover:text-[#FFE066] rounded cursor-pointer opacity-0 group-hover/thumb:opacity-100 transition-opacity z-20"
+                      >
+                        <Upload className="w-2.5 h-2.5" />
+                        <input 
+                          type="file" 
+                          accept="image/*,video/*,.mp4,.webm,.mov,.ogg,.m4v"
+                          className="hidden" 
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files[0]) {
+                              const file = e.target.files[0];
+                              const isVid = file.type.startsWith('video/') || /\.(mp4|webm|mov|ogg|m4v|mkv)$/i.test(file.name);
+                              const url = URL.createObjectURL(file);
+                              updateShot(shot.id, { imageUrl: url, isVideo: isVid });
+                            }
+                            e.target.value = '';
+                          }}
+                        />
+                      </label>
+                    </CinemaToolHUD>
 
                     {/* Pan Y Indicator */}
                     <div className="absolute bottom-1 right-1 px-1 bg-black/80 rounded border border-[#D4AF37]/20 text-[9px] text-[#8A8A8A] flex items-center gap-0.5">
@@ -614,15 +632,22 @@ export const BoardStudio: React.FC = () => {
                     <span>{shot.duration}s</span>
                   </div>
                 </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleJumpToStage(shot.id);
-                  }}
-                  className="px-2 py-1 bg-[#121212] hover:bg-[#D4AF37] hover:text-black border border-[#D4AF37]/30 rounded text-[11px] transition-colors"
+                <CinemaToolHUD
+                  title="OPEN STAGE"
+                  en="Open this shot in the cinema monitor"
+                  bn="কীভাবে ব্যবহার করবেন: স্টেজ মনিটরে শটটি চালু করতে চাপুন।"
+                  accent="amber"
                 >
-                  STAGE
-                </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleJumpToStage(shot.id);
+                    }}
+                    className="cinema-tile cinema-tile-amber px-2.5 py-1.5 font-black tracking-wider text-[10px] uppercase cursor-pointer"
+                  >
+                    STAGE
+                  </button>
+                </CinemaToolHUD>
               </div>
             ))}
           </div>
@@ -631,9 +656,9 @@ export const BoardStudio: React.FC = () => {
         {/* VIEW 3: FILMSTRIP REEL VIEW */}
         {boardView === 'filmstrip' && (
           <div className="flex flex-col gap-6 py-4">
-            <div className="text-xs text-[#8A8A8A] flex items-center justify-between border-b border-[#D4AF37]/20 pb-2">
-              <span>35MM ANTHOLOGY FILMSTRIP — 24FPS CINE REEL</span>
-              <span>100 FRAMES PERSISTED</span>
+            <div className="flex items-center justify-between border-b border-[#D4AF37]/20 pb-2">
+              <CinemaBadgeHeader icon={<Film className="w-3.5 h-3.5" />} label="FILMSTRIP" accent="amber" />
+              <span className="text-[10px] font-black tracking-wider text-[#8A8A8A] uppercase">100 FRAMES</span>
             </div>
             <div className="overflow-x-auto pb-4 custom-scrollbar">
               <div className="inline-flex gap-4 p-4 bg-black border border-[#D4AF37]/40 rounded-xl relative">
@@ -764,9 +789,13 @@ export const BoardStudio: React.FC = () => {
         {(boardView === 'timeline' || boardView === 'outline') && (
           <div className="flex flex-col gap-3">
             <div className="p-4 bg-[#0B0B0B] border border-[#D4AF37]/20 rounded-lg">
-              <h3 className="text-xs font-bold text-[#FFE066] mb-2">
-                {boardView === 'timeline' ? 'NLE STORYBOARD TIMELINE SEQUENCE' : 'SCRIPT STRUCTURE HIERARCHY'}
-              </h3>
+              <div className="mb-3">
+                <CinemaBadgeHeader
+                  icon={boardView === 'timeline' ? <Clock className="w-3.5 h-3.5" /> : <ListTree className="w-3.5 h-3.5" />}
+                  label={boardView === 'timeline' ? 'TRACK VIEW' : 'OUTLINE'}
+                  accent="amber"
+                />
+              </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2">
                 {filteredShots.slice(0, 48).map((shot) => (
                   <div
@@ -801,57 +830,67 @@ export const BoardStudio: React.FC = () => {
           aria-modal="true"
           aria-labelledby="board-delete-dialog-title"
           onClick={() => setConfirmDeleteBatch(false)}
-          className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 p-4!"
+          className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-md flex items-center justify-center p-4"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md bg-[#0C0D12] border border-rose-500/45 rounded-lg p-5 p-5! shadow-[0_24px_64px_rgba(0,0,0,0.95)] font-sans"
+            className="w-full max-w-md bg-[#0C0D12] border border-rose-500/45 rounded-lg p-5 shadow-[0_24px_64px_rgba(0,0,0,0.95)] font-sans flex flex-col gap-4"
           >
-            <div className="flex items-start justify-between gap-3 pb-3 pb-3! border-b border-white/10">
+            <div className="flex items-center justify-between gap-3 pb-3 border-b border-white/10">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-md bg-rose-500/15 border border-rose-500/40 flex items-center justify-center shrink-0">
                   <AlertTriangle className="w-4.5 h-4.5 text-rose-400" />
                 </div>
                 <div>
-                  <h3 id="board-delete-dialog-title" className="text-sm font-bold text-white">
-                    Permanently Delete Selected Frames?
+                  <h3 id="board-delete-dialog-title" className="text-xs font-black tracking-wider uppercase text-white">
+                    DELETE {selectedShots.length} FRAMES
                   </h3>
-                  <p className="text-xs text-zinc-400 mt-0.5 tabular-nums">
-                    {selectedShots.length} {selectedShots.length === 1 ? 'frame' : 'frames'} selected
-                  </p>
                 </div>
               </div>
-              <button
-                onClick={() => setConfirmDeleteBatch(false)}
-                className="p-1 p-1! text-zinc-400 hover:text-white rounded cursor-pointer"
-                aria-label="Close confirmation dialog"
+              <CinemaToolHUD
+                title="CLOSE DIALOG"
+                en="Cancel permanent deletion and close modal"
+                bn="কীভাবে ব্যবহার করবেন: বাতিল করে বের হতে চাপুন।"
+                accent="amber"
               >
-                <X className="w-4 h-4" />
-              </button>
+                <button
+                  onClick={() => setConfirmDeleteBatch(false)}
+                  className="cinema-tile cinema-tile-amber p-1.5 cursor-pointer"
+                  aria-label="Close confirmation dialog"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </CinemaToolHUD>
             </div>
 
-            <p className="text-xs text-zinc-300 leading-relaxed py-4 py-4!">
-              This will permanently remove{' '}
-              <span className="font-semibold text-white tabular-nums">
-                {selectedShots.length} {selectedShots.length === 1 ? 'frame' : 'frames'}
-              </span>{' '}
-              from the storyboard and re-index the remaining sequence. This action cannot be undone.
-            </p>
-
-            <div className="flex items-center justify-end gap-2.5 pt-2 pt-2! border-t border-white/10">
-              <button
-                onClick={() => setConfirmDeleteBatch(false)}
-                className="px-4 py-2 px-4! py-2! rounded bg-white/5 hover:bg-white/10 border border-white/15 text-xs font-medium text-zinc-200 cursor-pointer transition-colors"
+            <div className="flex items-center justify-end gap-2.5 pt-1">
+              <CinemaToolHUD
+                title="CANCEL"
+                en="Keep all selected storyboard frames"
+                bn="কীভাবে ব্যবহার করবেন: ডিলিট বাতিল করতে চাপুন।"
+                accent="cyan"
               >
-                Cancel
-              </button>
-              <button
-                onClick={handleConfirmPermanentDelete}
-                className="px-4 py-2 px-4! py-2! rounded bg-rose-600 hover:bg-rose-500 text-xs font-bold text-white flex items-center gap-1.5 cursor-pointer transition-colors tabular-nums"
+                <button
+                  onClick={() => setConfirmDeleteBatch(false)}
+                  className="cinema-tile cinema-tile-cyan px-4 py-2 min-h-[40px] font-black tracking-wider text-[10px] uppercase cursor-pointer"
+                >
+                  CANCEL
+                </button>
+              </CinemaToolHUD>
+              <CinemaToolHUD
+                title="CONFIRM DELETE"
+                en="Permanently remove selected frames and re-index storyboard"
+                bn="কীভাবে ব্যবহার করবেন: নিশ্চিতভাবে ফ্রেমগুলো ডিলিট করতে চাপুন।"
+                accent="crimson"
               >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Permanently Delete ({selectedShots.length})</span>
-              </button>
+                <button
+                  onClick={handleConfirmPermanentDelete}
+                  className="cinema-tile cinema-tile-crimson px-4 py-2 min-h-[40px] font-black tracking-wider text-[10px] uppercase flex items-center gap-1.5 cursor-pointer tabular-nums"
+                >
+                  <Trash2 className="w-3.5 h-3.5" strokeWidth={2.2} />
+                  <span>CONFIRM ({selectedShots.length})</span>
+                </button>
+              </CinemaToolHUD>
             </div>
           </div>
         </div>

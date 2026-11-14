@@ -8,6 +8,7 @@
 import React, { useState } from 'react';
 import { AnthologyFrame } from '../../types/anthology';
 import { ExternalEditApp, launchExternalEdit } from '../../services/editInBridge';
+import { CinemaToolHUD } from '../ui/CinemaToolHUD';
 
 export interface EditInAppStripProps {
   shotIndex: number;
@@ -25,6 +26,8 @@ interface AppDescriptor {
   bgHex: string;
   fgHex: string;
   title: string;
+  en: string;
+  bn: string;
 }
 
 const EDIT_IN_APPS: AppDescriptor[] = [
@@ -35,7 +38,9 @@ const EDIT_IN_APPS: AppDescriptor[] = [
     accent: '#31A8FF',
     bgHex: '#001E36',
     fgHex: '#31A8FF',
-    title: 'Edit In Adobe Photoshop (Instant 1-Click + Ctrl+S Live Sync)'
+    title: 'EDIT IN PHOTOSHOP',
+    en: 'Open frame in Adobe Photoshop with Ctrl+S live sync.',
+    bn: 'ফটোশপে ফ্রেম এডিট করে Ctrl+S চাপলেই এখানে অটো আপডেট হবে।'
   },
   {
     id: 'premiere',
@@ -44,7 +49,9 @@ const EDIT_IN_APPS: AppDescriptor[] = [
     accent: '#9999FF',
     bgHex: '#00005B',
     fgHex: '#9999FF',
-    title: 'Edit In Adobe Premiere Pro (Instant 1-Click + Live Sync)'
+    title: 'EDIT IN PREMIERE',
+    en: 'Send shot to Adobe Premiere Pro with live roundtrip sync.',
+    bn: 'অ্যাডোবি প্রিমিয়ার প্রো-তে শট পাঠিয়ে লাইভ এডিট করতে চাপুন।'
   },
   {
     id: 'illustrator',
@@ -53,7 +60,9 @@ const EDIT_IN_APPS: AppDescriptor[] = [
     accent: '#FF9A00',
     bgHex: '#330000',
     fgHex: '#FF9A00',
-    title: 'Edit In Adobe Illustrator (Instant 1-Click + Ctrl+S Live Sync)'
+    title: 'EDIT IN ILLUSTRATOR',
+    en: 'Send vector plates to Adobe Illustrator with live sync.',
+    bn: 'ইলাস্ট্রেটরে গ্রাফিক্স বা ভেক্টর এডিট করে লাইভ সিঙ্ক করতে চাপুন।'
   },
   {
     id: 'capcut',
@@ -62,7 +71,9 @@ const EDIT_IN_APPS: AppDescriptor[] = [
     accent: '#F4F4F5',
     bgHex: '#0A0A0C',
     fgHex: '#FFFFFF',
-    title: 'Edit In CapCut Desktop (Instant 1-Click + Live Sync)'
+    title: 'EDIT IN CAPCUT',
+    en: 'Launch clip in CapCut Desktop with instant project sync.',
+    bn: 'ক্যাপকাট ডেস্কটপ অ্যাপে শট এডিট করতে এক ক্লিকে চালু করুন।'
   }
 ];
 
@@ -154,28 +165,28 @@ export const EditInAppStrip: React.FC<EditInAppStripProps> = ({
         data-testid="edit-in-app-strip-context"
         className={`flex flex-col gap-1 ${className}`}
       >
-        <div className="px-1 pt-0.5 text-[8px] font-mono font-bold tracking-widest uppercase text-[#8E8E93] flex items-center justify-between">
-          <span>EDIT IN · ZERO-PROMPT</span>
-          <span className="text-[#F59E0B]">LIVE SYNC</span>
+        <div className="px-1 pt-0.5 text-[8px] font-mono font-black tracking-widest uppercase text-[#8E8E93] flex items-center justify-between">
+          <span>BRIDGE</span>
+          <span className="text-[#F59E0B]">LIVE</span>
         </div>
         <div className="grid grid-cols-2 gap-1">
           {EDIT_IN_APPS.map((app) => {
             const isBusy = launchingApp === app.id;
             return (
-              <button
-                key={app.id}
-                type="button"
-                data-testid={`edit-in-${app.id}`}
-                onClick={(e) => handleClick(e, app.id)}
-                title={app.title}
-                style={{ '--item-accent': app.accent } as React.CSSProperties}
-                className={`nle-editorial-btn px-1.5 py-1 rounded bg-[#141417] border border-white/[0.08] text-[9.5px] font-mono font-bold text-[#F4F4F5] flex items-center gap-1.5 cursor-pointer ${
-                  isBusy ? 'ring-1 ring-[#F59E0B]' : ''
-                }`}
-              >
-                <AppBrandBadgeSvg app={app} size={17} />
-                <span className="truncate">{app.id === 'capcut' ? 'CapCut' : app.code}</span>
-              </button>
+              <CinemaToolHUD key={app.id} title={app.title} en={app.en} bn={app.bn} accent="cyan" blockWrapper>
+                <button
+                  type="button"
+                  data-testid={`edit-in-${app.id}`}
+                  onClick={(e) => handleClick(e, app.id)}
+                  style={{ '--item-accent': app.accent } as React.CSSProperties}
+                  className={`nle-editorial-btn w-full px-1.5 py-1 rounded bg-[#141417] border border-white/[0.08] text-[9.5px] font-mono font-bold text-[#F4F4F5] flex items-center gap-1.5 cursor-pointer ${
+                    isBusy ? 'ring-1 ring-[#F59E0B]' : ''
+                  }`}
+                >
+                  <AppBrandBadgeSvg app={app} size={17} />
+                  <span className="truncate">{app.id === 'capcut' ? 'CapCut' : app.code}</span>
+                </button>
+              </CinemaToolHUD>
             );
           })}
         </div>
@@ -189,33 +200,33 @@ export const EditInAppStrip: React.FC<EditInAppStripProps> = ({
         data-testid="edit-in-app-strip-drawer"
         className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-[#0E0F14]/95 border border-white/[0.08] ${className}`}
       >
-        <span className="text-[9px] font-mono font-bold tracking-[0.14em] uppercase text-[#8E8E93] whitespace-nowrap mr-0.5">
-          EDIT IN:
+        <span className="text-[9px] font-mono font-black tracking-[0.14em] uppercase text-[#8E8E93] whitespace-nowrap mr-0.5">
+          BRIDGE
         </span>
         {EDIT_IN_APPS.map((app) => {
           const isBusy = launchingApp === app.id;
           return (
-            <button
-              key={app.id}
-              type="button"
-              data-testid={`edit-in-${app.id}`}
-              onClick={(e) => handleClick(e, app.id)}
-              title={app.title}
-              style={{ '--item-accent': app.accent } as React.CSSProperties}
-              className={`nle-editorial-btn h-7 px-2 rounded-md bg-[#141417] border border-white/[0.08] text-[10px] font-mono font-bold text-[#F4F4F5] flex items-center gap-1.5 cursor-pointer ${
-                isBusy ? 'ring-1 ring-[#F59E0B] scale-95' : ''
-              }`}
-            >
-              <AppBrandBadgeSvg app={app} size={18} />
-              <span className="hidden md:inline whitespace-nowrap">{app.label}</span>
-            </button>
+            <CinemaToolHUD key={app.id} title={app.title} en={app.en} bn={app.bn} accent="cyan">
+              <button
+                type="button"
+                data-testid={`edit-in-${app.id}`}
+                onClick={(e) => handleClick(e, app.id)}
+                style={{ '--item-accent': app.accent } as React.CSSProperties}
+                className={`nle-editorial-btn h-7 px-2 rounded-md bg-[#141417] border border-white/[0.08] text-[10px] font-mono font-bold text-[#F4F4F5] flex items-center gap-1.5 cursor-pointer ${
+                  isBusy ? 'ring-1 ring-[#F59E0B] scale-95' : ''
+                }`}
+              >
+                <AppBrandBadgeSvg app={app} size={18} />
+                <span className="hidden md:inline whitespace-nowrap">{app.label}</span>
+              </button>
+            </CinemaToolHUD>
           );
         })}
       </div>
     );
   }
 
-  // Default 'hud' variant for 28px StageMetadataFxBar
+  // Default 'hud' variant for StageMetadataFxBar
   return (
     <div
       data-testid="edit-in-app-strip-hud"
@@ -225,24 +236,24 @@ export const EditInAppStrip: React.FC<EditInAppStripProps> = ({
       aria-label="Edit In External App"
     >
       <span className="text-[7.5px] font-mono font-bold tracking-wider uppercase text-[#8E8E93] mr-0.5 leading-none">
-        EDIT IN
+        BRIDGE
       </span>
       {EDIT_IN_APPS.map((app) => {
         const isBusy = launchingApp === app.id;
         return (
-          <button
-            key={app.id}
-            type="button"
-            data-testid={`edit-in-${app.id}`}
-            onClick={(e) => handleClick(e, app.id)}
-            title={app.title}
-            style={{ '--item-accent': app.accent } as React.CSSProperties}
-            className={`nle-editorial-btn rounded-[3px] p-0 cursor-pointer flex items-center justify-center ${
-              isBusy ? 'ring-1 ring-[#F59E0B] scale-95' : ''
-            }`}
-          >
-            <AppBrandBadgeSvg app={app} size={13} />
-          </button>
+          <CinemaToolHUD key={app.id} title={app.title} en={app.en} bn={app.bn} accent="cyan" side="bottom">
+            <button
+              type="button"
+              data-testid={`edit-in-${app.id}`}
+              onClick={(e) => handleClick(e, app.id)}
+              style={{ '--item-accent': app.accent } as React.CSSProperties}
+              className={`nle-editorial-btn rounded-[3px] p-0 cursor-pointer flex items-center justify-center ${
+                isBusy ? 'ring-1 ring-[#F59E0B] scale-95' : ''
+              }`}
+            >
+              <AppBrandBadgeSvg app={app} size={13} />
+            </button>
+          </CinemaToolHUD>
         );
       })}
     </div>

@@ -8,6 +8,7 @@ import React, { useState } from 'react';
 import { useStudioStore } from '../../core/store';
 import { exportRawxVaultBundle } from '../../data/rawxVaultIO';
 import { generateProjectMarkdown, generateCSVExport } from '../../utils/engine';
+import { CinemaToolHUD, CinemaBadgeHeader } from '../../components/ui/CinemaToolHUD';
 import { 
   Download, 
   GitBranch, 
@@ -36,6 +37,7 @@ export const ExportGitModal: React.FC = () => {
   const [passphrase, setPassphrase] = useState('');
   const [isEncrypted, setIsEncrypted] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [confirmWipe, setConfirmWipe] = useState(false);
 
   if (activeModule !== 'EXPORT') return null;
 
@@ -50,9 +52,9 @@ export const ExportGitModal: React.FC = () => {
       a.download = `${project.title.replace(/[^a-zA-Z0-9_-]/g, '_')}.rawxvault`;
       a.click();
       URL.revokeObjectURL(url);
-      setStatusMessage('Downloaded .rawxvault bundle successfully');
+      setStatusMessage('VAULT SAVED');
     } catch (err: any) {
-      setStatusMessage(`Export failed: ${err.message}`);
+      setStatusMessage(`ERR: ${err.message}`);
     }
   };
 
@@ -65,7 +67,7 @@ export const ExportGitModal: React.FC = () => {
     a.download = `README_${project.title.replace(/[^a-zA-Z0-9_-]/g, '_')}.md`;
     a.click();
     URL.revokeObjectURL(url);
-    setStatusMessage('Downloaded Git-ready README.md');
+    setStatusMessage('README SAVED');
   };
 
   const handleDownloadCSV = () => {
@@ -77,18 +79,19 @@ export const ExportGitModal: React.FC = () => {
     a.download = `ShotList_${project.title.replace(/[^a-zA-Z0-9_-]/g, '_')}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-    setStatusMessage('Downloaded ShotList.csv');
+    setStatusMessage('CSV SAVED');
   };
 
   const handleClearAllData = () => {
-    if (confirm("DANGER: Are you sure you want to permanently clear all saved storyboard media, pan offsets, and local database records?")) {
-      if (confirm("Final confirmation: This will wipe all local studio storage and reload. Proceed?")) {
-        localStorage.clear();
-        indexedDB.deleteDatabase('RAWxVault100_DB');
-        indexedDB.deleteDatabase('RAWxStudio_v5_DB');
-        window.location.reload();
-      }
+    if (!confirmWipe) {
+      setConfirmWipe(true);
+      setTimeout(() => setConfirmWipe(false), 4000);
+      return;
     }
+    localStorage.clear();
+    indexedDB.deleteDatabase('RAWxVault100_DB');
+    indexedDB.deleteDatabase('RAWxStudio_v5_DB');
+    window.location.reload();
   };
 
   return (
@@ -101,21 +104,33 @@ export const ExportGitModal: React.FC = () => {
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-[#D4AF37]/20 pb-2.5">
-          <div className="flex items-center gap-2">
-            <GitBranch className="w-4 h-4 text-[#D4AF37]" />
-            <span className="font-bold tracking-wider text-[#FFE066]">
-              RAWx EXPORT / GIT PUBLICATION SUITE
-            </span>
-          </div>
-          <button onClick={() => setActiveModule('PLAYER')} className="text-[#8A8A8A] hover:text-[#EDEDED]">
-            <X className="w-4 h-4" />
-          </button>
+        <div className="flex items-center justify-between border-b border-white/[0.08] pb-2.5">
+          <CinemaBadgeHeader
+            icon={<GitBranch className="w-3.5 h-3.5 text-amber-400" />}
+            label="GIT EXPORT"
+            accent="amber"
+          />
+          <CinemaToolHUD
+            title="CLOSE EXPORT SUITE"
+            en="Return to active studio stage."
+            bn="কীভাবে ব্যবহার করবেন: প্যানেল বন্ধ করতে চাপুন।"
+            accent="amber"
+            side="left"
+          >
+            <button
+              type="button"
+              onClick={() => setActiveModule('PLAYER')}
+              className="cinema-tile cinema-tile-amber min-h-[36px] px-2.5 flex items-center gap-1 text-[10px] font-black tracking-wider uppercase"
+            >
+              <X className="w-4 h-4" strokeWidth={2.2} />
+              <span>CLOSE</span>
+            </button>
+          </CinemaToolHUD>
         </div>
 
         {/* Status Message */}
         {statusMessage && (
-          <div className="p-2 rounded bg-[#4ADE80]/10 border border-[#4ADE80]/30 text-[#4ADE80] text-[11px] flex items-center gap-1.5">
+          <div className="p-2 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-[11px] font-black tracking-wider flex items-center gap-1.5">
             <Check className="w-3.5 h-3.5" />
             <span>{statusMessage}</span>
           </div>
@@ -135,95 +150,137 @@ export const ExportGitModal: React.FC = () => {
         {/* Export Formats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {/* .rawxvault Bundle */}
-          <div className="p-3 rounded-lg bg-[#121212] border border-white/5 flex flex-col gap-2">
-            <div className="flex items-center gap-2 text-[#FFE066] font-bold">
-              <Download className="w-4 h-4 text-[#D4AF37]" />
-              <span>.rawxvault Bundle</span>
-            </div>
-            <p className="text-[10px] text-[#8A8A8A]">
-              Complete project archive with JSON manifest, frame states, and optional AES-GCM encryption.
-            </p>
+          <div className="p-3 rounded-lg bg-[#111215] border border-[#26282E] flex flex-col gap-2.5">
+            <CinemaBadgeHeader
+              icon={<Download className="w-3.5 h-3.5 text-amber-400" />}
+              label="VAULT ZIP"
+              accent="amber"
+            />
 
-            <div className="flex items-center gap-2 mt-1">
-              <input
-                type="checkbox"
-                id="encrypt-chk"
-                checked={isEncrypted}
-                onChange={(e) => setIsEncrypted(e.target.checked)}
-                className="accent-[#D4AF37]"
-              />
-              <label htmlFor="encrypt-chk" className="text-[10px] text-[#EDEDED] flex items-center gap-1">
-                <Lock className="w-3 h-3 text-[#D4AF37]" />
-                <span>AES-GCM Encryption</span>
-              </label>
-            </div>
+            <CinemaToolHUD
+              title="AES-GCM ENCRYPTION"
+              en="Lock exported .rawxvault archive with a custom passphrase."
+              bn="কীভাবে ব্যবহার করবেন: ফাইল পাসওয়ার্ড দিয়ে লক করতে AES-256 অন করুন।"
+              accent="amber"
+              side="top"
+              blockWrapper
+            >
+              <button
+                type="button"
+                onClick={() => setIsEncrypted(!isEncrypted)}
+                data-active={isEncrypted ? 'true' : 'false'}
+                className="cinema-tile cinema-tile-amber w-full min-h-[38px] px-2.5 flex items-center justify-between text-[10px] font-black tracking-wider uppercase"
+              >
+                <span className="flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5" strokeWidth={2.2} />
+                  <span>AES LOCK</span>
+                </span>
+                <span>{isEncrypted ? 'ON' : 'OFF'}</span>
+              </button>
+            </CinemaToolHUD>
 
             {isEncrypted && (
               <input
                 type="password"
-                placeholder="Enter passphrase..."
+                placeholder="Passphrase..."
                 value={passphrase}
                 onChange={(e) => setPassphrase(e.target.value)}
-                className="bg-black border border-[#D4AF37]/40 rounded p-1 text-[11px] text-[#EDEDED] outline-none"
+                className="bg-black border border-amber-500/40 rounded p-2 text-[11px] text-[#EDEDED] outline-none"
               />
             )}
 
-            <button
-              onClick={handleDownloadVaultBundle}
-              className="mt-auto px-3 py-1.5 rounded bg-[#D4AF37] text-black font-bold hover:bg-[#FFE066] transition-colors"
+            <CinemaToolHUD
+              title="EXPORT .RAWXVAULT BUNDLE"
+              en="Download complete project JSON manifest and shot states."
+              bn="কীভাবে ব্যবহার করবেন: পুরো প্রজেক্ট ব্যাকআপ ফাইল ডাউনলোড করতে চাপুন।"
+              accent="amber"
+              side="top"
+              blockWrapper
             >
-              DOWNLOAD .RAWXVAULT
-            </button>
+              <button
+                type="button"
+                onClick={handleDownloadVaultBundle}
+                data-active="true"
+                className="cinema-tile cinema-tile-amber w-full min-h-[44px] mt-auto px-3 flex items-center justify-center gap-1.5 text-[11px] font-black tracking-wider uppercase"
+              >
+                <Download className="w-4 h-4" strokeWidth={2.2} />
+                <span>RAWX VAULT</span>
+              </button>
+            </CinemaToolHUD>
           </div>
 
           {/* Git Markdown & CSV */}
-          <div className="p-3 rounded-lg bg-[#121212] border border-white/5 flex flex-col gap-2">
-            <div className="flex items-center gap-2 text-[#FFE066] font-bold">
-              <FileText className="w-4 h-4 text-[#D4AF37]" />
-              <span>Git & Production Docs</span>
-            </div>
-            <p className="text-[10px] text-[#8A8A8A]">
-              GitHub-ready README Markdown spec with camera specs, Bengali titles, and CSV shot lists.
-            </p>
+          <div className="p-3 rounded-lg bg-[#111215] border border-[#26282E] flex flex-col gap-2.5">
+            <CinemaBadgeHeader
+              icon={<FileText className="w-3.5 h-3.5 text-cyan-400" />}
+              label="GIT DOCS"
+              accent="cyan"
+            />
 
-            <div className="flex flex-col gap-1.5 mt-auto">
-              <button
-                onClick={handleDownloadMarkdown}
-                className="px-3 py-1.5 rounded bg-[#121212] border border-[#D4AF37]/30 hover:border-[#D4AF37] text-[#EDEDED] hover:text-[#FFE066] transition-colors flex items-center justify-center gap-1.5"
+            <div className="flex flex-col gap-2 mt-auto">
+              <CinemaToolHUD
+                title="EXPORT GIT README.MD"
+                en="Download Markdown spec with camera notes and Bengali titles."
+                bn="কীভাবে ব্যবহার করবেন: GitHub-রেডি README.md ডাউনলোড করতে ক্লিক করুন।"
+                accent="cyan"
+                side="top"
+                blockWrapper
               >
-                <FileText className="w-3.5 h-3.5 text-[#D4AF37]" />
-                <span>DOWNLOAD README.MD</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={handleDownloadMarkdown}
+                  className="cinema-tile cinema-tile-cyan w-full min-h-[44px] px-3 flex items-center justify-center gap-1.5 text-[11px] font-black tracking-wider uppercase"
+                >
+                  <FileText className="w-4 h-4" strokeWidth={2.2} />
+                  <span>README.MD</span>
+                </button>
+              </CinemaToolHUD>
 
-              <button
-                onClick={handleDownloadCSV}
-                className="px-3 py-1.5 rounded bg-[#121212] border border-[#D4AF37]/30 hover:border-[#D4AF37] text-[#EDEDED] hover:text-[#FFE066] transition-colors flex items-center justify-center gap-1.5"
+              <CinemaToolHUD
+                title="EXPORT SHOTLIST.CSV"
+                en="Download structured CSV spreadsheet of all storyboard shots."
+                bn="কীভাবে ব্যবহার করবেন: এক্সেল বা শিট ফরম্যাটে শটলিস্ট পেতে চাপুন।"
+                accent="emerald"
+                side="top"
+                blockWrapper
               >
-                <FileSpreadsheet className="w-3.5 h-3.5 text-[#D4AF37]" />
-                <span>DOWNLOAD SHOTLIST.CSV</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={handleDownloadCSV}
+                  className="cinema-tile cinema-tile-emerald w-full min-h-[44px] px-3 flex items-center justify-center gap-1.5 text-[11px] font-black tracking-wider uppercase"
+                >
+                  <FileSpreadsheet className="w-4 h-4" strokeWidth={2.2} />
+                  <span>SHOT CSV</span>
+                </button>
+              </CinemaToolHUD>
             </div>
           </div>
         </div>
 
         {/* Danger Zone: Wipe Storage */}
-        <div className="p-3 rounded-lg bg-[#FF4B4B]/5 border border-[#FF4B4B]/20 flex items-center justify-between mt-2">
-          <div className="flex items-center gap-2 text-[#FF4B4B]">
-            <AlertTriangle className="w-4 h-4" />
-            <div>
-              <span className="font-bold">Reset Local Vault Database</span>
-              <p className="text-[9px] text-[#8A8A8A]">
-                Permanently wipes all IndexedDB tables, custom photos, and pan offsets.
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={handleClearAllData}
-            className="px-2.5 py-1 rounded bg-[#FF4B4B]/20 border border-[#FF4B4B] text-[#FF4B4B] hover:bg-[#FF4B4B] hover:text-black font-bold text-[10px] transition-colors flex items-center gap-1"
+        <div className="p-3 rounded-lg bg-rose-950/20 border border-rose-500/30 flex items-center justify-between mt-1">
+          <CinemaBadgeHeader
+            icon={<AlertTriangle className="w-3.5 h-3.5 text-rose-400" />}
+            label="VAULT RESET"
+            accent="crimson"
+          />
+          <CinemaToolHUD
+            title="WIPE LOCAL STORAGE"
+            en="Double-tap to permanently delete local IndexedDB media and resets."
+            bn="কীভাবে ব্যবহার করবেন: সব লোকাল মিডিয়া ও ডেটা মুছতে পরপর দুবার চাপুন।"
+            accent="crimson"
+            side="left"
           >
-            <Trash2 className="w-3 h-3" />
-            <span>WIPE DATA</span>
-          </button>
+            <button
+              type="button"
+              onClick={handleClearAllData}
+              data-active={confirmWipe ? 'true' : 'false'}
+              className="cinema-tile cinema-tile-crimson min-h-[40px] px-3 flex items-center gap-1.5 text-[10.5px] font-black tracking-wider uppercase"
+            >
+              <Trash2 className="w-3.5 h-3.5" strokeWidth={2.2} />
+              <span>{confirmWipe ? 'CONFIRM WIPE' : 'WIPE DATA'}</span>
+            </button>
+          </CinemaToolHUD>
         </div>
       </div>
     </div>

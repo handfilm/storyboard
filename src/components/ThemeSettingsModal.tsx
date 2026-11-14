@@ -7,7 +7,8 @@
 
 import React, { useState } from 'react';
 import { themeManager, THEMES, ThemeId, DensityMode } from '../core/theme';
-import { X, Check, Palette, Sparkles, SlidersHorizontal, Sun, Moon } from 'lucide-react';
+import { X, Check, Palette, SlidersHorizontal } from 'lucide-react';
+import { CinemaToolHUD, CinemaBadgeHeader } from './ui/CinemaToolHUD';
 
 interface ThemeSettingsModalProps {
   isOpen: boolean;
@@ -32,59 +33,80 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({ isOpen, 
   const themeList = Object.entries(THEMES) as [ThemeId, typeof THEMES[ThemeId]][];
 
   return (
-    <div 
+    <div
       className="fixed inset-0 z-[115] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 select-none"
       onClick={onClose}
     >
-      <div 
+      <div
         className="w-full max-w-lg bg-[#0B0C10] border border-[#D4AF37]/50 rounded-[2px] shadow-[0_30px_80px_rgba(0,0,0,0.95)] flex flex-col font-mono-tech overflow-hidden animate-in fade-in zoom-in-95 duration-150"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
         <div className="px-5 py-3.5 border-b border-white/10 flex items-center justify-between bg-black/40">
-          <div className="flex items-center gap-2">
-            <Palette className="w-4 h-4 text-[#D4AF37]" />
-            <h2 className="font-cinzel text-xs sm:text-sm font-bold tracking-[0.2em] text-white">
-              STUDIO DESIGN SYSTEM & THEMES
-            </h2>
-          </div>
-          <button onClick={onClose} className="p-1 text-white/50 hover:text-white cursor-pointer">
-            <X className="w-4 h-4" />
-          </button>
+          <CinemaBadgeHeader
+            icon={<Palette className="w-4 h-4 text-[#D4AF37]" strokeWidth={2.2} />}
+            label="STUDIO THEMES"
+            accent="amber"
+          />
+          <CinemaToolHUD
+            title="CLOSE THEMES"
+            en="Close the appearance settings modal."
+            bn="কীভাবে ব্যবহার করবেন: থিম প্যানেল বন্ধ করতে ক্লিক করুন।"
+            shortcut="ESC"
+            accent="crimson"
+            side="left"
+          >
+            <button
+              onClick={onClose}
+              className="cinema-tile cinema-tile-crimson min-h-[36px] px-2.5 flex items-center gap-1"
+              aria-label="Close Themes"
+            >
+              <X className="w-4 h-4" strokeWidth={2.2} />
+              <span className="font-black tracking-wider text-[10px] uppercase">CLOSE</span>
+            </button>
+          </CinemaToolHUD>
         </div>
 
         {/* Body */}
         <div className="p-5 flex flex-col gap-5 overflow-y-auto max-h-[75vh] no-scrollbar">
           {/* Themes */}
           <div>
-            <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#D4AF37] mb-2.5 flex items-center gap-1.5">
-              <span>COLOR PALETTE PRESETS (5 THEMES)</span>
-            </div>
+            <CinemaBadgeHeader
+              icon={<Palette className="w-3.5 h-3.5 text-[#D4AF37]" strokeWidth={2.2} />}
+              label="COLOR PRESETS"
+              accent="amber"
+              className="mb-2.5"
+            />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {themeList.map(([id, t]) => {
                 const isSelected = settings.theme === id;
                 return (
-                  <button
+                  <CinemaToolHUD
                     key={id}
-                    onClick={() => handleSelectTheme(id)}
-                    className={`p-2.5 rounded-[1px] border text-left cursor-pointer transition-all flex flex-col gap-1.5 ${
-                      isSelected
-                        ? 'bg-[#D4AF37]/15 border-[#D4AF37] text-white shadow-[0_0_12px_rgba(212,175,55,0.3)]'
-                        : 'bg-white/5 border-white/10 text-white/70 hover:text-white hover:bg-white/10'
-                    }`}
+                    title={`${t.name.toUpperCase()} PALETTE`}
+                    en={`Switch studio UI colors to ${t.name}.`}
+                    bn="কীভাবে ব্যবহার করবেন: এই কালার থিম চালু করতে ক্লিক করুন।"
+                    accent="amber"
+                    side="top"
+                    blockWrapper
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold tracking-wider">{t.name}</span>
-                      {isSelected && <Check className="w-3 h-3 text-[#D4AF37]" />}
-                    </div>
-                    {/* Color Swatch Dots */}
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className="w-3 h-3 rounded-full border border-white/20" style={{ backgroundColor: t.colors.bg }} title="Background" />
-                      <span className="w-3 h-3 rounded-full border border-white/20" style={{ backgroundColor: t.colors.surface }} title="Surface" />
-                      <span className="w-3 h-3 rounded-full border border-white/20" style={{ backgroundColor: t.colors.accent }} title="Accent" />
-                      <span className="w-3 h-3 rounded-full border border-white/20" style={{ backgroundColor: t.colors.text }} title="Text" />
-                    </div>
-                  </button>
+                    <button
+                      onClick={() => handleSelectTheme(id)}
+                      data-active={isSelected ? 'true' : 'false'}
+                      className="cinema-tile cinema-tile-amber w-full min-h-[52px] p-2.5 text-left flex items-center justify-between gap-2"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-black tracking-wider text-[10px] sm:text-[11px] uppercase">{t.name}</span>
+                        {isSelected && <Check className="w-3.5 h-3.5 text-[#fbbf24]" strokeWidth={2.4} />}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className="w-3 h-3 rounded-full border border-white/20" style={{ backgroundColor: t.colors.bg }} />
+                        <span className="w-3 h-3 rounded-full border border-white/20" style={{ backgroundColor: t.colors.surface }} />
+                        <span className="w-3 h-3 rounded-full border border-white/20" style={{ backgroundColor: t.colors.accent }} />
+                        <span className="w-3 h-3 rounded-full border border-white/20" style={{ backgroundColor: t.colors.text }} />
+                      </div>
+                    </button>
+                  </CinemaToolHUD>
                 );
               })}
             </div>
@@ -92,50 +114,59 @@ export const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({ isOpen, 
 
           {/* Density Mode */}
           <div>
-            <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#D4AF37] mb-2.5 flex items-center gap-1.5">
-              <SlidersHorizontal className="w-3 h-3" />
-              <span>INTERFACE DENSITY</span>
-            </div>
+            <CinemaBadgeHeader
+              icon={<SlidersHorizontal className="w-3.5 h-3.5 text-cyan-400" strokeWidth={2.2} />}
+              label="UI DENSITY"
+              accent="cyan"
+              className="mb-2.5"
+            />
             <div className="grid grid-cols-3 gap-2">
               {(['compact', 'comfortable', 'spacious'] as DensityMode[]).map(d => {
                 const isSelected = settings.density === d;
                 return (
-                  <button
+                  <CinemaToolHUD
                     key={d}
-                    onClick={() => handleSelectDensity(d)}
-                    className={`py-2 px-3 rounded-[1px] border text-center font-mono-tech text-[9.5px] uppercase tracking-wider cursor-pointer transition-all ${
-                      isSelected
-                        ? 'bg-[#D4AF37] text-black font-bold border-[#D4AF37]'
-                        : 'bg-white/5 border-white/10 text-white/60 hover:text-white'
-                    }`}
+                    title={`${d.toUpperCase()} DENSITY`}
+                    en={`Set interface padding density to ${d}.`}
+                    bn="কীভাবে ব্যবহার করবেন: লেআউট স্পেসিং বদলাতে ক্লিক করুন।"
+                    accent="cyan"
+                    side="top"
+                    blockWrapper
                   >
-                    {d}
-                  </button>
+                    <button
+                      onClick={() => handleSelectDensity(d)}
+                      data-active={isSelected ? 'true' : 'false'}
+                      className="cinema-tile cinema-tile-cyan w-full min-h-[44px] py-2 px-3 text-center font-black tracking-wider text-[10px] sm:text-[11px] uppercase"
+                    >
+                      {d.toUpperCase()}
+                    </button>
+                  </CinemaToolHUD>
                 );
               })}
             </div>
           </div>
-
-          {/* Token Specs */}
-          <div className="p-3 bg-black/50 border border-white/10 rounded-[1px] text-[8.5px] text-white/50 leading-relaxed">
-            <div className="text-white/80 font-bold mb-1">RAWx DESIGN SYSTEM TOKENS:</div>
-            <div>• Background: #050505 • Surface: #0B0B0B • Raised: #121212</div>
-            <div>• Gold Accent: #D4AF37 (Bright: #FFE066) • Base Grid: 8px</div>
-            <div>• Font Stack: Cinzel (Display), Noto Serif Bengali, JetBrains Mono</div>
-          </div>
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-3 border-t border-white/10 bg-black/60 flex items-center justify-between text-[9px] text-white/40">
-          <span>Preferences persist automatically across sessions</span>
-          <button
-            onClick={onClose}
-            className="px-3 py-1 bg-[#D4AF37] text-black font-bold text-[9px] rounded-[1px] cursor-pointer hover:bg-[#FFE066] transition-colors"
+        <div className="px-5 py-3 border-t border-white/10 bg-black/60 flex items-center justify-end">
+          <CinemaToolHUD
+            title="APPLY & CLOSE"
+            en="Save appearance settings and return to studio."
+            bn="কীভাবে ব্যবহার করবেন: সেভ করে ফিরে যেতে চাপুন।"
+            accent="emerald"
+            side="left"
           >
-            DONE
-          </button>
+            <button
+              onClick={onClose}
+              className="cinema-tile cinema-tile-emerald min-h-[40px] px-4 py-1.5 flex items-center gap-1.5"
+            >
+              <Check className="w-3.5 h-3.5" strokeWidth={2.4} />
+              <span className="font-black tracking-wider text-[10px] sm:text-[11px] uppercase">DONE</span>
+            </button>
+          </CinemaToolHUD>
         </div>
       </div>
     </div>
   );
 };
+

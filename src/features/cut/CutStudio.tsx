@@ -66,6 +66,7 @@ import {
   AudioWaveform,
   X
 } from 'lucide-react';
+import { CinemaToolHUD, CinemaBadgeHeader } from '../../components/ui/CinemaToolHUD';
 
 interface CutStudioProps {
   onSyncToBoard?: (frames: AnthologyFrame[]) => void;
@@ -1115,8 +1116,8 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onOpenMultiCam }) => {
   return (
     <div className="w-full h-full flex flex-col bg-[#050508] text-[#EDEDED] font-mono-tech select-none overflow-hidden">
       {/* 1. TOP BAR */}
-      <header className="h-12 bg-[#08080C] border-b border-white/10 px-4 flex items-center justify-between gap-3 shrink-0 z-30">
-        <div className="flex items-center gap-3 min-w-0">
+      <header className="h-14 bg-[#08080C] border-b border-white/10 px-4 flex items-center justify-between gap-2 shrink-0 z-30 overflow-x-auto no-scrollbar">
+        <div className="flex items-center gap-2.5 min-w-0 shrink-0">
           <div className="p-1.5 bg-[#D4AF37]/20 border border-[#D4AF37]/40 rounded-[2px] text-[#FFE066] shrink-0">
             <Scissors className="w-4 h-4" />
           </div>
@@ -1124,100 +1125,134 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onOpenMultiCam }) => {
             type="text"
             value={projectName}
             onChange={(e) => setProjectName(e.target.value)}
-            className="bg-transparent border-b border-transparent hover:border-white/20 focus:border-[#D4AF37] px-1 py-0.5 text-xs font-bold text-white focus:outline-none max-w-[200px]"
+            className="bg-transparent border-b border-transparent hover:border-white/20 focus:border-[#D4AF37] px-1 py-0.5 text-xs font-black tracking-wider uppercase text-white focus:outline-none max-w-[180px]"
           />
-          <span className="px-2 py-0.5 rounded-[1px] bg-emerald-500/10 border border-emerald-500/30 text-[8.5px] text-emerald-400 font-bold whitespace-nowrap shrink-0">
-            {saveStatus === 'saved' ? 'READY' : 'SYNCING...'}
+          <span className="px-2 py-0.5 rounded-[1px] bg-emerald-500/10 border border-emerald-500/30 text-[9px] font-black tracking-wider text-emerald-400 whitespace-nowrap shrink-0">
+            {saveStatus === 'saved' ? 'READY' : 'SYNCING'}
           </span>
         </div>
 
         {/* Center: Two-Way Sync & Undo/Redo */}
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={handleSyncFromBoard}
-            className="px-2.5 py-1 bg-white/5 hover:bg-white/15 border border-white/15 hover:border-[#D4AF37] text-white/80 hover:text-[#FFE066] rounded-[1px] text-[10px] font-bold flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shrink-0"
-            title="Import Storyboard shots into this Sequence"
+        <div className="flex items-center gap-1.5 shrink-0">
+          <CinemaToolHUD
+            title="IMPORT FROM BOARD"
+            en="Load all storyboard shots and durations into timeline V1"
+            bn="কীভাবে ব্যবহার করবেন: স্টোরিবোর্ড থেকে সব শট টাইমলাইনে আনতে চাপুন।"
+            accent="cyan"
           >
-            <Download className="w-3 h-3 text-[#D4AF37]" />
-            <span>FROM BOARD</span>
-          </button>
-          <button
-            onClick={handleSyncToBoard}
-            className="px-2.5 py-1 bg-[#D4AF37]/20 hover:bg-[#D4AF37]/35 border border-[#D4AF37]/40 text-[#FFE066] rounded-[1px] text-[10px] font-bold flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shrink-0"
-            title="Push timeline clip lengths & order back into Storyboard"
+            <button
+              onClick={handleSyncFromBoard}
+              className="cinema-tile cinema-tile-cyan px-2.5 py-1.5 min-h-[34px] flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+            >
+              <Download className="w-3.5 h-3.5" strokeWidth={2.2} />
+              <span className="font-black tracking-wider text-[10px] uppercase">FROM BOARD</span>
+            </button>
+          </CinemaToolHUD>
+          <CinemaToolHUD
+            title="SYNC TO BOARD"
+            en="Push timeline clip durations, order & media back to storyboard"
+            bn="কীভাবে ব্যবহার করবেন: এডিট করা ক্লিপগুলো স্টোরিবোর্ডে সেভ করতে চাপুন।"
+            accent="amber"
           >
-            <Upload className="w-3 h-3 text-[#D4AF37]" />
-            <span>TO BOARD</span>
-          </button>
+            <button
+              onClick={handleSyncToBoard}
+              className="cinema-tile cinema-tile-amber px-2.5 py-1.5 min-h-[34px] flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+            >
+              <Upload className="w-3.5 h-3.5" strokeWidth={2.2} />
+              <span className="font-black tracking-wider text-[10px] uppercase">TO BOARD</span>
+            </button>
+          </CinemaToolHUD>
 
-          <div className="h-4 w-px bg-white/15 mx-1" />
+          <div className="h-4 w-px bg-white/15 mx-0.5" />
 
-          <button
-            onClick={handleUndo}
-            disabled={undoStack.length === 0}
-            className={`p-1.5 rounded-[1px] border border-white/10 ${
-              undoStack.length > 0 ? 'text-white hover:border-[#D4AF37] cursor-pointer' : 'text-white/20 cursor-not-allowed'
-            }`}
-            title="Undo (Ctrl+Z)"
-          >
-            <RotateCcw className="w-3 h-3" />
-          </button>
-          <button
-            onClick={handleRedo}
-            disabled={redoStack.length === 0}
-            className={`p-1.5 rounded-[1px] border border-white/10 ${
-              redoStack.length > 0 ? 'text-white hover:border-[#D4AF37] cursor-pointer' : 'text-white/20 cursor-not-allowed'
-            }`}
-            title="Redo (Ctrl+Shift+Z)"
-          >
-            <RotateCw className="w-3 h-3" />
-          </button>
+          <CinemaToolHUD title="UNDO" en="Undo last timeline edit" bn="কীভাবে ব্যবহার করবেন: আগের ধাপে ফিরে যেতে চাপুন।" accent="amber" shortcut="Ctrl+Z">
+            <button
+              onClick={handleUndo}
+              disabled={undoStack.length === 0}
+              className={`cinema-tile cinema-tile-amber p-1.5 min-h-[34px] min-w-[34px] flex items-center justify-center ${
+                undoStack.length > 0 ? 'cursor-pointer' : 'opacity-30 cursor-not-allowed'
+              }`}
+            >
+              <RotateCcw className="w-3.5 h-3.5" strokeWidth={2.2} />
+            </button>
+          </CinemaToolHUD>
+          <CinemaToolHUD title="REDO" en="Redo undone timeline edit" bn="কীভাবে ব্যবহার করবেন: বাতিল করা ধাপ ফেরাতে চাপুন।" accent="amber" shortcut="Ctrl+Shift+Z">
+            <button
+              onClick={handleRedo}
+              disabled={redoStack.length === 0}
+              className={`cinema-tile cinema-tile-amber p-1.5 min-h-[34px] min-w-[34px] flex items-center justify-center ${
+                redoStack.length > 0 ? 'cursor-pointer' : 'opacity-30 cursor-not-allowed'
+              }`}
+            >
+              <RotateCw className="w-3.5 h-3.5" strokeWidth={2.2} />
+            </button>
+          </CinemaToolHUD>
         </div>
 
         {/* Right: Aspect Ratio, Multi-Cam & Export */}
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
           {onOpenMultiCam && (
-            <button
-              type="button"
-              onClick={onOpenMultiCam}
-              className="px-3 py-1 bg-gradient-to-r from-amber-500/20 to-amber-600/20 hover:from-amber-500/35 hover:to-amber-600/35 border border-[#F5A623]/70 text-[#F5A623] hover:text-white font-mono text-[10px] font-bold rounded flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap shrink-0"
-              title="Switch to Multi-Cam Angle Grid (Shift+M)"
+            <CinemaToolHUD
+              title="MULTI-CAM GRID"
+              en="Switch to synced multi-camera angle selector grid"
+              bn="কীভাবে ব্যবহার করবেন: মাল্টি-ক্যাম অ্যাঙ্গেল গ্রিডে যেতে চাপুন।"
+              accent="amber"
+              shortcut="Shift+M"
             >
-              <span className="text-xs font-black">⊞</span>
-              <span>Multi-Cam</span>
-            </button>
+              <button
+                type="button"
+                onClick={onOpenMultiCam}
+                className="cinema-tile cinema-tile-amber px-2.5 py-1.5 min-h-[34px] flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+              >
+                <span className="text-xs font-black">⊞</span>
+                <span className="font-black tracking-wider text-[10px] uppercase">MULTI-CAM</span>
+              </button>
+            </CinemaToolHUD>
           )}
 
-          <div className="flex items-center bg-black/60 border border-white/15 rounded-[1px] p-0.5">
+          <div className="flex items-center gap-1">
             {(['16:9', '9:16', '1:1', '4:5', '2.39:1'] as AspectRatio[]).map((ratio) => (
-              <button
+              <CinemaToolHUD
                 key={ratio}
-                onClick={() => setAspectRatio(ratio)}
-                className={`px-2 py-0.5 text-[9px] rounded-[1px] transition-colors cursor-pointer whitespace-nowrap ${
-                  aspectRatio === ratio ? 'bg-[#D4AF37] text-black font-bold' : 'text-white/60 hover:text-white'
-                }`}
+                title={`ASPECT ${ratio}`}
+                en={`Set program monitor aspect ratio to ${ratio}`}
+                bn={`কীভাবে ব্যবহার করবেন: ফ্রেমের অনুপাত ${ratio} সেট করতে চাপুন।`}
+                accent="cyan"
               >
-                {ratio}
-              </button>
+                <button
+                  onClick={() => setAspectRatio(ratio)}
+                  data-active={aspectRatio === ratio ? 'true' : 'false'}
+                  className="cinema-tile cinema-tile-cyan px-2 py-1 min-h-[30px] text-[9.5px] font-black tracking-wider cursor-pointer whitespace-nowrap"
+                >
+                  {ratio}
+                </button>
+              </CinemaToolHUD>
             ))}
           </div>
 
-          <button
-            onClick={() => {
-              triggerFileDownload(exportToOTIO(anthologyProject), `${projectName.replace(/\s+/g, '_')}.otio`, 'application/json');
-              notify('Exported OpenTimelineIO (.otio) sequence!', 3000);
-            }}
-            className="px-3 py-1 bg-[#D4AF37] hover:bg-[#FFE066] text-black font-bold text-xs rounded-[1px] flex items-center gap-1.5 transition-colors cursor-pointer shadow-md whitespace-nowrap shrink-0"
+          <CinemaToolHUD
+            title="EXPORT OTIO"
+            en="Download OpenTimelineIO (.otio) sequence for DaVinci/Premiere"
+            bn="কীভাবে ব্যবহার করবেন: .otio টাইমলাইন ফাইল এক্সপোর্ট করতে চাপুন।"
+            accent="emerald"
           >
-            <Download className="w-3.5 h-3.5" />
-            <span>EXPORT OTIO</span>
-          </button>
+            <button
+              onClick={() => {
+                triggerFileDownload(exportToOTIO(anthologyProject), `${projectName.replace(/\s+/g, '_')}.otio`, 'application/json');
+                notify('Exported .OTIO', 3000);
+              }}
+              className="cinema-tile cinema-tile-emerald px-3 py-1.5 min-h-[34px] font-black tracking-wider text-[10px] uppercase flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+            >
+              <Download className="w-3.5 h-3.5" strokeWidth={2.2} />
+              <span>EXPORT OTIO</span>
+            </button>
+          </CinemaToolHUD>
         </div>
       </header>
 
       {/* Notification Toast */}
       {exportNotification && (
-        <div className="fixed top-14 left-1/2 -translate-x-1/2 z-50 px-4 py-1.5 bg-[#0C0D12] border border-[#D4AF37] text-[#FFE066] text-xs font-bold rounded shadow-2xl flex items-center gap-2">
+        <div className="fixed top-14 left-1/2 -translate-x-1/2 z-50 px-4 py-1.5 bg-[#0C0D12] border border-[#D4AF37] text-[#FFE066] text-xs font-black tracking-wider uppercase rounded shadow-2xl flex items-center gap-2">
           <Check className="w-4 h-4 text-[#D4AF37]" />
           <span>{exportNotification}</span>
         </div>
@@ -1226,33 +1261,31 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onOpenMultiCam }) => {
       {/* 2. MAIN WORKSPACE */}
       <div className="flex-1 flex overflow-hidden min-h-0">
         {/* Leftmost Icon Strip */}
-        <div className="w-16 bg-[#08080C] border-r border-white/10 flex flex-col items-center py-2 gap-1 shrink-0 z-20 overflow-y-auto no-scrollbar">
+        <div className="w-16 bg-[#08080C] border-r border-white/10 flex flex-col items-center py-2 gap-1.5 shrink-0 z-20 overflow-y-auto no-scrollbar px-1">
           {[
-            { id: 'media', label: 'Media', icon: Film },
-            { id: 'audio', label: 'Audio', icon: Music },
-            { id: 'text', label: 'Text', icon: Type },
-            { id: 'stickers', label: 'Stickers', icon: Sticker },
-            { id: 'effects', label: 'Effects', icon: Sparkles },
-            { id: 'transitions', label: 'Transitions', icon: SplitSquareVertical },
-            { id: 'captions', label: 'Captions', icon: Radio },
-            { id: 'filters', label: 'Filters', icon: Sliders },
-            { id: 'templates', label: 'Templates', icon: Wand2 },
+            { id: 'media', label: 'MEDIA', icon: Film, en: 'Ingest video/image plates & procedural backdrops', bn: 'কীভাবে ব্যবহার করবেন: ভিডিও বা ছবি টাইমলাইনে যোগ করতে চাপুন।' },
+            { id: 'audio', label: 'AUDIO', icon: Music, en: 'Cinema sound effects & MP3/WAV music import', bn: 'কীভাবে ব্যবহার করবেন: সাউন্ড এফএক্স বা MP3 অডিও যোগ করতে চাপুন।' },
+            { id: 'text', label: 'TEXT', icon: Type, en: 'Insert bilingual kinetic title clips onto T1', bn: 'কীভাবে ব্যবহার করবেন: টাইটেল ও টেক্সট ক্লিপ যোগ করতে চাপুন।' },
+            { id: 'stickers', label: 'PIP / FX', icon: Sticker, en: 'Overlay stickers & Picture-in-Picture media on V2', bn: 'কীভাবে ব্যবহার করবেন: ওভারলে স্টিকার বা PiP ভিডিও যোগ করতে চাপুন।' },
+            { id: 'effects', label: 'SHADERS', icon: Sparkles, en: 'Apply lens, retro, glitch & film shader FX', bn: 'কীভাবে ব্যবহার করবেন: ক্লিপ সিলেক্ট করে শেডার ইফেক্ট বসাতে চাপুন।' },
+            { id: 'transitions', label: 'CUT FX', icon: SplitSquareVertical, en: 'Attach dissolve, whip-pan & flash transitions', bn: 'কীভাবে ব্যবহার করবেন: ক্লিপের শুরুতে ট্রানজিশন বসাতে চাপুন।' },
+            { id: 'captions', label: 'CAPTIONS', icon: Radio, en: 'Auto-generate bilingual T1 captions & .SRT export', bn: 'কীভাবে ব্যবহার করবেন: অটো ক্যাপশন তৈরি ও .SRT ডাউনলোড করতে চাপুন।' },
+            { id: 'filters', label: 'LUTS', icon: Sliders, en: 'Apply cinema grading LUT presets to clip or V1', bn: 'কীভাবে ব্যবহার করবেন: কালার গ্রেডিং LUT বসাতে চাপুন।' },
+            { id: 'templates', label: 'PRESETS', icon: Wand2, en: '1-tap trailer, Reels & anamorphic sequence templates', bn: 'কীভাবে ব্যবহার করবেন: এক ক্লিকে পুরো সিকোয়েন্স টেমপ্লেট বসাতে চাপুন।' },
           ].map((item) => {
             const Icon = item.icon;
             const isActive = activePanel === item.id;
             return (
-              <button
-                key={item.id}
-                onClick={() => setActivePanel(item.id as typeof activePanel)}
-                className={`w-14 py-2 flex flex-col items-center gap-1 rounded-[1px] text-[8.5px] transition-colors cursor-pointer shrink-0 ${
-                  isActive
-                    ? 'bg-[#D4AF37]/20 text-[#FFE066] font-bold border-l-2 border-[#D4AF37]'
-                    : 'text-white/50 hover:text-white hover:bg-white/5'
-                }`}
-              >
-                <Icon className="w-4 h-4" />
-                <span>{item.label}</span>
-              </button>
+              <CinemaToolHUD key={item.id} title={item.label} en={item.en} bn={item.bn} accent="amber" side="right" blockWrapper>
+                <button
+                  onClick={() => setActivePanel(item.id as typeof activePanel)}
+                  data-active={isActive ? 'true' : 'false'}
+                  className="cinema-tile cinema-tile-amber w-full py-2 min-h-[44px] flex flex-col items-center justify-center gap-1 cursor-pointer shrink-0"
+                >
+                  <Icon className="w-4 h-4" strokeWidth={2.2} />
+                  <span className="font-black tracking-wider text-[8px] uppercase">{item.label}</span>
+                </button>
+              </CinemaToolHUD>
             );
           })}
         </div>
@@ -1262,10 +1295,16 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onOpenMultiCam }) => {
           {activePanel === 'media' && (
             <div className="flex flex-col gap-3">
               <div className="flex items-center justify-between border-b border-white/10 pb-2">
-                <span className="font-bold text-[#FFE066] uppercase">Ingested Assets</span>
-                <label className="px-2 py-1 bg-[#D4AF37]/20 hover:bg-[#D4AF37]/40 border border-[#D4AF37]/40 text-[#FFE066] rounded cursor-pointer flex items-center gap-1 text-[10px]">
-                  <Upload className="w-3 h-3" />
-                  <span>Add</span>
+                <CinemaBadgeHeader icon={<Film className="w-3.5 h-3.5" />} label="MEDIA" accent="amber" />
+                <CinemaToolHUD
+                  title="ADD MEDIA"
+                  en="Import video or image files onto V1 at the playhead"
+                  bn="কীভাবে ব্যবহার করবেন: প্লেহেডে নতুন ভিডিও বা ছবি যোগ করতে চাপুন।"
+                  accent="amber"
+                >
+                  <label className="cinema-tile cinema-tile-amber px-2.5 py-1 cursor-pointer flex items-center gap-1 text-[10px] font-black tracking-wider uppercase">
+                    <Upload className="w-3 h-3" />
+                    <span>+ ADD</span>
                   <input
                     type="file"
                     multiple
@@ -1307,6 +1346,7 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onOpenMultiCam }) => {
                     }}
                   />
                 </label>
+                </CinemaToolHUD>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
@@ -1354,20 +1394,27 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onOpenMultiCam }) => {
           {activePanel === 'audio' && (
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between border-b border-white/10 pb-1.5">
-                <span className="font-bold text-[#FFE066] uppercase">Cinema Audio & FX</span>
-                <label className="px-2 py-0.5 bg-emerald-500/20 hover:bg-emerald-500/35 border border-emerald-500/40 text-emerald-300 rounded cursor-pointer text-[9px] font-bold">
-                  + MP3/WAV
-                  <input
-                    type="file"
-                    accept="audio/*,.mp3,.wav,.aac,.ogg,.flac"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) handleLoadAudioFile(file);
-                      e.target.value = '';
-                    }}
-                  />
-                </label>
+                <CinemaBadgeHeader icon={<Music className="w-3.5 h-3.5" />} label="AUDIO FX" accent="emerald" />
+                <CinemaToolHUD
+                  title="IMPORT AUDIO"
+                  en="Import local MP3, WAV, AAC or FLAC audio onto track A2"
+                  bn="কীভাবে ব্যবহার করবেন: ডিভাইস থেকে MP3 বা WAV অডিও যোগ করতে চাপুন।"
+                  accent="emerald"
+                >
+                  <label className="cinema-tile cinema-tile-emerald px-2 py-1 cursor-pointer text-[9.5px] font-black tracking-wider uppercase">
+                    + AUDIO
+                    <input
+                      type="file"
+                      accept="audio/*,.mp3,.wav,.aac,.ogg,.flac"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleLoadAudioFile(file);
+                        e.target.value = '';
+                      }}
+                    />
+                  </label>
+                </CinemaToolHUD>
               </div>
               {[
                 { name: '43.6Hz Sub Drone', dur: 15, tag: 'Binaural' },
@@ -1415,53 +1462,69 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onOpenMultiCam }) => {
 
           {activePanel === 'text' && (
             <div className="flex flex-col gap-2">
-              <span className="font-bold text-[#FFE066] uppercase border-b border-white/10 pb-1">Cinematic Titles</span>
+              <div className="border-b border-white/10 pb-1.5">
+                <CinemaBadgeHeader icon={<Type className="w-3.5 h-3.5" />} label="TITLE CLIPS" accent="amber" />
+              </div>
               {[
                 { en: 'THE SINGULARITY', bn: 'দ্য সিঙ্গুলারিটি' },
                 { en: 'EVENT HORIZON', bn: 'ইভেন্ট হরাইজন' },
                 { en: 'DHAKA CYBER NOIR', bn: 'ঢাকা সাইবার নয়্যার' },
                 { en: 'DIRECTOR CUT 2026', bn: 'পরিচালকীয় সংস্করণ' }
               ].map((t, i) => (
-                <div
+                <CinemaToolHUD
                   key={i}
-                  onClick={() => {
-                    const newClip: TimelineClip = {
-                      id: `clip-text-${Date.now()}-${i}`,
-                      trackId: 'T1',
-                      name: `Title: ${t.en}`,
-                      type: 'text',
-                      start: Number(playheadTimeRef.current.toFixed(3)),
-                      duration: 3.0,
-                      inPoint: 0,
-                      outPoint: 3.0,
-                      text: t.en,
-                      bengaliText: t.bn,
-                      posX: 0, posY: 0, scale: 100, rotation: 0, opacity: 100, blendMode: 'normal', mask: 'none',
-                      crop: { top: 0, bottom: 0, left: 0, right: 0 },
-                      animation: { inType: 'zoom-in', outType: 'fade-out', duration: 0.4 },
-                      adjustments: { brightness: 100, contrast: 100, saturation: 100, temperature: 0, shadows: 0, highlights: 0, sharpen: 0, vignette: 0, grain: 0 },
-                      speed: { multiplier: 1.0, ramp: 'constant', isReversed: false, isFrozen: false },
-                      audio: { volume: 0, fadeIn: 0, fadeOut: 0, noiseReduction: false }
-                    };
-                    pushUndo(clips);
-                    setClips(prev => [...prev, newClip]);
-                    setSelectedClipId(newClip.id);
-                  }}
-                  className="p-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded flex flex-col gap-0.5 cursor-pointer group"
+                  title={t.en}
+                  en="Insert bilingual title clip onto T1 at playhead"
+                  bn="কীভাবে ব্যবহার করবেন: টাইমলাইনের T1 ট্র্যাকে টাইটেল যোগ করতে চাপুন।"
+                  accent="amber"
+                  blockWrapper
                 >
-                  <div className="font-bold text-[#FFE066]">{t.en}</div>
-                  <div className="text-[10px] text-white/70 font-serif">{t.bn}</div>
-                </div>
+                  <div
+                    onClick={() => {
+                      const newClip: TimelineClip = {
+                        id: `clip-text-${Date.now()}-${i}`,
+                        trackId: 'T1',
+                        name: `Title: ${t.en}`,
+                        type: 'text',
+                        start: Number(playheadTimeRef.current.toFixed(3)),
+                        duration: 3.0,
+                        inPoint: 0,
+                        outPoint: 3.0,
+                        text: t.en,
+                        bengaliText: t.bn,
+                        posX: 0, posY: 0, scale: 100, rotation: 0, opacity: 100, blendMode: 'normal', mask: 'none',
+                        crop: { top: 0, bottom: 0, left: 0, right: 0 },
+                        animation: { inType: 'zoom-in', outType: 'fade-out', duration: 0.4 },
+                        adjustments: { brightness: 100, contrast: 100, saturation: 100, temperature: 0, shadows: 0, highlights: 0, sharpen: 0, vignette: 0, grain: 0 },
+                        speed: { multiplier: 1.0, ramp: 'constant', isReversed: false, isFrozen: false },
+                        audio: { volume: 0, fadeIn: 0, fadeOut: 0, noiseReduction: false }
+                      };
+                      pushUndo(clips);
+                      setClips(prev => [...prev, newClip]);
+                      setSelectedClipId(newClip.id);
+                    }}
+                    className="cinema-tile cinema-tile-amber w-full p-2 flex flex-col gap-0.5 cursor-pointer"
+                  >
+                    <div className="font-black text-[10px] tracking-wider uppercase">{t.en}</div>
+                    <div className="text-[10px] text-white/70 font-serif">{t.bn}</div>
+                  </div>
+                </CinemaToolHUD>
               ))}
             </div>
           )}
 
           {activePanel === 'stickers' && (
             <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between border-b border-white/10 pb-1">
-                <span className="font-bold text-[#FFE066] uppercase">Overlays & PiP (V2)</span>
-                <label className="px-2 py-0.5 bg-cyan-500/20 hover:bg-cyan-500/35 border border-cyan-500/40 text-cyan-300 rounded cursor-pointer text-[9px] font-bold">
-                  + PiP Media
+              <div className="flex items-center justify-between border-b border-white/10 pb-1.5">
+                <CinemaBadgeHeader icon={<Sticker className="w-3.5 h-3.5" />} label="PIP / V2" accent="cyan" />
+                <CinemaToolHUD
+                  title="ADD PIP LAYER"
+                  en="Overlay an image or video Picture-in-Picture on track V2"
+                  bn="কীভাবে ব্যবহার করবেন: V2 ট্র্যাকে PiP ছবি বা ভিডিও যোগ করতে চাপুন।"
+                  accent="cyan"
+                >
+                  <label className="cinema-tile cinema-tile-cyan px-2 py-1 cursor-pointer text-[9.5px] font-black tracking-wider uppercase">
+                    + PIP
                   <input
                     type="file"
                     accept="image/*,video/*"
@@ -1494,7 +1557,8 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onOpenMultiCam }) => {
                       e.target.value = '';
                     }}
                   />
-                </label>
+                  </label>
+                </CinemaToolHUD>
               </div>
               {[
                 { name: '4-Corner Reticles', icon: '⛶' },
@@ -1538,49 +1602,58 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onOpenMultiCam }) => {
 
           {activePanel === 'effects' && (
             <div className="flex flex-col gap-3">
-              <div className="flex items-center justify-between border-b border-white/10 pb-1">
-                <span className="font-bold text-[#FFE066] uppercase">Shader FX</span>
+              <div className="flex items-center justify-between border-b border-white/10 pb-1.5">
+                <CinemaBadgeHeader icon={<Sparkles className="w-3.5 h-3.5" />} label="SHADERS" accent="amber" />
                 {selectedClip?.effectShader && (
-                  <button
-                    onClick={() => updateSelectedClip({ effectShader: undefined })}
-                    className="text-[9px] text-rose-400 hover:text-rose-300 cursor-pointer"
-                  >
-                    Clear FX
-                  </button>
+                  <CinemaToolHUD title="CLEAR FX" en="Remove shader effect from selected clip" bn="কীভাবে ব্যবহার করবেন: ক্লিপের শেডার ইফেক্ট সরাতে চাপুন।" accent="crimson">
+                    <button
+                      onClick={() => updateSelectedClip({ effectShader: undefined })}
+                      className="cinema-tile cinema-tile-crimson px-2 py-0.5 text-[9px] font-black uppercase cursor-pointer"
+                    >
+                      CLEAR
+                    </button>
+                  </CinemaToolHUD>
                 )}
               </div>
               {!selectedClipId && (
-                <p className="text-[10px] text-amber-300/70">Select a clip on the timeline to apply Shader FX.</p>
+                <div className="px-2 py-1.5 rounded border border-amber-500/25 bg-amber-950/20 text-[9.5px] font-black tracking-wider uppercase text-amber-300 text-center">
+                  SELECT CLIP
+                </div>
               )}
               {[
-                { cat: 'Lens', list: ['Orton Bloom', 'Gaussian Blur', 'Anamorphic Flare', 'Chromatic Aberration'] },
-                { cat: 'Retro', list: ['VHS Glitch', 'CRT Scanlines', '35mm Vintage', 'Halation'] },
-                { cat: 'Glitch', list: ['RGB Split', 'Digital Noise', 'Interlace Tear'] },
-                { cat: 'Cinematic', list: ['Noir Silver', 'Bleach Bypass', 'Teal & Orange', 'Kodachrome', 'Golden Haze'] }
+                { cat: 'LENS', list: ['Orton Bloom', 'Gaussian Blur', 'Anamorphic Flare', 'Chromatic Aberration'] },
+                { cat: 'RETRO', list: ['VHS Glitch', 'CRT Scanlines', '35mm Vintage', 'Halation'] },
+                { cat: 'GLITCH', list: ['RGB Split', 'Digital Noise', 'Interlace Tear'] },
+                { cat: 'CINEMA', list: ['Noir Silver', 'Bleach Bypass', 'Teal & Orange', 'Kodachrome', 'Golden Haze'] }
               ].map(group => (
                 <div key={group.cat} className="flex flex-col gap-1">
-                  <span className="text-[9px] text-[#D4AF37] font-bold uppercase">{group.cat}</span>
+                  <span className="text-[9px] text-[#D4AF37] font-black tracking-wider uppercase">{group.cat}</span>
                   <div className="grid grid-cols-1 gap-1">
                     {group.list.map(eff => {
                       const active = selectedClip?.effectShader === eff;
                       return (
-                        <button
+                        <CinemaToolHUD
                           key={eff}
-                          onClick={() => {
-                            if (selectedClipId) {
-                              pushUndo(clips);
-                              updateSelectedClip({ effectShader: active ? undefined : eff });
-                              notify(active ? `Removed ${eff}` : `Applied ${eff}`);
-                            }
-                          }}
-                          className={`px-2 py-1 rounded text-left text-[10px] truncate transition-colors cursor-pointer ${
-                            active
-                              ? 'bg-[#D4AF37] text-black font-bold'
-                              : 'bg-white/5 hover:bg-[#D4AF37]/20 hover:text-[#FFE066]'
-                          }`}
+                          title={eff.toUpperCase()}
+                          en={`Toggle ${eff} shader on selected timeline clip`}
+                          bn={`কীভাবে ব্যবহার করবেন: সিলেক্ট করা ক্লিপে ${eff} ইফেক্ট দিতে চাপুন।`}
+                          accent="amber"
+                          blockWrapper
                         >
-                          {eff}
-                        </button>
+                          <button
+                            onClick={() => {
+                              if (selectedClipId) {
+                                pushUndo(clips);
+                                updateSelectedClip({ effectShader: active ? undefined : eff });
+                                notify(active ? `Removed ${eff}` : `Applied ${eff}`);
+                              }
+                            }}
+                            data-active={active ? 'true' : 'false'}
+                            className="cinema-tile cinema-tile-amber w-full px-2.5 py-1.5 text-left text-[10px] font-black tracking-wider uppercase truncate cursor-pointer"
+                          >
+                            {eff}
+                          </button>
+                        </CinemaToolHUD>
                       );
                     })}
                   </div>
@@ -1591,47 +1664,56 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onOpenMultiCam }) => {
 
           {activePanel === 'transitions' && (
             <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between border-b border-white/10 pb-1">
-                <span className="font-bold text-[#FFE066] uppercase">Transitions</span>
+              <div className="flex items-center justify-between border-b border-white/10 pb-1.5">
+                <CinemaBadgeHeader icon={<SplitSquareVertical className="w-3.5 h-3.5" />} label="CUT FX" accent="cyan" />
                 {selectedClip?.transition && (
-                  <button
-                    onClick={() => updateSelectedClip({ transition: undefined })}
-                    className="text-[9px] text-rose-400 hover:text-rose-300 cursor-pointer"
-                  >
-                    Remove
-                  </button>
+                  <CinemaToolHUD title="REMOVE CUT FX" en="Remove incoming transition from clip" bn="কীভাবে ব্যবহার করবেন: ট্রানজিশন মুছতে চাপুন।" accent="crimson">
+                    <button
+                      onClick={() => updateSelectedClip({ transition: undefined })}
+                      className="cinema-tile cinema-tile-crimson px-2 py-0.5 text-[9px] font-black uppercase cursor-pointer"
+                    >
+                      REMOVE
+                    </button>
+                  </CinemaToolHUD>
                 )}
               </div>
               {!selectedClipId && (
-                <p className="text-[10px] text-amber-300/70">Select a clip on the timeline to attach an incoming transition.</p>
+                <div className="px-2 py-1.5 rounded border border-amber-500/25 bg-amber-950/20 text-[9.5px] font-black tracking-wider uppercase text-amber-300 text-center">
+                  SELECT CLIP
+                </div>
               )}
               {[
-                { name: 'Crossfade Dissolve', type: 'dissolve' },
-                { name: 'Dip to Black', type: 'dip-black' },
-                { name: 'Golden Celluloid Flash', type: 'gold-flash' },
-                { name: 'Anamorphic Whip Pan', type: 'whip-pan' },
-                { name: 'Zoom Transition', type: 'zoom' },
-                { name: 'Glitch Slice', type: 'glitch' }
+                { name: 'DISSOLVE', type: 'dissolve', en: 'Crossfade optical dissolve transition' },
+                { name: 'DIP BLACK', type: 'dip-black', en: 'Brief dip to cinema black between cuts' },
+                { name: 'GOLD FLASH', type: 'gold-flash', en: 'Warm 35mm film burn flash' },
+                { name: 'WHIP PAN', type: 'whip-pan', en: 'High-velocity horizontal camera whip pan' },
+                { name: 'ZOOM CUT', type: 'zoom', en: 'Dynamic optical push-in transition' },
+                { name: 'GLITCH SLICE', type: 'glitch', en: 'Cyberpunk digital tear transition' }
               ].map((tr, i) => {
                 const active = selectedClip?.transition?.type === tr.type;
                 return (
-                  <button
+                  <CinemaToolHUD
                     key={i}
-                    onClick={() => {
-                      if (selectedClipId) {
-                        pushUndo(clips);
-                        updateSelectedClip({ transition: active ? undefined : { type: tr.type as any, duration: 0.6 } });
-                        notify(active ? 'Removed transition' : `Applied ${tr.name}`);
-                      }
-                    }}
-                    className={`p-2 rounded border text-left font-bold cursor-pointer transition-colors ${
-                      active
-                        ? 'bg-[#D4AF37] text-black border-[#FFE066]'
-                        : 'bg-white/5 hover:bg-[#D4AF37]/20 border-white/10 text-white hover:text-[#FFE066]'
-                    }`}
+                    title={tr.name}
+                    en={tr.en}
+                    bn={`কীভাবে ব্যবহার করবেন: ক্লিপ সিলেক্ট করে ${tr.name} ট্রানজিশন বসাতে চাপুন।`}
+                    accent="cyan"
+                    blockWrapper
                   >
-                    {tr.name}
-                  </button>
+                    <button
+                      onClick={() => {
+                        if (selectedClipId) {
+                          pushUndo(clips);
+                          updateSelectedClip({ transition: active ? undefined : { type: tr.type as any, duration: 0.6 } });
+                          notify(active ? 'Removed transition' : `Applied ${tr.name}`);
+                        }
+                      }}
+                      data-active={active ? 'true' : 'false'}
+                      className="cinema-tile cinema-tile-cyan w-full p-2 min-h-[38px] text-left font-black tracking-wider text-[10px] uppercase cursor-pointer"
+                    >
+                      {tr.name}
+                    </button>
+                  </CinemaToolHUD>
                 );
               })}
             </div>
@@ -1639,30 +1721,46 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onOpenMultiCam }) => {
 
           {activePanel === 'captions' && (
             <div className="flex flex-col gap-2.5">
-              <span className="font-bold text-[#FFE066] uppercase border-b border-white/10 pb-1">
-                Bilingual Captions (T1)
-              </span>
-              <button
-                onClick={() => {
-                  pushUndo(clips);
-                  const generated = generateCaptionClipsFromV1(clips, project.shots);
-                  setClips(prev => [...prev.filter(c => !c.id.startsWith('t1-cap-')), ...generated]);
-                  notify(`Generated ${generated.length} timed captions from V1 shots`);
-                }}
-                className="py-1.5 px-2 bg-[#D4AF37] hover:bg-[#FFE066] text-black font-bold rounded text-[10px] cursor-pointer"
+              <div className="border-b border-white/10 pb-1.5">
+                <CinemaBadgeHeader icon={<Radio className="w-3.5 h-3.5" />} label="CAPTIONS" accent="amber" />
+              </div>
+              <CinemaToolHUD
+                title="AUTO CAPTIONS"
+                en="Generate timed bilingual T1 caption clips from V1 shots"
+                bn="কীভাবে ব্যবহার করবেন: V1 শট থেকে স্বয়ংক্রিয় বাংলা/ইংরেজি ক্যাপশন তৈরি করতে চাপুন।"
+                accent="amber"
+                blockWrapper
               >
-                AUTO-GENERATE FROM V1
-              </button>
-              <button
-                onClick={() => {
-                  const srt = generateSrtFromClips(clips);
-                  triggerFileDownload(srt, `${projectName.replace(/\s+/g, '_')}.srt`, 'text/plain');
-                  notify('Exported timed Subtitles (.SRT)!');
-                }}
-                className="py-1.5 px-2 bg-white/10 hover:bg-white/20 text-white font-bold rounded text-[10px] border border-white/15 cursor-pointer"
+                <button
+                  onClick={() => {
+                    pushUndo(clips);
+                    const generated = generateCaptionClipsFromV1(clips, project.shots);
+                    setClips(prev => [...prev.filter(c => !c.id.startsWith('t1-cap-')), ...generated]);
+                    notify(`Generated ${generated.length} captions`);
+                  }}
+                  className="cinema-tile cinema-tile-amber w-full py-2 min-h-[38px] font-black tracking-wider text-[10px] uppercase cursor-pointer"
+                >
+                  AUTO CAP
+                </button>
+              </CinemaToolHUD>
+              <CinemaToolHUD
+                title="EXPORT .SRT"
+                en="Download timed bilingual subtitles as .SRT"
+                bn="কীভাবে ব্যবহার করবেন: সাবটাইটেল ফাইল .SRT হিসেবে ডাউনলোড করতে চাপুন।"
+                accent="cyan"
+                blockWrapper
               >
-                DOWNLOAD .SRT FILE
-              </button>
+                <button
+                  onClick={() => {
+                    const srt = generateSrtFromClips(clips);
+                    triggerFileDownload(srt, `${projectName.replace(/\s+/g, '_')}.srt`, 'text/plain');
+                    notify('Exported .SRT!');
+                  }}
+                  className="cinema-tile cinema-tile-cyan w-full py-2 min-h-[38px] font-black tracking-wider text-[10px] uppercase cursor-pointer"
+                >
+                  EXPORT .SRT
+                </button>
+              </CinemaToolHUD>
               <div className="flex flex-col gap-1.5 mt-1">
                 {t1Clips.map(tc => (
                   <div
@@ -1675,7 +1773,7 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onOpenMultiCam }) => {
                       selectedClipId === tc.id ? 'border-[#D4AF37] bg-[#D4AF37]/15' : 'border-white/10 bg-white/5 hover:border-white/25'
                     }`}
                   >
-                    <div className="text-[9px] text-[#FFE066] tabular-nums">
+                    <div className="text-[9px] text-[#FFE066] font-black tabular-nums">
                       {tc.start.toFixed(1)}s → {(tc.start + tc.duration).toFixed(1)}s
                     </div>
                     <input
@@ -1683,7 +1781,7 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onOpenMultiCam }) => {
                       value={tc.text || ''}
                       onChange={(e) => setClips(prev => prev.map(c => c.id === tc.id ? { ...c, text: e.target.value } : c))}
                       onClick={(e) => e.stopPropagation()}
-                      placeholder="English caption..."
+                      placeholder="English..."
                       className="w-full bg-black/60 border border-white/15 rounded px-1.5 py-0.5 text-[10px] text-white mt-1"
                     />
                     <input
@@ -1691,7 +1789,7 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onOpenMultiCam }) => {
                       value={tc.bengaliText || ''}
                       onChange={(e) => setClips(prev => prev.map(c => c.id === tc.id ? { ...c, bengaliText: e.target.value } : c))}
                       onClick={(e) => e.stopPropagation()}
-                      placeholder="বাংলা সাবটাইটেল..."
+                      placeholder="বাংলা..."
                       className="w-full bg-black/60 border border-white/15 rounded px-1.5 py-0.5 text-[10px] text-white/80 mt-1"
                     />
                   </div>
@@ -1702,31 +1800,47 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onOpenMultiCam }) => {
 
           {activePanel === 'filters' && (
             <div className="flex flex-col gap-2">
-              <span className="font-bold text-[#FFE066] uppercase border-b border-white/10 pb-1">
-                Cinema Grading LUTs
-              </span>
+              <div className="border-b border-white/10 pb-1.5">
+                <CinemaBadgeHeader icon={<Sliders className="w-3.5 h-3.5" />} label="COLOR LUTS" accent="amber" />
+              </div>
               {FILTER_LUT_PRESETS.map(preset => (
                 <div key={preset.id} className="p-2 rounded border border-white/10 bg-white/5 flex flex-col gap-1.5">
                   <div className="flex items-center gap-2">
-                    <div className={`w-6 h-4 rounded-sm bg-gradient-to-r ${preset.swatch} border border-white/20`} />
-                    <span className="font-bold text-[10.5px] text-white truncate">{preset.name}</span>
+                    <div className={`w-6 h-4 rounded-sm bg-gradient-to-r ${preset.swatch} border border-white/20 shrink-0`} />
+                    <span className="font-black tracking-wider text-[10px] uppercase text-white truncate">{preset.name}</span>
                   </div>
                   <div className="grid grid-cols-2 gap-1">
-                    <button
-                      disabled={!selectedClipId}
-                      onClick={() => applyFilterPreset(preset, false)}
-                      className={`py-1 rounded text-[9px] font-bold ${
-                        selectedClipId ? 'bg-[#D4AF37]/25 hover:bg-[#D4AF37] text-[#FFE066] hover:text-black cursor-pointer' : 'bg-white/5 text-white/25 cursor-not-allowed'
-                      }`}
+                    <CinemaToolHUD
+                      title={`APPLY ${preset.name}`}
+                      en="Apply this LUT grade to selected clip only"
+                      bn="কীভাবে ব্যবহার করবেন: শুধু সিলেক্ট করা ক্লিপে কালার গ্রেড দিতে চাপুন।"
+                      accent="amber"
+                      blockWrapper
                     >
-                      Selected
-                    </button>
-                    <button
-                      onClick={() => applyFilterPreset(preset, true)}
-                      className="py-1 rounded text-[9px] font-bold bg-white/10 hover:bg-white/20 text-white cursor-pointer"
+                      <button
+                        disabled={!selectedClipId}
+                        onClick={() => applyFilterPreset(preset, false)}
+                        className={`cinema-tile cinema-tile-amber w-full py-1.5 text-[9.5px] font-black tracking-wider uppercase ${
+                          selectedClipId ? 'cursor-pointer' : 'opacity-30 cursor-not-allowed'
+                        }`}
+                      >
+                        CLIP
+                      </button>
+                    </CinemaToolHUD>
+                    <CinemaToolHUD
+                      title={`SYNC ${preset.name}`}
+                      en="Apply this LUT grade across all V1 clips"
+                      bn="কীভাবে ব্যবহার করবেন: সব V1 ক্লিপে একসাথে কালার গ্রেড দিতে চাপুন।"
+                      accent="cyan"
+                      blockWrapper
                     >
-                      All V1
-                    </button>
+                      <button
+                        onClick={() => applyFilterPreset(preset, true)}
+                        className="cinema-tile cinema-tile-cyan w-full py-1.5 text-[9.5px] font-black tracking-wider uppercase cursor-pointer"
+                      >
+                        ALL V1
+                      </button>
+                    </CinemaToolHUD>
                   </div>
                 </div>
               ))}
@@ -1735,21 +1849,26 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onOpenMultiCam }) => {
 
           {activePanel === 'templates' && (
             <div className="flex flex-col gap-2">
-              <span className="font-bold text-[#FFE066] uppercase border-b border-white/10 pb-1">
-                1-Tap Cut Templates
-              </span>
+              <div className="border-b border-white/10 pb-1.5">
+                <CinemaBadgeHeader icon={<Wand2 className="w-3.5 h-3.5" />} label="TEMPLATES" accent="amber" />
+              </div>
               {SEQUENCE_TEMPLATES.map(tpl => (
-                <div
+                <CinemaToolHUD
                   key={tpl.id}
-                  onClick={() => applySequenceTemplate(tpl)}
-                  className="p-2.5 rounded border border-white/10 hover:border-[#D4AF37] bg-white/5 hover:bg-[#D4AF37]/10 cursor-pointer transition-colors"
+                  title={tpl.name.toUpperCase()}
+                  en={tpl.desc}
+                  bn="কীভাবে ব্যবহার করবেন: এই অটো কাটিং ও কালার টেমপ্লেট পুরো টাইমলাইনে বসাতে চাপুন।"
+                  accent="amber"
+                  blockWrapper
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-[#FFE066] text-[11px]">{tpl.name}</span>
-                    <span className="text-[8.5px] px-1 bg-black/60 border border-white/15 rounded text-white/70">{tpl.aspect}</span>
-                  </div>
-                  <p className="text-[9.5px] text-white/60 mt-1 leading-snug">{tpl.desc}</p>
-                </div>
+                  <button
+                    onClick={() => applySequenceTemplate(tpl)}
+                    className="cinema-tile cinema-tile-amber w-full p-2.5 min-h-[48px] flex items-center justify-between gap-2 cursor-pointer"
+                  >
+                    <span className="font-black tracking-wider text-[10px] uppercase truncate">{tpl.name}</span>
+                    <span className="text-[8.5px] px-1.5 py-0.5 bg-black/60 border border-white/15 rounded font-black shrink-0">{tpl.aspect}</span>
+                  </button>
+                </CinemaToolHUD>
               ))}
             </div>
           )}
@@ -1974,35 +2093,39 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onOpenMultiCam }) => {
           </div>
 
           {/* Program Monitor Transport Bar */}
-          <div className="h-10 bg-[#08080C] border border-white/10 mt-2 px-3 rounded-[2px] flex items-center justify-between text-xs shrink-0 gap-2 overflow-x-auto no-scrollbar">
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                onClick={() => handleTimelineSeek(0, false)}
-                className="p-1 hover:text-[#FFE066] text-white/60 cursor-pointer"
-                title="Rewind to start"
-              >
-                <Rewind className="w-3.5 h-3.5" />
-              </button>
-              <button
-                onClick={() => {
-                  resumeVlcAudioContext();
-                  setIsPlaying(p => !p);
-                }}
-                className="p-1.5 bg-[#D4AF37] text-black font-bold rounded-[1px] hover:bg-[#FFE066] cursor-pointer"
-                title="Play / Pause (Space)"
-              >
-                {isPlaying ? <Pause className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current" />}
-              </button>
-              <button
-                onClick={() => handleTimelineSeek(Math.min(totalDuration, playheadTimeRef.current + 1), false)}
-                className="p-1 hover:text-[#FFE066] text-white/60 cursor-pointer"
-                title="Step forward 1s"
-              >
-                <FastForward className="w-3.5 h-3.5" />
-              </button>
+          <div className="h-12 bg-[#08080C] border border-white/10 mt-2 px-3 rounded-[2px] flex items-center justify-between text-xs shrink-0 gap-2 overflow-x-auto no-scrollbar">
+            <div className="flex items-center gap-1.5 shrink-0">
+              <CinemaToolHUD title="REWIND START" en="Jump playhead back to 00:00:00:00" bn="কীভাবে ব্যবহার করবেন: টাইমলাইনের শুরুতে ফিরে যেতে চাপুন।" accent="amber">
+                <button
+                  onClick={() => handleTimelineSeek(0, false)}
+                  className="cinema-tile cinema-tile-amber p-1.5 cursor-pointer"
+                >
+                  <Rewind className="w-3.5 h-3.5" />
+                </button>
+              </CinemaToolHUD>
+              <CinemaToolHUD title={isPlaying ? 'PAUSE CUT' : 'PLAY CUT'} en="Play or pause multi-track timeline" bn="কীভাবে ব্যবহার করবেন: ভিডিও প্রিভিউ চালাতে বা থামাতে চাপুন।" accent="amber" shortcut="Space">
+                <button
+                  onClick={() => {
+                    resumeVlcAudioContext();
+                    setIsPlaying(p => !p);
+                  }}
+                  data-active={isPlaying ? 'true' : 'false'}
+                  className="cinema-tile cinema-tile-amber p-2 cursor-pointer"
+                >
+                  {isPlaying ? <Pause className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current" />}
+                </button>
+              </CinemaToolHUD>
+              <CinemaToolHUD title="STEP +1S" en="Advance playhead forward by 1 second" bn="কীভাবে ব্যবহার করবেন: প্লেহেড ১ সেকেন্ড সামনে নিতে চাপুন।" accent="amber">
+                <button
+                  onClick={() => handleTimelineSeek(Math.min(totalDuration, playheadTimeRef.current + 1), false)}
+                  className="cinema-tile cinema-tile-amber p-1.5 cursor-pointer"
+                >
+                  <FastForward className="w-3.5 h-3.5" />
+                </button>
+              </CinemaToolHUD>
               <span
                 ref={monitorTimecodeDomRef}
-                className="font-mono-tech text-xs text-[#FFE066] font-bold ml-1 tabular-nums"
+                className="font-mono-tech text-xs text-[#FFE066] font-black ml-1 tabular-nums"
               >
                 {formatTC(playheadTime)}
               </span>
@@ -2011,93 +2134,103 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onOpenMultiCam }) => {
 
             {/* Quick CapCut NLE Actions */}
             <div className="flex items-center gap-1.5 shrink-0">
-              <button
-                onClick={handleSplitAtPlayhead}
-                className="px-2 py-1 bg-white/5 hover:bg-[#D4AF37]/25 border border-white/10 hover:border-[#D4AF37]/60 rounded text-[9.5px] font-bold text-white/80 hover:text-[#FFE066] flex items-center gap-1 cursor-pointer whitespace-nowrap"
-                title="Split clip at playhead (S)"
-              >
-                <Scissors className="w-3 h-3" />
-                <span>Split</span>
-              </button>
-              <button
-                disabled={!selectedClipId && !activeMonitorV1Clip}
-                onClick={() => {
-                  const id = selectedClipId || activeMonitorV1Clip?.id;
-                  if (id) handleFreezeFrame(id);
-                }}
-                className="px-2 py-1 bg-white/5 hover:bg-cyan-500/20 border border-white/10 hover:border-cyan-400/50 rounded text-[9.5px] font-bold text-white/80 hover:text-cyan-300 flex items-center gap-1 cursor-pointer disabled:opacity-30 whitespace-nowrap"
-                title="Insert 2s Freeze Frame at playhead"
-              >
-                <Snowflake className="w-3 h-3" />
-                <span>Freeze</span>
-              </button>
-              <button
-                disabled={!selectedClip || (selectedClip.type !== 'video' && selectedClip.type !== 'audio')}
-                onClick={() => selectedClip && handleDetachAudio(selectedClip.id)}
-                className="px-2 py-1 bg-white/5 hover:bg-emerald-500/20 border border-white/10 hover:border-emerald-400/50 rounded text-[9.5px] font-bold text-white/80 hover:text-emerald-300 flex items-center gap-1 cursor-pointer disabled:opacity-30 whitespace-nowrap"
-                title="Extract audio to track A1"
-              >
-                <AudioWaveform className="w-3 h-3" />
-                <span>Extract Audio</span>
-              </button>
+              <CinemaToolHUD title="SPLIT CLIP" en="Slice selected or active clip at playhead" bn="কীভাবে ব্যবহার করবেন: প্লেহেডের জায়গায় ক্লিপ দুই ভাগ করতে চাপুন।" accent="amber" shortcut="S">
+                <button
+                  onClick={handleSplitAtPlayhead}
+                  className="cinema-tile cinema-tile-amber px-2.5 py-1.5 text-[9.5px] font-black tracking-wider uppercase flex items-center gap-1 cursor-pointer whitespace-nowrap"
+                >
+                  <Scissors className="w-3 h-3" strokeWidth={2.2} />
+                  <span>SPLIT</span>
+                </button>
+              </CinemaToolHUD>
+              <CinemaToolHUD title="FREEZE FRAME" en="Insert a 2.0s still hold at the current playhead frame" bn="কীভাবে ব্যবহার করবেন: বর্তমান ফ্রেমে ২ সেকেন্ড স্থির ফ্রিজ ফ্রেম বসাতে চাপুন।" accent="cyan">
+                <button
+                  disabled={!selectedClipId && !activeMonitorV1Clip}
+                  onClick={() => {
+                    const id = selectedClipId || activeMonitorV1Clip?.id;
+                    if (id) handleFreezeFrame(id);
+                  }}
+                  className="cinema-tile cinema-tile-cyan px-2.5 py-1.5 text-[9.5px] font-black tracking-wider uppercase flex items-center gap-1 cursor-pointer disabled:opacity-30 whitespace-nowrap"
+                >
+                  <Snowflake className="w-3 h-3" strokeWidth={2.2} />
+                  <span>FREEZE</span>
+                </button>
+              </CinemaToolHUD>
+              <CinemaToolHUD title="EXTRACT AUDIO" en="Detach audio stem from selected clip onto track A1" bn="কীভাবে ব্যবহার করবেন: ভিডিও ক্লিপ থেকে অডিও আলাদা করতে চাপুন।" accent="emerald">
+                <button
+                  disabled={!selectedClip || (selectedClip.type !== 'video' && selectedClip.type !== 'audio')}
+                  onClick={() => selectedClip && handleDetachAudio(selectedClip.id)}
+                  className="cinema-tile cinema-tile-emerald px-2.5 py-1.5 text-[9.5px] font-black tracking-wider uppercase flex items-center gap-1 cursor-pointer disabled:opacity-30 whitespace-nowrap"
+                >
+                  <AudioWaveform className="w-3 h-3" strokeWidth={2.2} />
+                  <span>EXTRACT</span>
+                </button>
+              </CinemaToolHUD>
             </div>
 
             {/* Audio Preamp (0-200%), Speed & View Controls */}
             <div className="flex items-center gap-2 shrink-0">
-              <button
-                onClick={() => setIsMonitorMuted(m => !m)}
-                className={`p-1 rounded cursor-pointer ${isMonitorMuted ? 'text-rose-400' : 'text-white/75 hover:text-[#FFE066]'}`}
-                title="Toggle Monitor Audio Mute"
-              >
-                {isMonitorMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-              </button>
-              <input
-                type="range"
-                min={0}
-                max={2}
-                step={0.05}
-                value={isMonitorMuted ? 0 : monitorVolume}
-                onChange={(e) => {
-                  const v = Number(e.target.value);
-                  setMonitorVolume(v);
-                  if (v > 0 && isMonitorMuted) setIsMonitorMuted(false);
-                }}
-                className="w-16 accent-[#D4AF37] cursor-pointer"
-                title="Master Monitor Gain (up to 200% VLC Preamp)"
-              />
-              <span className="text-[9px] text-white/60 tabular-nums w-8">
+              <CinemaToolHUD title={isMonitorMuted ? 'UNMUTE' : 'MUTE'} en="Mute or unmute monitor master audio" bn="কীভাবে ব্যবহার করবেন: মনিটর সাউন্ড বন্ধ বা চালু করতে চাপুন।" accent="crimson">
+                <button
+                  onClick={() => setIsMonitorMuted(m => !m)}
+                  data-active={isMonitorMuted ? 'true' : 'false'}
+                  className="cinema-tile cinema-tile-crimson p-1.5 cursor-pointer"
+                >
+                  {isMonitorMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                </button>
+              </CinemaToolHUD>
+              <CinemaToolHUD title="PREAMP GAIN" en="VLC 200% boost monitor volume slider" bn="কীভাবে ব্যবহার করবেন: স্লাইডার টেনে ভলিউম ২০০% পর্যন্ত বাড়ান।" accent="amber">
+                <input
+                  type="range"
+                  min={0}
+                  max={2}
+                  step={0.05}
+                  value={isMonitorMuted ? 0 : monitorVolume}
+                  onChange={(e) => {
+                    const v = Number(e.target.value);
+                    setMonitorVolume(v);
+                    if (v > 0 && isMonitorMuted) setIsMonitorMuted(false);
+                  }}
+                  className="w-16 accent-[#D4AF37] cursor-pointer"
+                />
+              </CinemaToolHUD>
+              <span className="text-[9px] font-black text-white/60 tabular-nums w-8">
                 {isMonitorMuted ? 'MUTE' : `${Math.round(monitorVolume * 100)}%`}
               </span>
 
-              <button
-                onClick={() => {
-                  const steps = [0.5, 1.0, 1.5, 2.0];
-                  const idx = steps.indexOf(monitorSpeed);
-                  setMonitorSpeed(steps[(idx + 1) % steps.length]);
-                }}
-                className="px-1.5 py-0.5 bg-white/5 hover:bg-white/15 border border-white/15 rounded text-[9.5px] font-bold text-[#FFE066] cursor-pointer tabular-nums"
-                title="Cycle Timeline Playback Speed"
-              >
-                {monitorSpeed}x
-              </button>
+              <CinemaToolHUD title="PLAYBACK SPEED" en="Cycle preview playback rate (0.5x to 2.0x)" bn="কীভাবে ব্যবহার করবেন: প্রিভিউ গতি বাড়াতে বা কমাতে চাপুন।" accent="cyan">
+                <button
+                  onClick={() => {
+                    const steps = [0.5, 1.0, 1.5, 2.0];
+                    const idx = steps.indexOf(monitorSpeed);
+                    setMonitorSpeed(steps[(idx + 1) % steps.length]);
+                  }}
+                  className="cinema-tile cinema-tile-cyan px-2 py-1 text-[9.5px] font-black cursor-pointer tabular-nums"
+                >
+                  {monitorSpeed}x
+                </button>
+              </CinemaToolHUD>
 
-              <button
-                onClick={() => setShowSafeGuides(g => !g)}
-                className={`p-1 rounded text-xs ${showSafeGuides ? 'text-[#FFE066]' : 'text-white/40'} hover:text-white cursor-pointer`}
-                title="Toggle 90% Safe Guides"
-              >
-                <Crosshair className="w-3.5 h-3.5" />
-              </button>
-              <button
-                onClick={() => {
-                  if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
-                  else document.exitFullscreen().catch(() => {});
-                }}
-                className="p-1 text-white/60 hover:text-white cursor-pointer"
-                title="Fullscreen"
-              >
-                <Maximize className="w-3.5 h-3.5" />
-              </button>
+              <CinemaToolHUD title="SAFE GUIDES" en="Toggle 90% broadcast action-safe reticle" bn="কীভাবে ব্যবহার করবেন: ৯০% সেফ-জোন গাইড লাইন দেখাতে বা লুকাতে চাপুন।" accent="amber">
+                <button
+                  onClick={() => setShowSafeGuides(g => !g)}
+                  data-active={showSafeGuides ? 'true' : 'false'}
+                  className="cinema-tile cinema-tile-amber p-1.5 cursor-pointer"
+                >
+                  <Crosshair className="w-3.5 h-3.5" />
+                </button>
+              </CinemaToolHUD>
+              <CinemaToolHUD title="FULLSCREEN" en="Expand studio monitor to fullscreen" bn="কীভাবে ব্যবহার করবেন: ফুলস্ক্রিন মোড অন বা অফ করতে চাপুন।" accent="amber">
+                <button
+                  onClick={() => {
+                    if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
+                    else document.exitFullscreen().catch(() => {});
+                  }}
+                  className="cinema-tile cinema-tile-amber p-1.5 cursor-pointer"
+                >
+                  <Maximize className="w-3.5 h-3.5" />
+                </button>
+              </CinemaToolHUD>
             </div>
           </div>
         </div>
@@ -2105,16 +2238,29 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onOpenMultiCam }) => {
         {/* Right: Properties Inspector Panel */}
         <div className="w-72 bg-[#09090D] border-l border-white/10 flex flex-col p-3 text-xs overflow-y-auto no-scrollbar shrink-0">
           <div className="flex border-b border-white/10 pb-2 mb-3 gap-1">
-            {(['video', 'animation', 'adjust', 'speed', 'audio'] as const).map(tab => (
-              <button
-                key={tab}
-                onClick={() => setActivePropertyTab(tab)}
-                className={`px-2 py-1 text-[9px] uppercase font-bold rounded-[1px] transition-colors cursor-pointer ${
-                  activePropertyTab === tab ? 'bg-[#D4AF37] text-black' : 'text-white/50 hover:text-white'
-                }`}
+            {([
+              { id: 'video', label: 'VIDEO' },
+              { id: 'animation', label: 'MOTION' },
+              { id: 'adjust', label: 'COLOR' },
+              { id: 'speed', label: 'SPEED' },
+              { id: 'audio', label: 'AUDIO' }
+            ] as const).map(tab => (
+              <CinemaToolHUD
+                key={tab.id}
+                title={`INSPECTOR: ${tab.label}`}
+                en={`Edit clip ${tab.label.toLowerCase()} properties`}
+                bn={`কীভাবে ব্যবহার করবেন: ক্লিপের ${tab.label} সেটিংস পরিবর্তন করতে চাপুন।`}
+                accent="amber"
+                blockWrapper
               >
-                {tab}
-              </button>
+                <button
+                  onClick={() => setActivePropertyTab(tab.id)}
+                  data-active={activePropertyTab === tab.id ? 'true' : 'false'}
+                  className="cinema-tile cinema-tile-amber w-full px-1.5 py-1.5 text-[9px] uppercase font-black tracking-wider cursor-pointer"
+                >
+                  {tab.label}
+                </button>
+              </CinemaToolHUD>
             ))}
           </div>
 
@@ -2520,51 +2666,60 @@ export const CutStudio: React.FC<CutStudioProps> = ({ onOpenMultiCam }) => {
 
               {/* Clip Action Buttons */}
               <div className="border-t border-white/10 pt-3 flex flex-col gap-1.5">
-                <button
-                  onClick={handleSplitAtPlayhead}
-                  className="py-1.5 bg-white/10 hover:bg-[#D4AF37] hover:text-black rounded text-[10px] font-bold flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  <Scissors className="w-3 h-3" />
-                  <span>SPLIT AT PLAYHEAD (S)</span>
-                </button>
+                <CinemaToolHUD title="SPLIT CLIP" en="Split selected clip at playhead" bn="কীভাবে ব্যবহার করবেন: প্লেহেডের জায়গায় ক্লিপ ভাগ করতে চাপুন।" accent="amber" shortcut="S" blockWrapper>
+                  <button
+                    onClick={handleSplitAtPlayhead}
+                    className="cinema-tile cinema-tile-amber w-full py-2 text-[10px] font-black tracking-wider uppercase flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Scissors className="w-3.5 h-3.5" strokeWidth={2.2} />
+                    <span>SPLIT CLIP</span>
+                  </button>
+                </CinemaToolHUD>
                 <div className="grid grid-cols-2 gap-1.5">
-                  <button
-                    onClick={() => handleFreezeFrame(selectedClip.id)}
-                    className="py-1.5 bg-cyan-500/10 hover:bg-cyan-500/25 border border-cyan-500/30 text-cyan-300 rounded text-[9.5px] font-bold flex items-center justify-center gap-1 cursor-pointer"
-                  >
-                    <Snowflake className="w-3 h-3" />
-                    <span>FREEZE</span>
-                  </button>
-                  <button
-                    onClick={() => handleDuplicateClip(selectedClip)}
-                    className="py-1.5 bg-white/5 hover:bg-white/15 border border-white/10 rounded text-[9.5px] flex items-center justify-center gap-1 cursor-pointer"
-                  >
-                    <Copy className="w-3 h-3 text-[#D4AF37]" />
-                    <span>DUPLICATE</span>
-                  </button>
+                  <CinemaToolHUD title="FREEZE FRAME" en="Insert a 2s still freeze frame at playhead" bn="কীভাবে ব্যবহার করবেন: বর্তমান ফ্রেমে ২ সেকেন্ড স্থির রাখতে চাপুন।" accent="cyan" blockWrapper>
+                    <button
+                      onClick={() => handleFreezeFrame(selectedClip.id)}
+                      className="cinema-tile cinema-tile-cyan w-full py-2 text-[10px] font-black tracking-wider uppercase flex items-center justify-center gap-1 cursor-pointer"
+                    >
+                      <Snowflake className="w-3 h-3" strokeWidth={2.2} />
+                      <span>FREEZE</span>
+                    </button>
+                  </CinemaToolHUD>
+                  <CinemaToolHUD title="DUPLICATE CLIP" en="Clone selected clip next on timeline" bn="কীভাবে ব্যবহার করবেন: ক্লিপটি ডুপ্লিকেট বা কপি করতে চাপুন।" accent="amber" blockWrapper>
+                    <button
+                      onClick={() => handleDuplicateClip(selectedClip)}
+                      className="cinema-tile cinema-tile-amber w-full py-2 text-[10px] font-black tracking-wider uppercase flex items-center justify-center gap-1 cursor-pointer"
+                    >
+                      <Copy className="w-3 h-3" strokeWidth={2.2} />
+                      <span>DUPLICATE</span>
+                    </button>
+                  </CinemaToolHUD>
                 </div>
                 <div className="grid grid-cols-2 gap-1.5">
-                  <button
-                    onClick={() => handleRippleDelete(selectedClip.id)}
-                    className="py-1.5 bg-amber-500/10 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 rounded text-[9.5px] font-bold flex items-center justify-center gap-1 cursor-pointer"
-                    title="Delete and close gap (Shift+Del)"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                    <span>RIPPLE DEL</span>
-                  </button>
-                  <button
-                    onClick={() => handleDeleteClip(selectedClip.id)}
-                    className="py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 rounded text-[9.5px] flex items-center justify-center gap-1 cursor-pointer"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                    <span>DELETE</span>
-                  </button>
+                  <CinemaToolHUD title="RIPPLE DELETE" en="Delete clip and close timeline gap" bn="কীভাবে ব্যবহার করবেন: ক্লিপ মুছে ফাঁকা জায়গা বন্ধ করতে চাপুন।" accent="amber" shortcut="Shift+Del" blockWrapper>
+                    <button
+                      onClick={() => handleRippleDelete(selectedClip.id)}
+                      className="cinema-tile cinema-tile-amber w-full py-2 text-[10px] font-black tracking-wider uppercase flex items-center justify-center gap-1 cursor-pointer"
+                    >
+                      <Trash2 className="w-3 h-3" strokeWidth={2.2} />
+                      <span>RIPPLE DEL</span>
+                    </button>
+                  </CinemaToolHUD>
+                  <CinemaToolHUD title="DELETE CLIP" en="Remove selected clip leaving timeline gap" bn="কীভাবে ব্যবহার করবেন: ক্লিপটি টাইমলাইন থেকে মুছতে চাপুন।" accent="crimson" shortcut="Del" blockWrapper>
+                    <button
+                      onClick={() => handleDeleteClip(selectedClip.id)}
+                      className="cinema-tile cinema-tile-crimson w-full py-2 text-[10px] font-black tracking-wider uppercase flex items-center justify-center gap-1 cursor-pointer"
+                    >
+                      <Trash2 className="w-3 h-3" strokeWidth={2.2} />
+                      <span>DELETE</span>
+                    </button>
+                  </CinemaToolHUD>
                 </div>
               </div>
             </div>
           ) : (
-            <div className="p-4 text-center text-white/40 text-[11px] leading-relaxed">
-              Select any clip on the multi-track timeline or click a layer in the Monitor to edit transforms, 9-slider grading, speed curves, shader FX, and audio!
+            <div className="p-4 text-center text-white/40 text-[10px] font-black tracking-wider uppercase">
+              SELECT A CLIP
             </div>
           )}
         </div>

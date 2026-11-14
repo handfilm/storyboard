@@ -69,6 +69,7 @@ import {
   HardDrive
 } from 'lucide-react';
 import { ToolTooltip } from './ui/ToolTooltip';
+import { CinemaToolHUD, CinemaBadgeHeader } from './ui/CinemaToolHUD';
 import { TrackVuMeter } from './audio/TrackVuMeter';
 import { MediaAssetVaultModal } from './MediaAssetVaultModal';
 import { EditInAppStrip } from './bridge/EditInAppStrip';
@@ -949,43 +950,68 @@ export const ControlDock: React.FC<ControlDockProps> = ({
 
           {/* Interactive Action Trio: JUMP / SOLO / REPLACE */}
           <div className="mt-1.5 pt-1.5 border-t border-white/[0.07] grid grid-cols-3 gap-1 font-mono text-[8px] font-black uppercase">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onSelectFrame(hoveredPreviewData.idx);
-                setHoveredMarker(null);
-              }}
-              className="py-1 px-1 rounded bg-[#F59E0B]/15 hover:bg-[#F59E0B] text-[#F59E0B] hover:text-[#0B0B0D] border border-[#F59E0B]/50 transition-colors cursor-pointer whitespace-nowrap flex items-center justify-center gap-0.5"
+            <CinemaToolHUD
+              title="JUMP TO SHOT"
+              en="Moves playhead immediately to this shot."
+              bn="কীভাবে ব্যবহার করবেন: শটটি স্টেজে দেখতে JUMP চাপুন।"
+              accent="amber"
+              side="top"
             >
-              <Play className="w-2.5 h-2.5" />
-              <span>JUMP</span>
-            </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onSelectFrame(hoveredPreviewData.idx);
-                onSelectPlaybackMode?.('solo');
-                setHoveredMarker(null);
-              }}
-              className="py-1 px-1 rounded bg-[#141417] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5] border border-white/[0.07] transition-colors cursor-pointer whitespace-nowrap flex items-center justify-center gap-0.5"
+              <button
+                type="button"
+                data-active="true"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSelectFrame(hoveredPreviewData.idx);
+                  setHoveredMarker(null);
+                }}
+                className="cinema-tile cinema-tile-amber w-full py-1 px-1 rounded cursor-pointer whitespace-nowrap flex items-center justify-center gap-0.5"
+              >
+                <Play className="w-2.5 h-2.5" />
+                <span>JUMP</span>
+              </button>
+            </CinemaToolHUD>
+            <CinemaToolHUD
+              title="SOLO SHOT"
+              en="Selects this shot and locks playback to SOLO loop mode."
+              bn="কীভাবে ব্যবহার করবেন: শুধু এই শটটি আলাদা করে লুপ করতে SOLO চাপুন।"
+              accent="cyan"
+              side="top"
             >
-              <Focus className="w-2.5 h-2.5" />
-              <span>SOLO</span>
-            </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setReplaceTargetIdx(hoveredPreviewData.idx);
-                replaceFileInputRef.current?.click();
-              }}
-              className="py-1 px-1 rounded bg-[#141417] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5] border border-white/[0.07] transition-colors cursor-pointer whitespace-nowrap flex items-center justify-center gap-0.5"
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSelectFrame(hoveredPreviewData.idx);
+                  onSelectPlaybackMode?.('solo');
+                  setHoveredMarker(null);
+                }}
+                className="cinema-tile cinema-tile-cyan w-full py-1 px-1 rounded cursor-pointer whitespace-nowrap flex items-center justify-center gap-0.5"
+              >
+                <Focus className="w-2.5 h-2.5" />
+                <span>SOLO</span>
+              </button>
+            </CinemaToolHUD>
+            <CinemaToolHUD
+              title="REPLACE MEDIA"
+              en="Uploads a local video or image clip directly into this shot."
+              bn="কীভাবে ব্যবহার করবেন: শটের ছবি বা ভিডিও বদলাতে REPLACE চাপুন।"
+              accent="emerald"
+              side="top"
             >
-              <RefreshCw className="w-2.5 h-2.5" />
-              <span>REPLACE</span>
-            </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setReplaceTargetIdx(hoveredPreviewData.idx);
+                  replaceFileInputRef.current?.click();
+                }}
+                className="cinema-tile cinema-tile-emerald w-full py-1 px-1 rounded cursor-pointer whitespace-nowrap flex items-center justify-center gap-0.5"
+              >
+                <RefreshCw className="w-2.5 h-2.5" />
+                <span>REPLACE</span>
+              </button>
+            </CinemaToolHUD>
           </div>
 
           {/* Downward Pointer Caret Aligned to Hovered Index Marker */}
@@ -1330,32 +1356,39 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 </div>
 
                 {/* Top-Right Always-Visible Directorial Dispatch Trigger */}
-                <button
-                  type="button"
-                  data-dispatch-trigger="true"
-                  data-testid={`shot-dispatch-trigger-${idx}`}
-                  onMouseEnter={(e) => {
-                    e.stopPropagation();
-                    setHoveredMarker(null);
-                  }}
-                  onMouseMove={(e) => e.stopPropagation()}
-                  onMouseDown={(e) => e.stopPropagation()}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setHoveredMarker(null);
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    setDispatchHudAnchor((prev) =>
-                      prev?.idx === idx
-                        ? null
-                        : { idx, left: rect.left + rect.width / 2, top: rect.top }
-                    );
-                  }}
-                  title={`Dispatch Shot ${shotBadge} to Photoshop / Premiere / CapCut`}
-                  aria-label={`Dispatch Shot ${shotNumber} to External Studio`}
-                  className="absolute top-0.5 right-0.5 z-30 bg-[#141417]/90 border border-white/[0.12] text-[#8E8E93] hover:bg-[#F59E0B] hover:text-[#0B0B0D] hover:border-[#F59E0B] font-bold w-2.5 h-2.5 rounded-sm flex items-center justify-center shadow active:scale-95 transition-all cursor-pointer"
+                <CinemaToolHUD
+                  title={`DISPATCH ${shotBadge}`}
+                  en="Exports shot to Photoshop, Premiere XML, or CapCut ZIP."
+                  bn="কীভাবে ব্যবহার করবেন: শটটি বাইরের অ্যাপে পাঠাতে ⚡ আইকনে ক্লিক করুন।"
+                  accent="amber"
+                  side="top"
                 >
-                  <Zap className="w-[7px] h-[7px]" />
-                </button>
+                  <button
+                    type="button"
+                    data-dispatch-trigger="true"
+                    data-testid={`shot-dispatch-trigger-${idx}`}
+                    onMouseEnter={(e) => {
+                      e.stopPropagation();
+                      setHoveredMarker(null);
+                    }}
+                    onMouseMove={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setHoveredMarker(null);
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      setDispatchHudAnchor((prev) =>
+                        prev?.idx === idx
+                          ? null
+                          : { idx, left: rect.left + rect.width / 2, top: rect.top }
+                      );
+                    }}
+                    aria-label={`Dispatch Shot ${shotNumber} to External Studio`}
+                    className="absolute top-0.5 right-0.5 z-30 bg-[#141417]/90 border border-white/[0.12] text-[#8E8E93] hover:bg-[#F59E0B] hover:text-[#0B0B0D] hover:border-[#F59E0B] font-bold w-2.5 h-2.5 rounded-sm flex items-center justify-center shadow active:scale-95 transition-all cursor-pointer"
+                  >
+                    <Zap className="w-[7px] h-[7px]" />
+                  </button>
+                </CinemaToolHUD>
 
                 {/* Bottom Metadata Bar: Title/Bangla Label + Active LUT Badge */}
                 <div className="relative z-10 px-1 pb-[1px] flex items-center justify-between gap-0.5 font-mono pointer-events-none">
@@ -1847,19 +1880,19 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             {/* Inline Title Quick Edit Popover */}
             {isEditingTitle && (
               <div className="absolute right-0 bottom-full mb-2 w-72 bg-[#0B0B0D]/96 backdrop-blur-2xl border border-white/[0.12] rounded-xl p-3 shadow-2xl z-50 animate-in fade-in zoom-in-95 text-xs font-mono space-y-2">
-                <div className="flex items-center justify-between text-[#8E8E93] border-b border-white/[0.07] pb-1.5 text-[10px] uppercase font-bold tracking-wider">
-                  <span>QUICK EDIT TITLES</span>
+                <div className="flex items-center justify-between text-[#8E8E93] border-b border-white/[0.07] pb-1.5 text-[10px] uppercase font-black tracking-wider">
+                  <CinemaBadgeHeader icon={Type} label="EDIT TITLES" accent="amber" />
                   <button
                     type="button"
                     onClick={() => setIsEditingTitle(false)}
-                    className="text-[#8E8E93] hover:text-[#F4F4F5]"
+                    className="text-[#8E8E93] hover:text-[#F4F4F5] cursor-pointer"
                   >
                     ✕
                   </button>
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] text-[#8E8E93] uppercase">English Title</label>
+                  <label className="text-[9px] font-black tracking-wider text-[#8E8E93] uppercase">EN TITLE</label>
                   <input
                     type="text"
                     value={quickTitleInput}
@@ -1875,7 +1908,7 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] text-[#8E8E93] uppercase">Bangla Subtitle</label>
+                  <label className="text-[9px] font-black tracking-wider text-[#8E8E93] uppercase">BN TITLE</label>
                   <input
                     type="text"
                     value={quickBengaliInput}
@@ -1893,16 +1926,17 @@ export const ControlDock: React.FC<ControlDockProps> = ({
                   <button
                     type="button"
                     onClick={() => setIsEditingTitle(false)}
-                    className="px-2.5 py-1 rounded bg-[#141417] hover:bg-white/[0.06] text-[#8E8E93] hover:text-[#F4F4F5] text-[11px]"
+                    className="cinema-tile cinema-tile-crimson px-2.5 py-1 rounded text-[10px] font-black uppercase cursor-pointer"
                   >
-                    Cancel
+                    CANCEL
                   </button>
                   <button
                     type="button"
+                    data-active="true"
                     onClick={handleSaveQuickTitle}
-                    className="px-3 py-1 rounded bg-[#F59E0B] hover:bg-[#F59E0B]/90 text-[#0B0B0D] font-bold text-[11px]"
+                    className="cinema-tile cinema-tile-amber px-3 py-1 rounded font-black text-[10px] uppercase cursor-pointer"
                   >
-                    Save Titles
+                    SAVE
                   </button>
                 </div>
               </div>
@@ -2271,8 +2305,8 @@ export const ControlDock: React.FC<ControlDockProps> = ({
           }}
           className="z-[9999] w-56 bg-[#0B0B0D]/96 backdrop-blur-xl border border-white/[0.12] rounded-lg p-2 shadow-[0_18px_45px_rgba(0,0,0,0.95)] font-mono text-[10px] flex flex-col gap-1.5 animate-in fade-in zoom-in-95 tabular-nums"
         >
-          <div className="text-[8px] text-[#8E8E93] font-bold uppercase px-1 border-b border-white/[0.07] pb-1 flex items-center justify-between">
-            <span>EDIT IN // SH{String(dispatchHudAnchor.idx + 1).padStart(2, '0')}</span>
+          <div className="text-[8.5px] text-[#8E8E93] font-black uppercase px-1 border-b border-white/[0.07] pb-1 flex items-center justify-between">
+            <span>BRIDGE // SH{String(dispatchHudAnchor.idx + 1).padStart(2, '0')}</span>
             <span className="text-[#F59E0B] tabular-nums">
               {(allCockpitShots[dispatchHudAnchor.idx]?.durationSec ?? 12.0).toFixed(1)}s
             </span>
@@ -2285,31 +2319,55 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             onLaunched={() => setDispatchHudAnchor(null)}
           />
 
-          <div className="border-t border-white/[0.07] pt-1 flex flex-col gap-1">
-            <button
-              type="button"
-              onClick={() => handleDispatchToTool('photoshop', dispatchHudAnchor.idx)}
-              className="px-2 py-1 rounded bg-[#141417] border border-white/[0.07] hover:bg-[#F59E0B] hover:text-[#0B0B0D] hover:border-[#F59E0B] text-[#F4F4F5] text-left font-bold flex items-center justify-between transition-colors cursor-pointer text-[9.5px]"
+          <div className="border-t border-white/[0.07] pt-1 grid grid-cols-1 gap-1">
+            <CinemaToolHUD
+              title="FRAME PNG"
+              en="Downloads graded frame still as lossless PNG for Photoshop."
+              bn="কীভাবে ব্যবহার করবেন: শটের PNG ছবি ডাউনলোড করতে FRAME PNG চাপুন।"
+              accent="emerald"
+              side="right"
             >
-              <span>[ DOWNLOAD // FRAME PNG ]</span>
-              <Camera className="w-3 h-3" />
-            </button>
-            <button
-              type="button"
-              onClick={() => handleDispatchToTool('premiere', dispatchHudAnchor.idx)}
-              className="px-2 py-1 rounded bg-[#141417] border border-white/[0.07] hover:bg-[#F59E0B] hover:text-[#0B0B0D] hover:border-[#F59E0B] text-[#F4F4F5] text-left font-bold flex items-center justify-between transition-colors cursor-pointer text-[9.5px]"
+              <button
+                type="button"
+                onClick={() => handleDispatchToTool('photoshop', dispatchHudAnchor.idx)}
+                className="cinema-tile cinema-tile-emerald w-full px-2 py-1.5 rounded text-left font-black flex items-center justify-between cursor-pointer text-[10px]"
+              >
+                <span>FRAME PNG</span>
+                <Camera className="w-3.5 h-3.5" />
+              </button>
+            </CinemaToolHUD>
+            <CinemaToolHUD
+              title="FCP7 XML"
+              en="Exports Premiere & DaVinci conform XML for this shot."
+              bn="কীভাবে ব্যবহার করবেন: প্রিমিয়ার প্রো XML ডাউনলোড করতে ক্লিক করুন।"
+              accent="amber"
+              side="right"
             >
-              <span>[ DOWNLOAD // FCP7 XML ]</span>
-              <Film className="w-3 h-3" />
-            </button>
-            <button
-              type="button"
-              onClick={() => handleDispatchToTool('capcut', dispatchHudAnchor.idx)}
-              className="px-2 py-1 rounded bg-[#141417] border border-white/[0.07] hover:bg-[#F59E0B] hover:text-[#0B0B0D] hover:border-[#F59E0B] text-[#F4F4F5] text-left font-bold flex items-center justify-between transition-colors cursor-pointer text-[9.5px]"
+              <button
+                type="button"
+                onClick={() => handleDispatchToTool('premiere', dispatchHudAnchor.idx)}
+                className="cinema-tile cinema-tile-amber w-full px-2 py-1.5 rounded text-left font-black flex items-center justify-between cursor-pointer text-[10px]"
+              >
+                <span>FCP7 XML</span>
+                <Film className="w-3.5 h-3.5" />
+              </button>
+            </CinemaToolHUD>
+            <CinemaToolHUD
+              title="CAPCUT ZIP"
+              en="Builds CapCut mobile/desktop quick-pack bundle."
+              bn="কীভাবে ব্যবহার করবেন: ক্যাপকাট ZIP প্যাক নামাতে CAPCUT ZIP চাপুন।"
+              accent="cyan"
+              side="right"
             >
-              <span>[ DOWNLOAD // CAPCUT ZIP ]</span>
-              <Zap className="w-3 h-3" />
-            </button>
+              <button
+                type="button"
+                onClick={() => handleDispatchToTool('capcut', dispatchHudAnchor.idx)}
+                className="cinema-tile cinema-tile-cyan w-full px-2 py-1.5 rounded text-left font-black flex items-center justify-between cursor-pointer text-[10px]"
+              >
+                <span>CAPCUT ZIP</span>
+                <Zap className="w-3.5 h-3.5" />
+              </button>
+            </CinemaToolHUD>
           </div>
         </div>,
         document.body
@@ -2355,19 +2413,11 @@ export const ControlDock: React.FC<ControlDockProps> = ({
             className="fixed bottom-28 left-1/2 -translate-x-1/2 w-[min(96vw,1080px)] max-h-[72vh] overflow-y-auto z-[9999] bg-[#0B0B0D]/96 border border-white/[0.07] rounded-xl shadow-[0_24px_80px_rgba(0,0,0,0.98)] p-4 font-mono text-[#F4F4F5] animate-in fade-in zoom-in-95 duration-150 tabular-nums"
           >
             <div className="flex items-center justify-between border-b border-white/[0.07] pb-2.5 mb-3">
-              <div className="flex items-center gap-2">
-                <LayoutGrid className="w-4 h-4 text-[#F59E0B]" />
-                <span className="text-xs font-black tracking-widest uppercase text-[#F4F4F5]">
-                  MASTER STUDIO COMMAND DIRECTORY
-                </span>
-                <span className="px-2 py-0.5 rounded bg-[#F59E0B]/15 border border-[#F59E0B]/40 text-[#F59E0B] text-[9px] font-bold">
-                  1-CLICK ACCESS
-                </span>
-              </div>
+              <CinemaBadgeHeader icon={LayoutGrid} label="ALL TOOLS" accent="amber" />
               <button
                 type="button"
                 onClick={() => setIsAllToolsOpen(false)}
-                className="p-1 rounded bg-[#141417] border border-white/[0.07] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5] cursor-pointer"
+                className="cinema-tile cinema-tile-crimson p-1.5 rounded cursor-pointer"
                 aria-label="Close All Tools Menu"
               >
                 <X className="w-4 h-4" />
@@ -2376,140 +2426,144 @@ export const ControlDock: React.FC<ControlDockProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-[10.5px]">
               {/* Column 1: Stage & Camera */}
-              <div className="bg-[#141417]/70 border border-white/[0.07] rounded-lg p-2.5 space-y-1.5">
-                <div className="text-[9.5px] font-black tracking-widest uppercase text-[#8E8E93] border-b border-white/[0.07] pb-1">
-                  STAGE &amp; CAMERA
+              <div className="bg-[#141417]/70 border border-white/[0.07] rounded-lg p-2.5 space-y-2">
+                <CinemaBadgeHeader icon={Film} label="STAGE" accent="amber" />
+                <div className="grid grid-cols-2 gap-1.5">
+                  {[
+                    { label: 'STAGE', full: 'TACTILE CINEMA STAGE', en: 'Opens main 2.39:1 cinema preview stage.', bn: 'কীভাবে ব্যবহার করবেন: মূল প্রিভিউ স্টেজে ফিরতে STAGE চাপুন।', accent: 'amber' as const, icon: Film, action: () => eventBus.emit('studio:select_panel', { panel: 'TACTILE_STAGE' }) },
+                    { label: 'REELS', full: 'REELS SEQUENCER', en: 'Switches to 9:16 speed reels deck.', bn: 'কীভাবে ব্যবহার করবেন: রিলস ও শর্টস তৈরি করতে REELS চাপুন।', accent: 'cyan' as const, icon: Scissors, action: () => eventBus.emit('studio:select_panel', { panel: 'SPLIT' }) },
+                    { label: 'MONITOR', full: 'OPTICAL MONITOR', en: 'Opens waveform & reference scope monitor.', bn: 'কীভাবে ব্যবহার করবেন: মনিটর স্কোপ দেখতে MONITOR চাপুন।', accent: 'cyan' as const, icon: Eye, action: () => eventBus.emit('studio:select_panel', { panel: 'OPTICAL' }) },
+                    { label: 'SCRUB', full: 'SCRUB TIMELINE', en: 'Opens precision multi-track scrub deck.', bn: 'কীভাবে ব্যবহার করবেন: টাইমলাইন স্ক্রাব করতে SCRUB চাপুন।', accent: 'amber' as const, icon: Clock, action: () => eventBus.emit('studio:select_panel', { panel: 'SEQUENCER' }) },
+                    { label: 'MULTI-CAM', full: 'MULTI-CAM 2X2', en: 'Launches synchronized 2x2 angle switcher.', bn: 'কীভাবে ব্যবহার করবেন: ৪টি ক্যামেরা একসাথে দেখতে চাপুন।', accent: 'cyan' as const, icon: LayoutGrid, action: () => eventBus.emit('studio:open_multicam') },
+                    { label: 'BLOOM FX', full: 'BLOOM STAGE', en: 'Opens interactive light bloom canvas.', bn: 'কীভাবে ব্যবহার করবেন: লাইট ব্লুম স্টেজ খুলতে চাপুন।', accent: 'amber' as const, icon: Sparkles, action: () => eventBus.emit('studio:open_bloom') },
+                    { label: 'OPTICS', full: 'OPTICS & CROP', en: 'Opens lens, framing & aspect crop controls.', bn: 'কীভাবে ব্যবহার করবেন: লেন্স ও ক্রপ সেট করতে OPTICS চাপুন।', accent: 'cyan' as const, icon: Sliders, action: () => eventBus.emit('studio:open_module', { module: 'OPTICS' }) },
+                    { label: 'INSPECTOR', full: 'DIRECTOR INSPECTOR', en: 'Opens 3D cam rig & shot grade inspector.', bn: 'কীভাবে ব্যবহার করবেন: শট ডিটেইলস এডিট করতে চাপুন।', accent: 'amber' as const, icon: SlidersHorizontal, action: () => onOpenInspector() },
+                    { label: 'GUIDES', full: 'SAFE GUIDES', en: 'Toggles rule-of-thirds & center reticles.', bn: 'কীভাবে ব্যবহার করবেন: ফ্রেম গ্রিড দেখতে GUIDES চাপুন।', accent: 'amber' as const, icon: Crosshair, action: () => onToggleGuides?.() },
+                    { label: 'PARALLAX', full: 'PARALLAX ZOOM', en: 'Opens independent FG/BG depth zoom controls.', bn: 'কীভাবে ব্যবহার করবেন: ডেপথ জুম সেট করতে PARALLAX চাপুন।', accent: 'cyan' as const, icon: Move, action: () => eventBus.emit('cockpit:toggle_zoom') }
+                  ].map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <CinemaToolHUD key={item.label} title={item.full} en={item.en} bn={item.bn} accent={item.accent} side="top">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsAllToolsOpen(false);
+                            item.action();
+                          }}
+                          className={`cinema-tile cinema-tile-${item.accent} w-full min-h-[44px] px-2 py-1.5 rounded flex flex-col items-center justify-center gap-1 text-center cursor-pointer`}
+                        >
+                          <Icon className="w-4 h-4 shrink-0" />
+                          <span className="font-black tracking-wider text-[10px] truncate max-w-full">{item.label}</span>
+                        </button>
+                      </CinemaToolHUD>
+                    );
+                  })}
                 </div>
-                {[
-                  { label: 'Tactile Cinema Stage', icon: Film, action: () => eventBus.emit('studio:select_panel', { panel: 'TACTILE_STAGE' }) },
-                  { label: 'Reels Split Sequencer', icon: Scissors, action: () => eventBus.emit('studio:select_panel', { panel: 'SPLIT' }) },
-                  { label: 'Optical Monitor', icon: Eye, action: () => eventBus.emit('studio:select_panel', { panel: 'OPTICAL' }) },
-                  { label: 'Scrub Precision Timeline', icon: Clock, action: () => eventBus.emit('studio:select_panel', { panel: 'SEQUENCER' }) },
-                  { label: 'Multi-Cam 2x2 Monitor', icon: LayoutGrid, action: () => eventBus.emit('studio:open_multicam') },
-                  { label: 'Bloom Interactive Stage', icon: Sparkles, action: () => eventBus.emit('studio:open_bloom') },
-                  { label: 'Optics & Crop Drawer', icon: Sliders, action: () => eventBus.emit('studio:open_module', { module: 'OPTICS' }) },
-                  { label: 'Director Inspector Sidebar', icon: SlidersHorizontal, action: () => onOpenInspector() },
-                  { label: 'Safe Composition Guides', icon: Crosshair, action: () => onToggleGuides?.() },
-                  { label: 'Multi-Layer Parallax Zoom', icon: Move, action: () => eventBus.emit('cockpit:toggle_zoom') }
-                ].map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <button
-                      key={item.label}
-                      type="button"
-                      onClick={() => {
-                        setIsAllToolsOpen(false);
-                        item.action();
-                      }}
-                      className="group w-full px-2 py-1.5 rounded bg-[#141417] hover:bg-[#141417] border border-white/[0.07] hover:border-[#F59E0B]/60 text-left text-[#8E8E93] hover:text-[#F4F4F5] flex items-center gap-2 transition-colors cursor-pointer"
-                    >
-                      <Icon className="w-3.5 h-3.5 text-[#8E8E93] group-hover:text-[#F59E0B] shrink-0 transition-colors" />
-                      <span className="truncate">{item.label}</span>
-                    </button>
-                  );
-                })}
               </div>
 
-              {/* Column 2: 34-Preset Lights, FX & Typography */}
-              <div className="bg-[#141417]/70 border border-white/[0.07] rounded-lg p-2.5 space-y-1.5">
-                <div className="text-[9.5px] font-black tracking-widest uppercase text-[#8E8E93] border-b border-white/[0.07] pb-1">
-                  LIGHTS, LUTS &amp; TYPOGRAPHY
+              {/* Column 2: Lights, LUTs & Typography */}
+              <div className="bg-[#141417]/70 border border-white/[0.07] rounded-lg p-2.5 space-y-2">
+                <CinemaBadgeHeader icon={Lightbulb} label="LOOK & FX" accent="cyan" />
+                <div className="grid grid-cols-2 gap-1.5">
+                  {[
+                    { label: 'LIGHT RIG', full: '34-PRESET LIGHT RIG', en: 'Opens 3D relighting & 34 atmosphere presets.', bn: 'কীভাবে ব্যবহার করবেন: সিনেমার ৩৪টি লাইট সেট করতে চাপুন।', accent: 'amber' as const, icon: Lightbulb, action: () => eventBus.emit('lighting:open') },
+                    { label: 'FILM LUTS', full: '15 HOLLYWOOD LUTS', en: 'Opens film stock LUT grading library.', bn: 'কীভাবে ব্যবহার করবেন: কালার গ্রেড বাছতে FILM LUTS চাপুন।', accent: 'cyan' as const, icon: Layers, action: () => eventBus.emit('studio:open_module', { module: 'LIBRARY' }) },
+                    { label: 'LIQUIFY', full: 'MESH LIQUIFY WARP', en: 'Opens optical mesh distortion sculpting studio.', bn: 'কীভাবে ব্যবহার করবেন: ছবি ওয়ার্প বা রিটাচ করতে চাপুন।', accent: 'crimson' as const, icon: Wand2, action: () => onOpenLiquify?.() },
+                    { label: 'TEXT FX', full: 'TYPOGRAPHY STUDIO', en: 'Opens Bangla/English kinetic title engine.', bn: 'কীভাবে ব্যবহার করবেন: টাইটেল ও ফন্ট বদলাতে TEXT FX চাপুন।', accent: 'amber' as const, icon: Type, action: () => eventBus.emit('studio:open_module', { module: 'TEXT' }) },
+                    { label: 'CAPTIONS', full: 'STAGE CAPTIONS', en: 'Toggles live stage title overlays.', bn: 'কীভাবে ব্যবহার করবেন: পর্দায় সাবটাইটেল অন/অফ করতে চাপুন।', accent: 'amber' as const, icon: Eye, action: () => onToggleTitles?.() },
+                    { label: 'STORY', full: 'STORY NOTEBOOK', en: 'Opens script breakdown & scene notes.', bn: 'কীভাবে ব্যবহার করবেন: স্ক্রিপ্ট ও সিন নোট লিখতে চাপুন।', accent: 'emerald' as const, icon: Pencil, action: () => eventBus.emit('studio:open_module', { module: 'STORY' }) },
+                    { label: 'AI PROMPT', full: 'AI DIRECTOR PROMPTS', en: 'Generates camera and cinematography prompts.', bn: 'কীভাবে ব্যবহার করবেন: এআই প্রম্পট পেতে AI PROMPT চাপুন।', accent: 'cyan' as const, icon: Sparkles, action: () => eventBus.emit('studio:open_module', { module: 'AI' }) },
+                    { label: 'REVIEW', full: 'FRAME REVIEW', en: 'Opens shot annotation & director review notes.', bn: 'কীভাবে ব্যবহার করবেন: ফ্রেমে রিভিউ মার্ক দিতে চাপুন।', accent: 'amber' as const, icon: Focus, action: () => eventBus.emit('studio:open_module', { module: 'REVIEW' }) }
+                  ].map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <CinemaToolHUD key={item.label} title={item.full} en={item.en} bn={item.bn} accent={item.accent} side="top">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsAllToolsOpen(false);
+                            item.action();
+                          }}
+                          className={`cinema-tile cinema-tile-${item.accent} w-full min-h-[44px] px-2 py-1.5 rounded flex flex-col items-center justify-center gap-1 text-center cursor-pointer`}
+                        >
+                          <Icon className="w-4 h-4 shrink-0" />
+                          <span className="font-black tracking-wider text-[10px] truncate max-w-full">{item.label}</span>
+                        </button>
+                      </CinemaToolHUD>
+                    );
+                  })}
                 </div>
-                {[
-                  { label: '34-Preset Lighting Rig', icon: Lightbulb, action: () => eventBus.emit('lighting:open') },
-                  { label: '15 Hollywood Film LUTs', icon: Layers, action: () => eventBus.emit('studio:open_module', { module: 'LIBRARY' }) },
-                  { label: 'Liquify & Mesh Warp', icon: Wand2, action: () => onOpenLiquify?.() },
-                  { label: 'Typography & Subtitles', icon: Type, action: () => eventBus.emit('studio:open_module', { module: 'TEXT' }) },
-                  { label: 'Toggle Stage Captions', icon: Eye, action: () => onToggleTitles?.() },
-                  { label: 'Story & Script Notebook', icon: Pencil, action: () => eventBus.emit('studio:open_module', { module: 'STORY' }) },
-                  { label: 'AI Director Prompts', icon: Sparkles, action: () => eventBus.emit('studio:open_module', { module: 'AI' }) },
-                  { label: 'Frame Markup & Review', icon: Focus, action: () => eventBus.emit('studio:open_module', { module: 'REVIEW' }) }
-                ].map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <button
-                      key={item.label}
-                      type="button"
-                      onClick={() => {
-                        setIsAllToolsOpen(false);
-                        item.action();
-                      }}
-                      className="group w-full px-2 py-1.5 rounded bg-[#141417] hover:bg-[#141417] border border-white/[0.07] hover:border-[#F59E0B]/60 text-left text-[#8E8E93] hover:text-[#F4F4F5] flex items-center gap-2 transition-colors cursor-pointer"
-                    >
-                      <Icon className="w-3.5 h-3.5 text-[#8E8E93] group-hover:text-[#F59E0B] shrink-0 transition-colors" />
-                      <span className="truncate">{item.label}</span>
-                    </button>
-                  );
-                })}
               </div>
 
-              {/* Column 3: Signal Rack, Scopes & Media Vault */}
-              <div className="bg-[#141417]/70 border border-white/[0.07] rounded-lg p-2.5 space-y-1.5">
-                <div className="text-[9.5px] font-black tracking-widest uppercase text-[#8E8E93] border-b border-white/[0.07] pb-1">
-                  SIGNAL RACK, SCOPES &amp; VAULT
+              {/* Column 3: Signal Rack, Scopes & Vault */}
+              <div className="bg-[#141417]/70 border border-white/[0.07] rounded-lg p-2.5 space-y-2">
+                <CinemaBadgeHeader icon={Activity} label="AUDIO & VAULT" accent="emerald" />
+                <div className="grid grid-cols-2 gap-1.5">
+                  {[
+                    { label: 'SIGNAL RACK', full: '3-PANEL SIGNAL RACK', en: 'Toggles Beat Sync, Voice, and LUT rack above timeline.', bn: 'কীভাবে ব্যবহার করবেন: সিগন্যাল র‍্যাক খুলতে চাপুন।', accent: 'emerald' as const, icon: SlidersHorizontal, action: () => (onToggleTelemetryRack ? onToggleTelemetryRack() : eventBus.emit('cockpit:toggle_telemetry')) },
+                    { label: 'SCOPES', full: 'RGB / IRE SCOPES', en: 'Opens broadcast waveform & parade telemetry.', bn: 'কীভাবে ব্যবহার করবেন: কালার ও লাইট স্কোপ দেখতে চাপুন।', accent: 'cyan' as const, icon: BarChart3, action: () => eventBus.emit('studio:open_scopes') },
+                    { label: 'SPECTRUM', full: 'FREQUENCY ANALYZER', en: 'Opens real-time audio spectrum analyzer.', bn: 'কীভাবে ব্যবহার করবেন: সাউন্ড ফ্রিকোয়েন্সি দেখতে চাপুন।', accent: 'emerald' as const, icon: Activity, action: () => eventBus.emit('cockpit:toggle_spectrum') },
+                    { label: 'AUDIO DSP', full: 'PRO AUDIO STUDIO', en: 'Opens Stem Splitter, AI Foley, TTS & 3-Bus Mixer.', bn: 'কীভাবে ব্যবহার করবেন: অডিও মিক্স ও স্টেম স্প্লিট করতে চাপুন।', accent: 'emerald' as const, icon: Volume2, action: () => eventBus.emit('studio:open_module', { module: 'SOUND' }) },
+                    { label: 'BEAT SNAP', full: 'AUDIO BEAT SNAP', en: 'Locks timeline cuts to detected drum beats.', bn: 'কীভাবে ব্যবহার করবেন: বিটের সাথে কাট মিলাতে BEAT SNAP অন করুন।', accent: 'emerald' as const, icon: Music, action: () => handleSnapToBeatToggle() },
+                    { label: 'GRID VIEW', full: '100-SHOT GRID', en: 'Toggles 100-shot storyboard contact sheet view.', bn: 'কীভাবে ব্যবহার করবেন: সব শট একসাথে গ্রিডে দেখতে চাপুন।', accent: 'amber' as const, icon: Grid, action: () => onToggleViewMode() },
+                    { label: 'MEDIA VAULT', full: 'MEDIA ASSET VAULT', en: 'Opens local OPFS / IDB media asset vault.', bn: 'কীভাবে ব্যবহার করবেন: আপনার সব ভিডিও/ছবি দেখতে চাপুন।', accent: 'cyan' as const, icon: FolderOpen, action: () => eventBus.emit('studio:open_module', { module: 'MEDIA' }) },
+                    { label: 'CLOUD R2', full: 'CLOUDFLARE R2 SYNC', en: 'Syncs project frames & assets with R2 bucket.', bn: 'কীভাবে ব্যবহার করবেন: ক্লাউডে প্রজেক্ট সিঙ্ক করতে চাপুন।', accent: 'cyan' as const, icon: Cloud, action: () => eventBus.emit('studio:open_module', { module: 'R2_STORAGE' }) },
+                    { label: 'PROJECTS', full: 'PROJECT MANAGER', en: 'Switches or creates IndexedDB studio projects.', bn: 'কীভাবে ব্যবহার করবেন: নতুন বা সেভ করা প্রজেক্ট খুলতে চাপুন।', accent: 'amber' as const, icon: Layers, action: () => eventBus.emit('studio:open_project_manager') }
+                  ].map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <CinemaToolHUD key={item.label} title={item.full} en={item.en} bn={item.bn} accent={item.accent} side="top">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsAllToolsOpen(false);
+                            item.action();
+                          }}
+                          className={`cinema-tile cinema-tile-${item.accent} w-full min-h-[44px] px-2 py-1.5 rounded flex flex-col items-center justify-center gap-1 text-center cursor-pointer`}
+                        >
+                          <Icon className="w-4 h-4 shrink-0" />
+                          <span className="font-black tracking-wider text-[10px] truncate max-w-full">{item.label}</span>
+                        </button>
+                      </CinemaToolHUD>
+                    );
+                  })}
                 </div>
-                {[
-                  { label: 'Modular 3-Panel Signal Rack', icon: SlidersHorizontal, action: () => (onToggleTelemetryRack ? onToggleTelemetryRack() : eventBus.emit('cockpit:toggle_telemetry')) },
-                  { label: 'IRE & RGB Video Scopes', icon: BarChart3, action: () => eventBus.emit('studio:open_scopes') },
-                  { label: 'Spectral Frequency Analyzer', icon: Activity, action: () => eventBus.emit('cockpit:toggle_spectrum') },
-                  { label: 'Sound DSP Studio', icon: Volume2, action: () => eventBus.emit('studio:open_module', { module: 'SOUND' }) },
-                  { label: 'Toggle Audio Beat Snap', icon: Music, action: () => handleSnapToBeatToggle() },
-                  { label: '100-Shot Contact Sheet Grid', icon: Grid, action: () => onToggleViewMode() },
-                  { label: 'Media Asset Vault', icon: FolderOpen, action: () => eventBus.emit('studio:open_module', { module: 'MEDIA' }) },
-                  { label: 'Cloudflare R2 Cloud Sync', icon: Cloud, action: () => eventBus.emit('studio:open_module', { module: 'R2_STORAGE' }) },
-                  { label: 'Multi-Project IDB Manager', icon: Layers, action: () => eventBus.emit('studio:open_project_manager') }
-                ].map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <button
-                      key={item.label}
-                      type="button"
-                      onClick={() => {
-                        setIsAllToolsOpen(false);
-                        item.action();
-                      }}
-                      className="group w-full px-2 py-1.5 rounded bg-[#141417] hover:bg-[#141417] border border-white/[0.07] hover:border-[#F59E0B]/60 text-left text-[#8E8E93] hover:text-[#F4F4F5] flex items-center gap-2 transition-colors cursor-pointer"
-                    >
-                      <Icon className="w-3.5 h-3.5 text-[#8E8E93] group-hover:text-[#F59E0B] shrink-0 transition-colors" />
-                      <span className="truncate">{item.label}</span>
-                    </button>
-                  );
-                })}
               </div>
 
               {/* Column 4: Cockpit Export, Recorder & System */}
-              <div className="bg-[#141417]/70 border border-white/[0.07] rounded-lg p-2.5 space-y-1.5">
-                <div className="text-[9.5px] font-black tracking-widest uppercase text-[#8E8E93] border-b border-white/[0.07] pb-1">
-                  COCKPIT, EXPORT &amp; SYSTEM
+              <div className="bg-[#141417]/70 border border-white/[0.07] rounded-lg p-2.5 space-y-2">
+                <CinemaBadgeHeader icon={Zap} label="EXPORT" accent="amber" />
+                <div className="grid grid-cols-2 gap-1.5">
+                  {[
+                    { label: 'COCKPIT', full: 'DIRECTOR COCKPIT HUB', en: 'Opens external NLE bridge and quick export hub.', bn: 'কীভাবে ব্যবহার করবেন: ডাইরেক্টর ককপিট ও ব্রিজ খুলতে চাপুন।', accent: 'amber' as const, icon: Zap, action: () => eventBus.emit('cockpit:action', { type: 'open_modal' }) },
+                    { label: 'FRAME PNG', full: 'FREEZE PNG', en: 'Captures active frame PNG for Photoshop.', bn: 'কীভাবে ব্যবহার করবেন: ফ্রেমের PNG স্টিল সেভ করতে চাপুন।', accent: 'emerald' as const, icon: Camera, action: () => handleDispatchToTool('photoshop', currentIndex) },
+                    { label: 'FCPXML', full: 'EXPORT FCPXML', en: 'Downloads Premiere/Resolve timeline XML.', bn: 'কীভাবে ব্যবহার করবেন: প্রিমিয়ার বা রিজলভের XML ডাউনলোড করতে চাপুন।', accent: 'amber' as const, icon: Download, action: () => eventBus.emit('cockpit:action', { type: 'nle_xml' }) },
+                    { label: 'CAPCUT ZIP', full: 'CAPCUT QUICK-PACK', en: 'Packages project assets into CapCut bundle ZIP.', bn: 'কীভাবে ব্যবহার করবেন: ক্যাপকাট ZIP প্যাক ডাউনলোড করতে চাপুন।', accent: 'cyan' as const, icon: Download, action: () => eventBus.emit('cockpit:action', { type: 'capcut_pack' }) },
+                    { label: '4K EXPORT', full: 'MASTER MP4 / PDF', en: 'Opens Unified Master MP4, XML, and PDF export studio.', bn: 'কীভাবে ব্যবহার করবেন: ৪কে ভিডিও বা পিডিএফ এক্সপোর্ট করতে চাপুন।', accent: 'amber' as const, icon: Film, action: () => eventBus.emit('studio:open_export', { tab: 'mp4' }) },
+                    { label: 'ANIMATIC', full: 'ANIMATIC PLAYER', en: 'Launches distraction-free full cinema playback.', bn: 'কীভাবে ব্যবহার করবেন: ফুল-স্ক্রিন অ্যানিমেটিক মুভি প্লে করতে চাপুন।', accent: 'amber' as const, icon: Play, action: () => eventBus.emit('studio:open_animatic') },
+                    { label: '4K REC', full: 'SCREEN RECORDER', en: 'Toggles 4K stage capture recorder dock.', bn: 'কীভাবে ব্যবহার করবেন: স্ক্রিন ও স্টেজ রেকর্ড করতে চাপুন।', accent: 'crimson' as const, icon: Video, action: () => eventBus.emit('studio:toggle_recorder') },
+                    { label: 'COMPILE', full: 'COMPILATION WIZARD', en: 'Runs guided full-film compilation export wizard.', bn: 'কীভাবে ব্যবহার করবেন: একসাথে পুরো মুভি রেন্ডার করতে চাপুন।', accent: 'amber' as const, icon: Sparkles, action: () => eventBus.emit('studio:open_compile') },
+                    { label: 'SETTINGS', full: 'STUDIO SETTINGS', en: 'Configures codecs, FPS, and workspace defaults.', bn: 'কীভাবে ব্যবহার করবেন: স্টুডিও সেটিংস ও কোডেক ঠিক করতে চাপুন।', accent: 'cyan' as const, icon: Settings, action: () => eventBus.emit('settings:open') },
+                    { label: 'SHORTCUTS', full: 'KEYBOARD SHORTCUTS', en: 'Shows keyboard map and diagnostics self-test.', bn: 'কীভাবে ব্যবহার করবেন: শর্টকাট কি তালিকা দেখতে চাপুন।', accent: 'cyan' as const, icon: Keyboard, action: () => eventBus.emit('shortcuts:open') }
+                  ].map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <CinemaToolHUD key={item.label} title={item.full} en={item.en} bn={item.bn} accent={item.accent} side="top">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsAllToolsOpen(false);
+                            item.action();
+                          }}
+                          className={`cinema-tile cinema-tile-${item.accent} w-full min-h-[44px] px-2 py-1.5 rounded flex flex-col items-center justify-center gap-1 text-center cursor-pointer`}
+                        >
+                          <Icon className="w-4 h-4 shrink-0" />
+                          <span className="font-black tracking-wider text-[10px] truncate max-w-full">{item.label}</span>
+                        </button>
+                      </CinemaToolHUD>
+                    );
+                  })}
                 </div>
-                {[
-                  { label: "Director's Cockpit Hub", icon: Zap, action: () => eventBus.emit('cockpit:action', { type: 'open_modal' }) },
-                  { label: 'Freeze PNG to Photoshop', icon: Camera, action: () => handleDispatchToTool('photoshop', currentIndex) },
-                  { label: 'Export FCPXML (Premiere/Resolve)', icon: Download, action: () => eventBus.emit('cockpit:action', { type: 'nle_xml' }) },
-                  { label: 'Build CapCut Quick-Pack ZIP', icon: Download, action: () => eventBus.emit('cockpit:action', { type: 'capcut_pack' }) },
-                  { label: 'Master MP4 / PDF Export Studio', icon: Film, action: () => eventBus.emit('studio:open_export', { tab: 'mp4' }) },
-                  { label: 'Animatic Cinema Player', icon: Play, action: () => eventBus.emit('studio:open_animatic') },
-                  { label: '4K Screen Recorder Dock', icon: Video, action: () => eventBus.emit('studio:toggle_recorder') },
-                  { label: 'Compilation Wizard', icon: Sparkles, action: () => eventBus.emit('studio:open_compile') },
-                  { label: 'Studio Settings & Codecs', icon: Settings, action: () => eventBus.emit('settings:open') },
-                  { label: 'Keyboard Shortcuts & Self-Test', icon: Keyboard, action: () => eventBus.emit('shortcuts:open') }
-                ].map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <button
-                      key={item.label}
-                      type="button"
-                      onClick={() => {
-                        setIsAllToolsOpen(false);
-                        item.action();
-                      }}
-                      className="group w-full px-2 py-1.5 rounded bg-[#141417] hover:bg-[#141417] border border-white/[0.07] hover:border-[#F59E0B]/60 text-left text-[#8E8E93] hover:text-[#F4F4F5] flex items-center gap-2 transition-colors cursor-pointer"
-                    >
-                      <Icon className="w-3.5 h-3.5 text-[#8E8E93] group-hover:text-[#F59E0B] shrink-0 transition-colors" />
-                      <span className="truncate">{item.label}</span>
-                    </button>
-                  );
-                })}
               </div>
             </div>
           </div>

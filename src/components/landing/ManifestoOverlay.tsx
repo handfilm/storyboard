@@ -641,4 +641,6 @@ export function ManifestoOverlay({ onLaunchStudio }: ManifestoOverlayProps) {
   );
 }
 
+export const DirectorManifesto = ManifestoOverlay;
 export default ManifestoOverlay;
+

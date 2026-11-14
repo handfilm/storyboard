@@ -63,6 +63,7 @@ import { isSvgPlaceholderUrl, isVideoSourceUrl } from '../../services/thumbnailE
 import { getLutFilterCSS, formatLutPresetLabel } from '../../utils/engine';
 import { ExportLutPreviewCard } from './ExportLutPreviewCard';
 import { EditInAppStrip } from '../bridge/EditInAppStrip';
+import { CinemaBadgeHeader, CinemaToolHUD } from '../ui/CinemaToolHUD';
 import { 
   Film, 
   Video, 
@@ -1669,263 +1670,147 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
         <div className="absolute bottom-0 left-0 w-3.5 h-3.5 border-b-2 border-l-2 border-[#F5A623]/70 pointer-events-none z-30 rounded-bl-xl" />
         <div className="absolute bottom-0 right-0 w-3.5 h-3.5 border-b-2 border-r-2 border-[#F5A623]/70 pointer-events-none z-30 rounded-br-xl" />
 
-        {/* ================================================================ */}
-        {/* STICKY HEADER WITH FORMAT TABS & CLOSE BUTTON                    */}
-        {/* ================================================================ */}
+        {/* STICKY HEADER WITH FORMAT TABS & CLOSE BUTTON */}
         <div className="sticky top-0 bg-[#08090e]/95 backdrop-blur-2xl border-b border-[#F5A623]/25 px-4 py-2.5 flex flex-col gap-2.5 z-20 shrink-0">
-          {/* Top Title & Close Action */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-7 h-7 rounded-lg bg-[#F5A623]/20 border border-[#F5A623]/50 flex items-center justify-center shadow-[0_0_12px_rgba(245,166,35,0.3)]">
-                <Film className="w-4 h-4 text-[#F5A623]" />
-              </div>
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-xs md:text-sm font-bold text-white tracking-widest uppercase">
-                    UNIFIED MASTER EXPORT STUDIO <span className="text-[#F5A623] font-normal">// {targetFps}FPS NATIVE</span>
-                  </h2>
-                  {exportPolicy.hasProOrTrial ? (
-                    <span className="px-2 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-[9px] font-mono font-bold tracking-wider uppercase">
-                      WATERMARK-FREE 4K 60FPS READY
-                    </span>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => useLicenseStore.getState().requireProAccess('Watermark-Free 4K 60fps Export')}
-                      className="px-2 py-0.5 rounded bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-[#F5A623] text-[9px] font-mono font-bold tracking-wider uppercase cursor-pointer transition-colors"
-                    >
-                      FREE TIER · 720p WATERMARKED · UPGRADE
-                    </button>
-                  )}
-                </div>
-                <p className="text-[10px] text-zinc-400 font-sans">
-                  Export Video Masters, Hollywood NLE Sequences, Contact Sheets & RAWX Backups
-                </p>
-              </div>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <CinemaBadgeHeader
+                icon={<Film className="w-4 h-4" strokeWidth={2.2} />}
+                label="EXPORT STUDIO"
+                accent="amber"
+              />
+              {exportPolicy.hasProOrTrial ? (
+                <span className="px-2 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-[9px] font-black tracking-wider uppercase">
+                  4K {targetFps}FPS READY
+                </span>
+              ) : (
+                <CinemaToolHUD
+                  title="UPGRADE 4K EXPORT"
+                  en="Unlock watermark-free 4K 60fps cinema master exports."
+                  bn="ওয়াটারমার্ক ছাড়াই 4K 60fps ভিডিও এক্সপোর্ট আনলক করতে চাপুন।"
+                  accent="amber"
+                  side="bottom"
+                >
+                  <button
+                    type="button"
+                    onClick={() => useLicenseStore.getState().requireProAccess('Watermark-Free 4K 60fps Export')}
+                    className="cinema-tile cinema-tile-amber px-2.5 py-1 rounded text-[9px] font-black tracking-wider uppercase cursor-pointer"
+                  >
+                    <span>720P PRO UPGRADE</span>
+                  </button>
+                </CinemaToolHUD>
+              )}
             </div>
 
-            <div className="flex items-center gap-3">
-              {/* Zero-Prompt EDIT IN App Strip */}
+            <div className="flex items-center gap-2">
               <EditInAppStrip
                 shotIndex={currentSlideIndex}
                 frame={frames[currentSlideIndex]}
                 variant="drawer"
               />
 
-              {/* Dynamic Runtime Badge */}
-              <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded bg-[#161722] border border-[#26283b] text-xs">
+              <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#111215] border border-[#26282E] text-[10px] font-black">
                 <Clock className="w-3.5 h-3.5 text-[#F5A623]" />
-                <span className="text-zinc-400 text-[10px] uppercase">Runtime:</span>
-                <span className="text-white font-bold font-mono">{dynamicRuntime}</span>
+                <span className="text-white tabular-nums">{dynamicRuntime}</span>
               </div>
 
-              {/* Close Button */}
-              <button
-                type="button"
-                onClick={onClose}
-                disabled={isExporting}
-                className="px-3 py-1.5 rounded-lg text-zinc-300 hover:text-white hover:bg-white/10 text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 border border-[#F5A623]/30 bg-[#161722]"
+              <CinemaToolHUD
+                title="CLOSE EXPORT"
+                en="Close the export studio window."
+                bn="এক্সপোর্ট স্টুডিও উইন্ডোটি বন্ধ করতে এখানে চাপুন।"
+                accent="crimson"
+                side="bottom"
               >
-                <span className="text-[#F5A623] font-bold">✕</span>
-                <span>CLOSE</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  disabled={isExporting}
+                  className="cinema-tile cinema-tile-crimson px-3 py-1.5 rounded-lg text-[10px] font-black tracking-wider uppercase flex items-center gap-1.5 cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+                  <span>CLOSE</span>
+                </button>
+              </CinemaToolHUD>
             </div>
           </div>
 
           {/* Unified Format Navigation Tabs */}
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1.5 p-1 bg-[#050609]/80 border border-[#1e1f2d] rounded-xl text-center backdrop-blur-md">
-            {/* 1. MP4 VIDEO */}
-            <button
-              type="button"
-              disabled={isExporting}
-              onClick={() => setActiveTab('mp4')}
-              className={`py-1.5 px-2 text-[11px] font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                activeTab === 'mp4'
-                  ? 'text-amber-300 border border-amber-500/40 shadow-[0_0_10px_rgba(251,191,36,0.3)] bg-amber-500/10'
-                  : 'text-zinc-400 hover:text-white hover:bg-[#141520] border border-transparent'
-              }`}
-            >
-              <Video className="w-3.5 h-3.5" />
-              <span className="truncate">MP4 VIDEO</span>
-            </button>
-
-            {/* 2. PREMIERE XML */}
-            <button
-              type="button"
-              disabled={isExporting}
-              onClick={() => setActiveTab('premiere')}
-              className={`py-1.5 px-2 text-[11px] font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                activeTab === 'premiere'
-                  ? 'text-amber-300 border border-amber-500/40 shadow-[0_0_10px_rgba(251,191,36,0.3)] bg-amber-500/10'
-                  : 'text-zinc-400 hover:text-white hover:bg-[#141520] border border-transparent'
-              }`}
-            >
-              <Film className="w-3.5 h-3.5" />
-              <span className="truncate">PREMIERE XML</span>
-            </button>
-
-            {/* 3. CAPCUT FCPXML */}
-            <button
-              type="button"
-              disabled={isExporting}
-              onClick={() => setActiveTab('fcpxml')}
-              className={`py-1.5 px-2 text-[11px] font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                activeTab === 'fcpxml'
-                  ? 'text-amber-300 border border-amber-500/40 shadow-[0_0_10px_rgba(251,191,36,0.3)] bg-amber-500/10'
-                  : 'text-zinc-400 hover:text-white hover:bg-[#141520] border border-transparent'
-              }`}
-            >
-              <Scissors className="w-3.5 h-3.5" />
-              <span className="truncate">CAPCUT FCPXML</span>
-            </button>
-
-            {/* 4. PRODUCTION PACKAGE (ZIP) */}
-            <button
-              type="button"
-              disabled={isExporting}
-              onClick={() => setActiveTab('package')}
-              className={`py-1.5 px-2 text-[11px] font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                activeTab === 'package'
-                  ? 'text-amber-300 border border-amber-500/40 shadow-[0_0_10px_rgba(251,191,36,0.3)] bg-amber-500/10'
-                  : 'text-zinc-400 hover:text-white hover:bg-[#141520] border border-transparent'
-              }`}
-            >
-              <Package className="w-3.5 h-3.5" />
-              <span className="truncate">PRODUCTION PKG</span>
-            </button>
-
-            {/* 5. STORYBOARD (PDF) */}
-            <button
-              type="button"
-              disabled={isExporting}
-              onClick={() => setActiveTab('pdf')}
-              className={`py-1.5 px-2 text-[11px] font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                activeTab === 'pdf'
-                  ? 'text-amber-300 border border-amber-500/40 shadow-[0_0_10px_rgba(251,191,36,0.3)] bg-amber-500/10'
-                  : 'text-zinc-400 hover:text-white hover:bg-[#141520] border border-transparent'
-              }`}
-            >
-              <FileText className="w-3.5 h-3.5" />
-              <span className="truncate">STORYBOARD (PDF)</span>
-            </button>
-
-            {/* 6. DIRECTOR'S CUT (ZIP) */}
-            <button
-              type="button"
-              disabled={isExporting}
-              onClick={() => setActiveTab('directors_cut')}
-              className={`py-1.5 px-2 text-[11px] font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                activeTab === 'directors_cut'
-                  ? 'text-amber-300 border border-amber-500/40 shadow-[0_0_10px_rgba(251,191,36,0.3)] bg-amber-500/10'
-                  : 'text-zinc-400 hover:text-white hover:bg-[#141520] border border-transparent'
-              }`}
-            >
-              <Archive className="w-3.5 h-3.5" />
-              <span className="truncate">DIRECTOR'S CUT</span>
-            </button>
-
-            {/* 7. PROJECT BACKUP (.rawx) */}
-            <button
-              type="button"
-              disabled={isExporting}
-              onClick={() => setActiveTab('backup')}
-              className={`py-1.5 px-2 text-[11px] font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                activeTab === 'backup'
-                  ? 'text-amber-300 border border-amber-500/40 shadow-[0_0_10px_rgba(251,191,36,0.3)] bg-amber-500/10'
-                  : 'text-zinc-400 hover:text-white hover:bg-[#141520] border border-transparent'
-              }`}
-            >
-              <HardDriveDownload className="w-3.5 h-3.5" />
-              <span className="truncate">BACKUP (.rawx)</span>
-            </button>
+            {[
+              { id: 'mp4' as const, label: 'MP4', Icon: Video, accent: 'amber' as const, en: 'Render native WebCodecs MP4 or transparent WebM master.', bn: 'সরাসরি 4K বা 1080p MP4 ভিডিও রেন্ডার ও ডাউনলোড করুন।' },
+              { id: 'premiere' as const, label: 'PREMIERE', Icon: Film, accent: 'cyan' as const, en: 'Generate Adobe Premiere Pro & CapCut Desktop FCP7 XML.', bn: 'প্রিমিয়ার প্রো ও ক্যাপকাটের জন্য টাইমলাইন XML ফাইল তৈরি করুন।' },
+              { id: 'fcpxml' as const, label: 'FCPXML', Icon: Scissors, accent: 'cyan' as const, en: 'Export Apple Final Cut & DaVinci Resolve FCPXML v1.10.', bn: 'ডাভিঞ্চি রিজলভ ও ফাইনাল কাটের জন্য FCPXML এক্সপোর্ট করুন।' },
+              { id: 'package' as const, label: 'PKG ZIP', Icon: Package, accent: 'amber' as const, en: 'Bundle plates, manifest.json, XML and CMX 3600 EDL.', bn: 'সব ছবি, XML ও EDL একসাথে জিপ ফাইল হিসেবে ডাউনলোড করুন।' },
+              { id: 'pdf' as const, label: 'PDF', Icon: FileText, accent: 'emerald' as const, en: 'Export publication-grade storyboard bible or contact sheet.', bn: 'স্টোরিবোর্ড ও ক্যামেরা নোটসহ প্রিন্ট-রেডি PDF বই তৈরি করুন।' },
+              { id: 'directors_cut' as const, label: 'DIR CUT', Icon: Archive, accent: 'crimson' as const, en: 'Download shot CSV, Fountain script, and master JSON.', bn: 'শট লিস্ট CSV ও ফাউন্টেন স্ক্রিপ্টসহ ডিরেক্টরস কাট বান্ডেল নিন।' },
+              { id: 'backup' as const, label: 'BACKUP', Icon: HardDriveDownload, accent: 'emerald' as const, en: 'Save lossless .rawx archive of all project slides and media.', bn: 'পুরো প্রজেক্ট ও মিডিয়া অফলাইনে ব্যাকআপ রাখতে .rawx সেভ করুন।' },
+            ].map((t) => {
+              const TabIcon = t.Icon;
+              const isTabActive = activeTab === t.id;
+              return (
+                <CinemaToolHUD key={t.id} title={t.label} en={t.en} bn={t.bn} accent={t.accent} side="bottom" blockWrapper>
+                  <button
+                    type="button"
+                    disabled={isExporting}
+                    onClick={() => setActiveTab(t.id)}
+                    data-active={isTabActive ? 'true' : 'false'}
+                    className={`cinema-tile cinema-tile-${t.accent} w-full min-h-[44px] py-1.5 px-2 text-[10px] font-black tracking-wider uppercase rounded-lg cursor-pointer flex items-center justify-center gap-1.5`}
+                  >
+                    <TabIcon className="w-4 h-4 cinema-tile-icon shrink-0" strokeWidth={2.2} />
+                    <span className="truncate">{t.label}</span>
+                  </button>
+                </CinemaToolHUD>
+              );
+            })}
           </div>
         </div>
 
-        {/* ================================================================ */}
-        {/* SCROLLABLE SETTINGS BODY                                         */}
-        {/* ================================================================ */}
+        {/* SCROLLABLE SETTINGS BODY */}
         <div className="px-4 py-3 overflow-y-auto flex-1 space-y-3">
-          
-          {/* ============================================================== */}
-          {/* SHARED DYNAMIC SHOT SEQUENCE MATRIX (ACTIVE FOR ALL TABS)      */}
-          {/* ============================================================== */}
+          {/* SHARED DYNAMIC SHOT SEQUENCE MATRIX */}
           <div className="p-3 rounded-xl bg-[#090a0f] border border-[#F5A623]/30 space-y-2.5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <label className="text-[11px] text-[#F5A623] font-bold uppercase tracking-wider flex items-center gap-2">
-                <SlidersHorizontal className="w-3.5 h-3.5" />
-                <span>Shared Shot Sequence Matrix</span>
-              </label>
-
-              <div className="text-[10.5px] text-zinc-400 font-mono">
-                Active in export: <span className="text-white font-bold">{activeSelection.totalShots} Shots</span>
-                {' • '}
-                <span className="text-[#F5A623] font-bold">{activeSelection.totalFrames.toLocaleString()} Frames</span>
-                {' • '}
-                <span className="text-cyan-300 font-bold">{dynamicRuntime}</span>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <CinemaBadgeHeader
+                icon={<SlidersHorizontal className="w-3.5 h-3.5" strokeWidth={2.2} />}
+                label="SHOT RANGE"
+                accent="amber"
+              />
+              <div className="flex items-center gap-2 text-[10px] font-mono font-bold text-zinc-300 tabular-nums">
+                <span className="text-white">{activeSelection.totalShots} SHOTS</span>
+                <span className="text-[#F5A623]">{activeSelection.totalFrames.toLocaleString()}F</span>
+                <span className="text-cyan-300">{dynamicRuntime}</span>
                 {excludedIndices.length > 0 && (
-                  <span className="text-rose-400 ml-2">({excludedIndices.length} Excluded)</span>
+                  <span className="text-rose-400">-{excludedIndices.length}</span>
                 )}
               </div>
             </div>
 
-            {/* Range Selection Pills */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-1 bg-[#050609] border border-[#1d1e2b] rounded-lg">
-              <button
-                type="button"
-                disabled={isExporting}
-                onClick={() => setSelectionMode('all')}
-                className={`py-1.5 px-2 text-xs font-bold rounded transition-all cursor-pointer text-center ${
-                  selectionMode === 'all'
-                    ? 'bg-[#F5A623] text-black shadow'
-                    : 'text-zinc-400 hover:text-white'
-                }`}
-              >
-                ALL SHOTS (1–{totalCount})
-              </button>
-              <button
-                type="button"
-                disabled={isExporting}
-                onClick={() => setSelectionMode('current')}
-                className={`py-1.5 px-2 text-xs font-bold rounded transition-all cursor-pointer text-center ${
-                  selectionMode === 'current'
-                    ? 'bg-[#F5A623] text-black shadow'
-                    : 'text-zinc-400 hover:text-white'
-                }`}
-              >
-                CURRENT SHOT ({String(currentSlideIndex + 1).padStart(3, '0')})
-              </button>
-              <button
-                type="button"
-                disabled={isExporting}
-                onClick={() => setSelectionMode('range')}
-                className={`py-1.5 px-2 text-xs font-bold rounded transition-all cursor-pointer text-center ${
-                  selectionMode === 'range'
-                    ? 'bg-[#F5A623] text-black shadow'
-                    : 'text-zinc-400 hover:text-white'
-                }`}
-              >
-                CUSTOM RANGE
-              </button>
-              <button
-                type="button"
-                disabled={isExporting}
-                onClick={() => setSelectionMode('custom')}
-                className={`py-1.5 px-2 text-xs font-bold rounded transition-all cursor-pointer text-center ${
-                  selectionMode === 'custom'
-                    ? 'bg-[#F5A623] text-black shadow'
-                    : 'text-zinc-400 hover:text-white'
-                }`}
-              >
-                MANUAL LIST
-              </button>
+              {[
+                { id: 'all' as const, label: `ALL (${totalCount})`, en: 'Include every shot in the sequence.', bn: 'সিকোয়েন্সের সব শট একসাথে এক্সপোর্ট করতে চাপুন।' },
+                { id: 'current' as const, label: `SH${String(currentSlideIndex + 1).padStart(3, '0')}`, en: 'Export only the currently selected shot.', bn: 'শুধুমাত্র বর্তমান নির্বাচিত শটটি এক্সপোর্ট করুন।' },
+                { id: 'range' as const, label: 'RANGE', en: 'Select a continuous start-to-end shot range.', bn: 'শুরু থেকে শেষ নির্দিষ্ট শট রেঞ্জ বাছাই করতে চাপুন।' },
+                { id: 'custom' as const, label: 'MANUAL', en: 'Type comma-separated shot numbers and ranges.', bn: 'কমা দিয়ে নির্দিষ্ট শট নম্বর লিখে বাছাই করুন।' },
+              ].map((m) => (
+                <CinemaToolHUD key={m.id} title={m.label} en={m.en} bn={m.bn} accent="amber" side="top" blockWrapper>
+                  <button
+                    type="button"
+                    disabled={isExporting}
+                    onClick={() => setSelectionMode(m.id)}
+                    data-active={selectionMode === m.id ? 'true' : 'false'}
+                    className="cinema-tile cinema-tile-amber w-full min-h-[40px] py-1.5 px-2 text-[10px] font-black tracking-wider uppercase rounded cursor-pointer text-center"
+                  >
+                    <span>{m.label}</span>
+                  </button>
+                </CinemaToolHUD>
+              ))}
             </div>
 
-            {/* Stepper Inputs for Range Mode */}
             {selectionMode === 'range' && (
-              <div className="p-3 rounded-lg bg-[#101118] border border-[#202230] flex flex-wrap items-center justify-between gap-3 animate-in fade-in">
+              <div className="p-2.5 rounded-lg bg-[#101118] border border-[#202230] flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-2">
-                    <span className="text-[11px] text-zinc-400 font-sans">From Shot:</span>
+                    <span className="text-[10px] font-black tracking-wider uppercase text-zinc-400">FROM</span>
                     <input
                       type="number"
                       min="1"
@@ -1938,7 +1823,7 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
                   </div>
                   <span className="text-zinc-500 font-bold">→</span>
                   <div className="flex items-center gap-2">
-                    <span className="text-[11px] text-zinc-400 font-sans">To Shot:</span>
+                    <span className="text-[10px] font-black tracking-wider uppercase text-zinc-400">TO</span>
                     <input
                       type="number"
                       min={rangeStart}
@@ -1950,20 +1835,14 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
                     />
                   </div>
                 </div>
-
-                <div className="text-[10.5px] text-zinc-400">
-                  Span: <span className="text-white font-bold">{Math.max(0, rangeEnd - rangeStart + 1)} Consecutive Shots</span>
-                </div>
+                <span className="text-[10px] font-black text-white uppercase tabular-nums">
+                  {Math.max(0, rangeEnd - rangeStart + 1)} SHOTS
+                </span>
               </div>
             )}
 
-            {/* Manual Tag-Based Input */}
             {selectionMode === 'custom' && (
-              <div className="p-3 rounded-lg bg-[#101118] border border-[#202230] space-y-1.5 animate-in fade-in">
-                <div className="flex justify-between items-center text-[10.5px]">
-                  <span className="text-zinc-400 font-sans">Enter comma-separated shots and ranges:</span>
-                  <span className="text-zinc-500">e.g., 1, 3, 5-8, 12</span>
-                </div>
+              <div className="p-2.5 rounded-lg bg-[#101118] border border-[#202230]">
                 <input
                   type="text"
                   disabled={isExporting}
@@ -2309,284 +2188,140 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 {/* Resolution & Aspect */}
-                <div className="p-3 rounded-xl bg-[#090a0f] border border-[#F5A623]/30 space-y-1.5">
-                  <label className="text-[11px] text-[#F5A623] font-bold uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
-                    <Maximize2 className="w-3.5 h-3.5" />
-                    <span>Resolution & Aspect</span>
-                  </label>
-                  <div className="space-y-1.5">
-                    <button
-                      type="button"
-                      disabled={isExporting}
-                      onClick={() => setResolutionPreset('720p_free')}
-                      className={`w-full p-2 rounded-lg border text-left transition-all cursor-pointer ${
-                        resolutionPreset === '720p_free'
-                          ? 'bg-[#181926] border-[#F5A623] text-white shadow'
-                          : 'bg-[#101118] border-[#222332] text-zinc-400'
-                      }`}
-                    >
-                      <div className="flex justify-between items-center text-xs font-bold text-white">
-                        <span>720p Free (1280 × 720) · FREE</span>
-                        <span className="text-[8.5px] text-amber-400">16:9</span>
-                      </div>
-                      <div className="text-[9px] text-zinc-500 font-sans">Standard HD · Watermarked on Free Tier</div>
-                    </button>
-
-                    <button
-                      type="button"
-                      disabled={isExporting}
-                      onClick={() => {
-                        if (!useLicenseStore.getState().requireProAccess('4K / 16-Bit Master Export')) return;
-                        setResolutionPreset('4k_scope');
-                      }}
-                      className={`w-full p-2 rounded-lg border text-left transition-all cursor-pointer ${
-                        resolutionPreset === '4k_scope'
-                          ? 'bg-[#181926] border-[#F5A623] text-white shadow'
-                          : 'bg-[#101118] border-[#222332] text-zinc-400'
-                      }`}
-                    >
-                      <div className="flex justify-between items-center text-xs font-bold text-white">
-                        <span>4K Scope (3840 × 1608) · PRO</span>
-                        <span className="text-[8.5px] text-[#F5A623]">2.39:1</span>
-                      </div>
-                      <div className="text-[9px] text-zinc-500 font-sans">Theatrical Scope Master · Watermark-Free</div>
-                    </button>
-
-                    <button
-                      type="button"
-                      disabled={isExporting}
-                      onClick={() => {
-                        if (!useLicenseStore.getState().requireProAccess('4K / 16-Bit Master Export')) return;
-                        setResolutionPreset('4k_standard');
-                      }}
-                      className={`w-full p-2 rounded-lg border text-left transition-all cursor-pointer ${
-                        resolutionPreset === '4k_standard'
-                          ? 'bg-[#181926] border-[#F5A623] text-white shadow'
-                          : 'bg-[#101118] border-[#222332] text-zinc-400'
-                      }`}
-                    >
-                      <div className="flex justify-between items-center text-xs font-bold text-white">
-                        <span>4K UHD (3840 × 2160) · PRO</span>
-                        <span className="text-[8.5px] text-zinc-400">16:9</span>
-                      </div>
-                      <div className="text-[9px] text-zinc-500 font-sans">Ultra HD Standard Cinema · Watermark-Free</div>
-                    </button>
-
-                    <button
-                      type="button"
-                      disabled={isExporting}
-                      onClick={() => {
-                        if (!useLicenseStore.getState().requireProAccess('Pro HD/4K Watermark-Free Export')) return;
-                        setResolutionPreset('1080p_scope');
-                      }}
-                      className={`w-full p-2 rounded-lg border text-left transition-all cursor-pointer ${
-                        resolutionPreset === '1080p_scope'
-                          ? 'bg-[#181926] border-[#F5A623] text-white shadow'
-                          : 'bg-[#101118] border-[#222332] text-zinc-400'
-                      }`}
-                    >
-                      <div className="flex justify-between items-center text-xs font-bold text-white">
-                        <span>1080p Scope (1920 × 804) · PRO</span>
-                        <span className="text-[8.5px] text-zinc-400">2.39:1</span>
-                      </div>
-                      <div className="text-[9px] text-zinc-500 font-sans">Fast Theatrical Preview</div>
-                    </button>
-
-                    <button
-                      type="button"
-                      disabled={isExporting}
-                      onClick={() => {
-                        if (!useLicenseStore.getState().requireProAccess('Pro HD/4K Watermark-Free Export')) return;
-                        setResolutionPreset('9_16_vertical');
-                      }}
-                      className={`w-full p-2 rounded-lg border text-left transition-all cursor-pointer ${
-                        resolutionPreset === '9_16_vertical'
-                          ? 'bg-[#181926] border-[#F5A623] text-white shadow'
-                          : 'bg-[#101118] border-[#222332] text-zinc-400'
-                      }`}
-                    >
-                      <div className="flex justify-between items-center text-xs font-bold text-white">
-                        <span className="flex items-center gap-1">
-                          <Smartphone className="w-3 h-3 text-cyan-400" />
-                          <span>Vertical Reel (1080 × 1920) · PRO</span>
-                        </span>
-                        <span className="text-[8.5px] text-cyan-400">9:16</span>
-                      </div>
-                      <div className="text-[9px] text-zinc-500 font-sans">Social Cut Safe-Zone Letterbox</div>
-                    </button>
+                <div className="p-3 rounded-xl bg-[#090a0f] border border-[#F5A623]/30 space-y-2">
+                  <CinemaBadgeHeader
+                    icon={<Maximize2 className="w-3.5 h-3.5" strokeWidth={2.2} />}
+                    label="RESOLUTION"
+                    accent="amber"
+                  />
+                  <div className="grid grid-cols-1 gap-1.5">
+                    {[
+                      { id: '720p_free' as const, label: '720P FREE', badge: '16:9', accent: 'amber' as const, pro: false, en: '1280×720 HD export on Free Tier.', bn: 'ফ্রি ভার্সনে স্ট্যান্ডার্ড ৭২০পি এইচডি ভিডিও রেন্ডার করুন।' },
+                      { id: '4k_scope' as const, label: '4K SCOPE', badge: '2.39:1', accent: 'amber' as const, pro: true, en: '3840×1608 theatrical scope watermark-free.', bn: 'সিনেমার ২.৩৯:১ স্কোপ রেশিওতে ৪কে মাস্টার এক্সপোর্ট করুন।' },
+                      { id: '4k_standard' as const, label: '4K UHD', badge: '16:9', accent: 'amber' as const, pro: true, en: '3840×2160 full UHD widescreen master.', bn: 'ফুল ১৬:৯ স্ক্রিনে ৪কে আল্ট্রা এইচডি ভিডিও রেন্ডার করুন।' },
+                      { id: '1080p_scope' as const, label: '1080P SCOPE', badge: '2.39:1', accent: 'emerald' as const, pro: true, en: '1920×804 fast theatrical scope preview.', bn: 'দ্রুত ১০৮০পি সিনেম্যাটিক স্কোপ প্রিভিউ রেন্ডার করুন।' },
+                      { id: '9_16_vertical' as const, label: '9:16 REEL', badge: 'REELS', accent: 'cyan' as const, pro: true, en: '1080×1920 vertical social cut safe frame.', bn: 'রিলস, শর্টস ও টিকটকের জন্য ৯:১৬ ভার্টিকাল এক্সপোর্ট করুন।' },
+                    ].map((res) => (
+                      <CinemaToolHUD key={res.id} title={res.label} en={res.en} bn={res.bn} accent={res.accent} side="right" blockWrapper>
+                        <button
+                          type="button"
+                          disabled={isExporting}
+                          onClick={() => {
+                            if (res.pro && !useLicenseStore.getState().requireProAccess('4K / Pro Master Export')) return;
+                            setResolutionPreset(res.id);
+                          }}
+                          data-active={resolutionPreset === res.id ? 'true' : 'false'}
+                          className={`cinema-tile cinema-tile-${res.accent} w-full min-h-[44px] px-2.5 py-1.5 rounded-lg flex items-center justify-between text-[10px] font-black tracking-wider uppercase cursor-pointer`}
+                        >
+                          <span className="flex items-center gap-1.5">
+                            {res.id === '9_16_vertical' ? <Smartphone className="w-3.5 h-3.5 cinema-tile-icon" /> : <Maximize2 className="w-3.5 h-3.5 cinema-tile-icon" />}
+                            <span>{res.label}</span>
+                          </span>
+                          <span className="text-[9px] font-mono opacity-80">{res.badge}</span>
+                        </button>
+                      </CinemaToolHUD>
+                    ))}
                   </div>
                 </div>
 
                 {/* Bitrate & Frame Rate */}
                 <div className="p-3 rounded-xl bg-[#090a0f] border border-[#F5A623]/30 space-y-2">
-                  <label className="text-[11px] text-[#F5A623] font-bold uppercase tracking-wider flex items-center gap-1.5 mb-1">
-                    <Cpu className="w-3.5 h-3.5" />
-                    <span>Bitrate &amp; Frame Rate</span>
-                  </label>
+                  <CinemaBadgeHeader
+                    icon={<Cpu className="w-3.5 h-3.5" strokeWidth={2.2} />}
+                    label="BITRATE & FPS"
+                    accent="cyan"
+                  />
                   <div className="space-y-1.5">
-                    <button
-                      type="button"
-                      disabled={isExporting}
-                      onClick={() => setBitrateProfile('proxy')}
-                      className={`w-full p-2 rounded-lg border text-left transition-all cursor-pointer ${
-                        bitrateProfile === 'proxy'
-                          ? 'bg-[#181926] border-[#F5A623] text-white shadow'
-                          : 'bg-[#101118] border-[#222332] text-zinc-400'
-                      }`}
-                    >
-                      <div className="flex justify-between items-center text-xs font-bold text-white">
-                        <span>Fast Proxy</span>
-                        <span className="text-[10px] text-[#F5A623]">12 Mbps</span>
-                      </div>
-                      <div className="text-[9px] text-zinc-500 font-sans">Lightweight review cut</div>
-                    </button>
-
-                    <button
-                      type="button"
-                      disabled={isExporting}
-                      onClick={() => setBitrateProfile('broadcast')}
-                      className={`w-full p-2 rounded-lg border text-left transition-all cursor-pointer ${
-                        bitrateProfile === 'broadcast'
-                          ? 'bg-[#181926] border-[#F5A623] text-white shadow'
-                          : 'bg-[#101118] border-[#222332] text-zinc-400'
-                      }`}
-                    >
-                      <div className="flex justify-between items-center text-xs font-bold text-white">
-                        <span>Broadcast Profile</span>
-                        <span className="text-[10px] text-[#F5A623]">30 Mbps</span>
-                      </div>
-                      <div className="text-[9px] text-zinc-500 font-sans">High Profile H.264 standard</div>
-                    </button>
-
-                    <button
-                      type="button"
-                      disabled={isExporting}
-                      onClick={() => setBitrateProfile('master')}
-                      className={`w-full p-2 rounded-lg border text-left transition-all cursor-pointer ${
-                        bitrateProfile === 'master'
-                          ? 'bg-[#181926] border-[#F5A623] text-white shadow'
-                          : 'bg-[#101118] border-[#222332] text-zinc-400'
-                      }`}
-                    >
-                      <div className="flex justify-between items-center text-xs font-bold text-white">
-                        <span>Cinema Master</span>
-                        <span className="text-[10px] text-[#F5A623]">60 Mbps</span>
-                      </div>
-                      <div className="text-[9px] text-zinc-500 font-sans">Pristine DCI archival master</div>
-                    </button>
-                  </div>
-
-                  {/* Frame Rate Selector */}
-                  <div className="pt-1 border-t border-white/10 space-y-1">
-                    <span className="text-[10px] font-mono uppercase text-zinc-400 block">
-                      Target Frame Rate
-                    </span>
-                    <div className="grid grid-cols-3 gap-1.5">
-                      {([24, 30, 60] as const).map((fpsVal) => (
+                    {[
+                      { id: 'proxy' as const, label: 'PROXY', spec: '12 MBPS', en: 'Lightweight fast review encode.', bn: 'দ্রুত প্রিভিউ দেখার জন্য হালকা ১২ এমবিপিএস ফাইল তৈরি করুন।' },
+                      { id: 'broadcast' as const, label: 'BROADCAST', spec: '30 MBPS', en: 'Standard High Profile H.264 stream.', bn: 'সোশ্যাল মিডিয়া ও টিভির জন্য ৩০ এমবিপিএস হাই-প্রোফাইল।' },
+                      { id: 'master' as const, label: 'MASTER', spec: '60 MBPS', en: 'Pristine DCI archival cinema quality.', bn: 'সর্বোচ্চ ডিটেইলসহ ৬০ এমবিপিএস মাস্টার কোয়ালিটি রেন্ডার।' },
+                    ].map((bp) => (
+                      <CinemaToolHUD key={bp.id} title={bp.label} en={bp.en} bn={bp.bn} accent="cyan" side="top" blockWrapper>
                         <button
-                          key={fpsVal}
                           type="button"
                           disabled={isExporting}
-                          onClick={() => {
-                            if (fpsVal === 60 && !useLicenseStore.getState().requireProAccess('60 FPS Smooth Cinema Export')) {
-                              return;
-                            }
-                            setTargetFps(fpsVal);
-                          }}
-                          className={`py-1.5 px-1.5 rounded border text-[10px] font-mono font-bold transition-all cursor-pointer ${
-                            targetFps === fpsVal
-                              ? 'bg-[#F5A623] text-black border-[#F5A623]'
-                              : 'bg-[#101118] border-[#222332] text-zinc-300 hover:border-white/25'
-                          }`}
+                          onClick={() => setBitrateProfile(bp.id)}
+                          data-active={bitrateProfile === bp.id ? 'true' : 'false'}
+                          className="cinema-tile cinema-tile-cyan w-full min-h-[44px] px-2.5 py-1.5 rounded-lg flex items-center justify-between text-[10px] font-black tracking-wider uppercase cursor-pointer"
                         >
-                          {fpsVal} FPS{fpsVal === 60 ? ' · PRO' : ''}
+                          <span>{bp.label}</span>
+                          <span className="text-[9px] font-mono opacity-80">{bp.spec}</span>
                         </button>
+                      </CinemaToolHUD>
+                    ))}
+                  </div>
+
+                  <div className="pt-1.5 border-t border-white/10">
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {([24, 30, 60] as const).map((fpsVal) => (
+                        <CinemaToolHUD
+                          key={fpsVal}
+                          title={`${fpsVal} FPS`}
+                          en={`Render output timeline at ${fpsVal} frames per second.`}
+                          bn={`ভিডিও ফ্রেম রেট প্রতি সেকেন্ডে ${fpsVal} FPS সেট করুন।`}
+                          accent="amber"
+                          side="top"
+                          blockWrapper
+                        >
+                          <button
+                            type="button"
+                            disabled={isExporting}
+                            onClick={() => {
+                              if (fpsVal === 60 && !useLicenseStore.getState().requireProAccess('60 FPS Smooth Cinema Export')) {
+                                return;
+                              }
+                              setTargetFps(fpsVal);
+                            }}
+                            data-active={targetFps === fpsVal ? 'true' : 'false'}
+                            className="cinema-tile cinema-tile-amber w-full min-h-[44px] px-1.5 rounded text-[10px] font-black uppercase cursor-pointer"
+                          >
+                            <span>{fpsVal} FPS</span>
+                          </button>
+                        </CinemaToolHUD>
                       ))}
                     </div>
                   </div>
                 </div>
 
                 {/* Composite Layers */}
-                <div className="p-3 rounded-xl bg-[#090a0f] border border-[#F5A623]/30 space-y-1.5">
-                  <label className="text-[11px] text-[#F5A623] font-bold uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
-                    <Layers className="w-3.5 h-3.5" />
-                    <span>Composite Layers</span>
-                  </label>
-                  <div className="space-y-1.5 text-xs">
-                    <div className="p-2 rounded-lg bg-[#101118] border border-[#222332] flex items-center justify-between">
-                      <div>
-                        <div className="font-bold text-white text-[11px]">Burn-in Cinematic Titles (Bangla + English)</div>
-                        <div className="text-[9px] text-[#F5A623] font-mono">
-                          {activeMonitorPresetConfig.presetName} • {activeMonitorPresetConfig.layoutMode}
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        disabled={isExporting}
-                        onClick={() => setBurnInTitles(b => !b)}
-                        className={`w-8 h-4 rounded-full p-0.5 transition-colors cursor-pointer relative ${
-                          burnInTitles ? 'bg-[#F5A623]' : 'bg-zinc-700'
-                        }`}
-                      >
-                        <div className={`w-3 h-3 rounded-full bg-black transition-transform ${burnInTitles ? 'translate-x-4' : 'translate-x-0'}`} />
-                      </button>
-                    </div>
-
-                    <div className="p-2 rounded-lg bg-[#101118] border border-[#222332] flex items-center justify-between">
-                      <div>
-                        <div className="font-bold text-white text-[11px]">Optical Flares</div>
-                        <div className="text-[9px] text-zinc-500">Horizontal anamorphic streak</div>
-                      </div>
-                      <button
-                        type="button"
-                        disabled={isExporting}
-                        onClick={() => setSimulateFlare(f => !f)}
-                        className={`w-8 h-4 rounded-full p-0.5 transition-colors cursor-pointer relative ${
-                          simulateFlare ? 'bg-[#F5A623]' : 'bg-zinc-700'
-                        }`}
-                      >
-                        <div className={`w-3 h-3 rounded-full bg-black transition-transform ${simulateFlare ? 'translate-x-4' : 'translate-x-0'}`} />
-                      </button>
-                    </div>
-
-                    <div className="p-2 rounded-lg bg-[#101118] border border-[#222332] flex items-center justify-between">
-                      <div>
-                        <div className="font-bold text-white text-[11px]">Master Audio</div>
-                        <div className="text-[9px] text-zinc-500">320kbps AAC ambient sub-bass</div>
-                      </div>
-                      <button
-                        type="button"
-                        disabled={isExporting}
-                        onClick={() => setIncludeAudio(a => !a)}
-                        className={`w-8 h-4 rounded-full p-0.5 transition-colors cursor-pointer relative ${
-                          includeAudio ? 'bg-[#F5A623]' : 'bg-zinc-700'
-                        }`}
-                      >
-                        <div className={`w-3 h-3 rounded-full bg-black transition-transform ${includeAudio ? 'translate-x-4' : 'translate-x-0'}`} />
-                      </button>
-                    </div>
-
-                    <div className="p-2 rounded-lg bg-[#101118] border border-[#222332] flex items-center justify-between">
-                      <div>
-                        <div className="font-bold text-cyan-300 text-[11px]">Transparent Alpha (.webm) · PRO</div>
-                        <div className="text-[9px] text-zinc-500">VP9 alpha channel for Smart Cutout</div>
-                      </div>
-                      <button
-                        type="button"
-                        disabled={isExporting}
-                        onClick={() => {
-                          if (!transparentAlpha && !useLicenseStore.getState().requireProAccess('Transparent Alpha Export')) {
-                            return;
-                          }
-                          setTransparentAlpha(v => !v);
-                        }}
-                        className={`w-8 h-4 rounded-full p-0.5 transition-colors cursor-pointer relative ${
-                          transparentAlpha ? 'bg-cyan-400' : 'bg-zinc-700'
-                        }`}
-                      >
-                        <div className={`w-3 h-3 rounded-full bg-black transition-transform ${transparentAlpha ? 'translate-x-4' : 'translate-x-0'}`} />
-                      </button>
-                    </div>
+                <div className="p-3 rounded-xl bg-[#090a0f] border border-[#F5A623]/30 space-y-2">
+                  <CinemaBadgeHeader
+                    icon={<Layers className="w-3.5 h-3.5" strokeWidth={2.2} />}
+                    label="LAYERS"
+                    accent="emerald"
+                  />
+                  <div className="grid grid-cols-1 gap-1.5">
+                    {[
+                      { active: burnInTitles, onClick: () => setBurnInTitles((b) => !b), label: 'BURN TITLES', badge: burnInTitles ? 'ON' : 'OFF', accent: 'amber' as const, en: 'Burn kinetic Bangla & English titles directly into video.', bn: 'ভিডিওর ওপর বাংলা ও ইংরেজি টাইটেল স্থায়ীভাবে বসাতে অন করুন।' },
+                      { active: simulateFlare, onClick: () => setSimulateFlare((f) => !f), label: 'OPTIC FLARE', badge: simulateFlare ? 'ON' : 'OFF', accent: 'amber' as const, en: 'Composite horizontal anamorphic lens flare.', bn: 'লেন্সে সিনেম্যাটিক অ্যানামরফিক ফ্লেয়ার আলো যোগ করুন।' },
+                      { active: includeAudio, onClick: () => setIncludeAudio((a) => !a), label: 'MASTER AUDIO', badge: includeAudio ? 'ON' : 'OFF', accent: 'emerald' as const, en: 'Mux 320kbps AAC master audio bus into MP4.', bn: 'ভিডিওর সাথে মাস্টার অডিও ও সাউন্ড ইফেক্ট যুক্ত করুন।' },
+                      {
+                        active: transparentAlpha,
+                        onClick: () => {
+                          if (!transparentAlpha && !useLicenseStore.getState().requireProAccess('Transparent Alpha Export')) return;
+                          setTransparentAlpha((v) => !v);
+                        },
+                        label: 'ALPHA WEBM',
+                        badge: transparentAlpha ? 'ON' : 'OFF',
+                        accent: 'cyan' as const,
+                        en: 'Export VP9 WebM with transparent alpha background.',
+                        bn: 'ট্রান্সপারেন্ট ব্যাকগ্রাউন্ডসহ VP9 WebM আলফা এক্সপোর্ট করুন।'
+                      },
+                    ].map((layer) => (
+                      <CinemaToolHUD key={layer.label} title={layer.label} en={layer.en} bn={layer.bn} accent={layer.accent} side="left" blockWrapper>
+                        <button
+                          type="button"
+                          disabled={isExporting}
+                          onClick={layer.onClick}
+                          data-active={layer.active ? 'true' : 'false'}
+                          className={`cinema-tile cinema-tile-${layer.accent} w-full min-h-[44px] px-2.5 py-1.5 rounded-lg flex items-center justify-between text-[10px] font-black tracking-wider uppercase cursor-pointer`}
+                        >
+                          <span>{layer.label}</span>
+                          <span className="text-[9px] font-mono">{layer.badge}</span>
+                        </button>
+                      </CinemaToolHUD>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -2595,671 +2330,261 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
 
           {/* TAB 2: PREMIERE PRO FCP 7 XML */}
           {activeTab === 'premiere' && (
-            <div className="p-5 rounded-xl bg-[#090a0f] border border-[#1c1d29] space-y-4 animate-in fade-in duration-150">
-              <div className="flex items-start gap-3">
-                <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[#F5A623]">
-                  <Film className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-white">Adobe Premiere Pro & CapCut Desktop XML (FCP 7 xmeml v5)</h3>
-                  <p className="text-xs text-zinc-400 font-sans mt-0.5">
-                    Generates an industry-standard sequence file with multi-track video timing, 12.0s holds, Bengali/English title overlays, and audio track place-markers.
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                <div className="p-3.5 rounded-lg bg-[#101118] border border-[#222332] space-y-2">
-                  <span className="text-[10.5px] text-[#F5A623] font-bold uppercase block">Timeline Settings</span>
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-zinc-400">Timebase:</span>
-                    <span className="text-white font-bold font-mono">24.0 FPS</span>
-                  </div>
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-zinc-400">Target Sequence Canvas:</span>
-                    <span className="text-white font-bold font-mono">3840 × 1608 (2.39:1 Scope)</span>
-                  </div>
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-zinc-400">Audio Track:</span>
-                    <span className="text-emerald-400 font-bold font-mono">Stereo 48.0 kHz</span>
-                  </div>
-                </div>
-
-                <div className="p-3.5 rounded-lg bg-[#101118] border border-[#222332] space-y-2">
-                  <span className="text-[10.5px] text-[#F5A623] font-bold uppercase block">Import Instructions</span>
-                  <p className="text-[11px] text-zinc-400 font-sans leading-relaxed">
-                    1. In Premiere Pro: <code className="text-white bg-black/60 px-1 py-0.5 rounded">File &gt; Import</code> and select the generated <code className="text-[#F5A623]">.xml</code> file.<br />
-                    2. In CapCut Desktop: <code className="text-white bg-black/60 px-1 py-0.5 rounded">File &gt; Import &gt; XML</code>.<br />
-                    All clips, cut points, and marker tracks will populate automatically.
-                  </p>
-                </div>
-              </div>
+            <div className="p-4 rounded-xl bg-[#090a0f] border border-[#1c1d29] space-y-3 animate-in fade-in duration-150">
+              <CinemaBadgeHeader
+                icon={<Film className="w-4 h-4" strokeWidth={2.2} />}
+                label="PREMIERE XML"
+                accent="amber"
+                rightSlot={<span className="text-[10px] font-black text-white uppercase">XMEML V5 · 24 FPS · 3840×1608</span>}
+              />
             </div>
           )}
 
           {/* TAB 3: CAPCUT / DAVINCI FCPXML */}
           {activeTab === 'fcpxml' && (
-            <div className="p-5 rounded-xl bg-[#090a0f] border border-[#1c1d29] space-y-4 animate-in fade-in duration-150">
-              <div className="flex items-start gap-3">
-                <div className="p-2 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
-                  <Scissors className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-white">DaVinci Resolve & Final Cut Pro X (FCPXML v1.10)</h3>
-                  <p className="text-xs text-zinc-400 font-sans mt-0.5">
-                    Apple FCPXML interchange interchange standard with DCI 4K format profiles, SMPTE markers, and audio spine alignment.
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                <div className="p-3.5 rounded-lg bg-[#101118] border border-[#222332] space-y-2">
-                  <span className="text-[10.5px] text-cyan-400 font-bold uppercase block">FCPXML Metadata</span>
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-zinc-400">Schema Version:</span>
-                    <span className="text-white font-bold font-mono">FCPXML 1.10</span>
-                  </div>
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-zinc-400">Color Grading Markers:</span>
-                    <span className="text-cyan-300 font-bold font-mono">Included (Amber/Cyan)</span>
-                  </div>
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-zinc-400">Rational Time:</span>
-                    <span className="text-white font-bold font-mono">288/24s per shot</span>
-                  </div>
-                </div>
-
-                <div className="p-3.5 rounded-lg bg-[#101118] border border-[#222332] space-y-2">
-                  <span className="text-[10.5px] text-cyan-400 font-bold uppercase block">DaVinci Import Guide</span>
-                  <p className="text-[11px] text-zinc-400 font-sans leading-relaxed">
-                    Open DaVinci Resolve &gt; <code className="text-white bg-black/60 px-1 py-0.5 rounded">File &gt; Import Timeline &gt; Import AAF, EDL, XML...</code><br />
-                    Select the <code className="text-cyan-400">.fcpxml</code> file to import full edit timings and color markers.
-                  </p>
-                </div>
-              </div>
+            <div className="p-4 rounded-xl bg-[#090a0f] border border-[#1c1d29] space-y-3 animate-in fade-in duration-150">
+              <CinemaBadgeHeader
+                icon={<Scissors className="w-4 h-4" strokeWidth={2.2} />}
+                label="DAVINCI FCPXML"
+                accent="cyan"
+                rightSlot={<span className="text-[10px] font-black text-cyan-300 uppercase">V1.10 · SMPTE · 4K</span>}
+              />
             </div>
           )}
 
           {/* TAB 4: PRODUCTION PACKAGE (ZIP) */}
           {activeTab === 'package' && (
-            <div className="p-5 rounded-xl bg-[#090a0f] border border-[#1c1d29] space-y-4 animate-in fade-in duration-150">
-              <div className="flex items-start gap-3">
-                <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[#F5A623]">
-                  <Package className="w-5 h-5" />
+            <div className="p-4 rounded-xl bg-[#090a0f] border border-[#1c1d29] space-y-3 animate-in fade-in duration-150">
+              <CinemaBadgeHeader
+                icon={<Package className="w-4 h-4" strokeWidth={2.2} />}
+                label="PRODUCTION PKG"
+                accent="amber"
+                rightSlot={<span className="text-[10px] font-black text-[#F5A623] uppercase">ZIP · XML · EDL · PLATES</span>}
+              />
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div className="flex gap-1.5">
+                  <CinemaToolHUD title="1080P SCOPE" en="Export 1920×804 scope plate assets." bn="১০৮০পি স্কোপ ফরম্যাটে ইমেজ প্লেট সেভ করুন।" accent="amber" side="top" blockWrapper>
+                    <button
+                      type="button"
+                      onClick={() => setPackageResolution('1080p_scope')}
+                      data-active={packageResolution === '1080p_scope' ? 'true' : 'false'}
+                      className="cinema-tile cinema-tile-amber w-full min-h-[44px] py-1.5 px-2 rounded text-[10px] font-black uppercase cursor-pointer"
+                    >
+                      <span>1080P SCOPE</span>
+                    </button>
+                  </CinemaToolHUD>
+                  <CinemaToolHUD title="4K SCOPE" en="Export 3840×1608 4K master plates (PRO)." bn="৪কে স্কোপ ফরম্যাটে হাই-রেজোলিউশন প্লেট সেভ করুন।" accent="amber" side="top" blockWrapper>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!useLicenseStore.getState().requireProAccess('4K / 16-Bit Master Export')) return;
+                        setPackageResolution('4k_scope');
+                      }}
+                      data-active={packageResolution === '4k_scope' ? 'true' : 'false'}
+                      className="cinema-tile cinema-tile-amber w-full min-h-[44px] py-1.5 px-2 rounded text-[10px] font-black uppercase cursor-pointer"
+                    >
+                      <span>4K SCOPE</span>
+                    </button>
+                  </CinemaToolHUD>
                 </div>
-                <div>
-                  <h3 className="text-sm font-bold text-white">Professional Production Package (.zip) // NLE Bundle</h3>
-                  <p className="text-xs text-zinc-400 font-sans mt-0.5">
-                    Bundles all sequence frame assets into an uncompressed <code className="text-[#F5A623]">assets/</code> directory alongside an industry-standard <code className="text-cyan-400">manifest.json</code>, Premiere &amp; DaVinci XML conform sequence, and CMX 3600 EDL.
-                  </p>
-                </div>
+
+                <CinemaToolHUD title="BURN TITLES" en="Render bilingual titles onto exported image plates." bn="ছবির প্লেটের ওপর টাইটেল বসাতে অন করুন।" accent="cyan" side="top" blockWrapper>
+                  <button
+                    type="button"
+                    onClick={() => setPackageBurnInTitles((v) => !v)}
+                    data-active={packageBurnInTitles ? 'true' : 'false'}
+                    className="cinema-tile cinema-tile-cyan w-full min-h-[44px] px-3 rounded text-[10px] font-black uppercase flex items-center justify-between cursor-pointer"
+                  >
+                    <span>BURN TITLES</span>
+                    <span>{packageBurnInTitles ? 'ON' : 'OFF'}</span>
+                  </button>
+                </CinemaToolHUD>
+
+                <CinemaToolHUD title="XML & EDL" en="Include sequence.xml & CMX 3600 EDL files." bn="প্রিমিয়ার XML ও EDL ফাইল বান্ডেলে যুক্ত করুন।" accent="emerald" side="top" blockWrapper>
+                  <button
+                    type="button"
+                    onClick={() => setPackageIncludeXmlEdl((v) => !v)}
+                    data-active={packageIncludeXmlEdl ? 'true' : 'false'}
+                    className="cinema-tile cinema-tile-emerald w-full min-h-[44px] px-3 rounded text-[10px] font-black uppercase flex items-center justify-between cursor-pointer"
+                  >
+                    <span>XML + EDL</span>
+                    <span>{packageIncludeXmlEdl ? 'ON' : 'OFF'}</span>
+                  </button>
+                </CinemaToolHUD>
               </div>
 
-              {/* Package Inclusions Matrix */}
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-2">
-                <div className="p-3 rounded-lg bg-[#101118] border border-[#222332] space-y-1">
-                  <div className="flex items-center gap-1.5 text-cyan-400 font-bold text-xs">
-                    <FileText className="w-3.5 h-3.5" />
-                    <span>manifest.json</span>
+              {isExporting && activeTab === 'package' && (
+                <div className="pt-2 space-y-1.5">
+                  <div className="flex justify-between items-center text-xs font-mono">
+                    <span className="text-[#F5A623] font-bold">{packageProgressText}</span>
+                    <span className="text-white font-bold">{packageProgressPercent}%</span>
                   </div>
-                  <p className="text-[10px] text-zinc-400 font-sans leading-relaxed">
-                    Universal NLE JSON manifest with frame-accurate SMPTE timecodes, titles, and optics.
-                  </p>
-                  <span className="inline-block text-[8.5px] font-mono text-cyan-300 bg-cyan-950/40 px-1.5 py-0.5 rounded border border-cyan-800/40">
-                    JSON Interop 1.0
-                  </span>
-                </div>
-
-                <div className="p-3 rounded-lg bg-[#101118] border border-[#222332] space-y-1">
-                  <div className="flex items-center gap-1.5 text-[#F5A623] font-bold text-xs">
-                    <Film className="w-3.5 h-3.5" />
-                    <span>assets/ (Plates)</span>
-                  </div>
-                  <p className="text-[10px] text-zinc-400 font-sans leading-relaxed">
-                    Full-resolution cinema stills for every active shot, formatted for direct NLE timeline drop.
-                  </p>
-                  <span className="inline-block text-[8.5px] font-mono text-[#F5A623] bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-800/40">
-                    {selectedFrames.length > 0 ? selectedFrames.length : totalCount} Assets
-                  </span>
-                </div>
-
-                <div className="p-3 rounded-lg bg-[#101118] border border-[#222332] space-y-1">
-                  <div className="flex items-center gap-1.5 text-purple-400 font-bold text-xs">
-                    <Scissors className="w-3.5 h-3.5" />
-                    <span>sequence.xml</span>
-                  </div>
-                  <p className="text-[10px] text-zinc-400 font-sans leading-relaxed">
-                    FCP 7 XML linking to <code className="text-white">assets/</code> for 1-click Premiere &amp; DaVinci conform.
-                  </p>
-                  <span className="inline-block text-[8.5px] font-mono text-purple-300 bg-purple-950/40 px-1.5 py-0.5 rounded border border-purple-800/40">
-                    xmeml v5
-                  </span>
-                </div>
-
-                <div className="p-3 rounded-lg bg-[#101118] border border-[#222332] space-y-1">
-                  <div className="flex items-center gap-1.5 text-emerald-400 font-bold text-xs">
-                    <Layers className="w-3.5 h-3.5" />
-                    <span>sequence.edl</span>
-                  </div>
-                  <p className="text-[10px] text-zinc-400 font-sans leading-relaxed">
-                    Standard CMX 3600 Edit Decision List for Avid, DaVinci, and offline post conform.
-                  </p>
-                  <span className="inline-block text-[8.5px] font-mono text-emerald-300 bg-emerald-950/40 px-1.5 py-0.5 rounded border border-emerald-800/40">
-                    CMX 3600
-                  </span>
-                </div>
-              </div>
-
-              {/* Package Options */}
-              <div className="p-4 rounded-lg bg-[#101118] border border-[#222332] space-y-3">
-                <span className="text-[10.5px] text-[#F5A623] font-bold uppercase tracking-wider block">
-                  Package Configuration
-                </span>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {/* Resolution Selection */}
-                  <div className="space-y-1.5">
-                    <span className="text-[11px] text-zinc-400 block font-sans">Plate Resolution:</span>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setPackageResolution('1080p_scope')}
-                        className={`flex-1 py-1.5 px-2 rounded border text-xs font-bold transition-all cursor-pointer ${
-                          packageResolution === '1080p_scope'
-                            ? 'bg-[#F5A623] text-black border-[#F5A623]'
-                            : 'bg-black border-zinc-700 text-zinc-400'
-                        }`}
-                      >
-                        1080p Scope
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (!useLicenseStore.getState().requireProAccess('4K / 16-Bit Master Export')) return;
-                          setPackageResolution('4k_scope');
-                        }}
-                        className={`flex-1 py-1.5 px-2 rounded border text-xs font-bold transition-all cursor-pointer ${
-                          packageResolution === '4k_scope'
-                            ? 'bg-[#F5A623] text-black border-[#F5A623]'
-                            : 'bg-black border-zinc-700 text-zinc-400'
-                        }`}
-                      >
-                        4K Scope · PRO
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Burn-in Titles Toggle */}
-                  <div className="flex flex-col justify-between py-1">
-                    <span className="text-[11px] text-zinc-400 font-sans">Burn-in Titles on Assets:</span>
-                    <label className="flex items-center gap-2 cursor-pointer mt-1">
-                      <input
-                        type="checkbox"
-                        checked={packageBurnInTitles}
-                        onChange={(e) => setPackageBurnInTitles(e.target.checked)}
-                        className="accent-[#F5A623] w-4 h-4 cursor-pointer"
-                      />
-                      <span className="text-xs text-white">Burn titles onto plates</span>
-                    </label>
-                  </div>
-
-                  {/* Include XML / EDL */}
-                  <div className="flex flex-col justify-between py-1">
-                    <span className="text-[11px] text-zinc-400 font-sans">Conform Sequences:</span>
-                    <label className="flex items-center gap-2 cursor-pointer mt-1">
-                      <input
-                        type="checkbox"
-                        checked={packageIncludeXmlEdl}
-                        onChange={(e) => setPackageIncludeXmlEdl(e.target.checked)}
-                        className="accent-[#F5A623] w-4 h-4 cursor-pointer"
-                      />
-                      <span className="text-xs text-white">Include sequence.xml &amp; .edl</span>
-                    </label>
+                  <div className="w-full h-2 bg-zinc-900 rounded-full overflow-hidden p-0.5 border border-[#2a2c3d]">
+                    <div
+                      className="h-full bg-gradient-to-r from-[#d4af37] via-[#F5A623] to-[#fbbf24] rounded-full transition-all duration-150"
+                      style={{ width: `${Math.max(2, packageProgressPercent)}%` }}
+                    />
                   </div>
                 </div>
-
-                {/* Progress bar when exporting package */}
-                {isExporting && activeTab === 'package' && (
-                  <div className="pt-2 space-y-1.5">
-                    <div className="flex justify-between items-center text-xs font-mono">
-                      <span className="text-[#F5A623] font-bold">{packageProgressText}</span>
-                      <span className="text-white font-bold">{packageProgressPercent}%</span>
-                    </div>
-                    <div className="w-full h-2 bg-zinc-900 rounded-full overflow-hidden p-0.5 border border-[#2a2c3d]">
-                      <div
-                        className="h-full bg-gradient-to-r from-[#d4af37] via-[#F5A623] to-[#fbbf24] rounded-full transition-all duration-150 shadow-[0_0_10px_rgba(245,166,35,0.5)]"
-                        style={{ width: `${Math.max(2, packageProgressPercent)}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
+              )}
             </div>
           )}
 
           {/* TAB 5: MULTI-PAGE STORYBOARD PDF */}
           {activeTab === 'pdf' && (
-            <div className="p-5 rounded-xl bg-[#090a0f] border border-[#1c1d29] space-y-4 animate-in fade-in duration-150">
-              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                <div className="flex items-start gap-3">
-                  <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[#F5A623]">
-                    <BookOpen className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                      <span>Multi-Page Studio Storyboard Document (.pdf)</span>
-                      <span className="text-[9px] font-mono font-bold bg-[#F5A623]/20 border border-[#F5A623]/40 text-[#F5A623] px-2 py-0.5 rounded-full">
-                        PUBLICATION GRADE
-                      </span>
-                    </h3>
-                    <p className="text-xs text-zinc-400 font-sans mt-0.5 max-w-2xl leading-relaxed">
-                      Generates publication-ready multi-page production bibles, stacked call sheets, or contact sheets with dual-language titles (Bengali &amp; English), camera specs (focal length, aperture, shutter, ISO, sensor format, LUT), complete director blocking &amp; dialogue notes, and sound design directives.
-                    </p>
-                  </div>
-                </div>
+            <div className="p-4 rounded-xl bg-[#090a0f] border border-[#1c1d29] space-y-3 animate-in fade-in duration-150">
+              <CinemaBadgeHeader
+                icon={<BookOpen className="w-4 h-4" strokeWidth={2.2} />}
+                label="PDF BIBLE"
+                accent="amber"
+                rightSlot={<span className="text-[10px] font-black text-[#F5A623] uppercase tabular-nums">~{estimatedPdfPages} PAGES</span>}
+              />
 
-                <div className="shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#101118] border border-[#2d2f42] text-right">
-                  <div>
-                    <div className="text-[9px] font-mono uppercase text-zinc-400 tracking-wider">Estimated Document</div>
-                    <div className="text-xs font-mono font-extrabold text-[#F5A623]">
-                      ~{estimatedPdfPages} PAGES A4
-                    </div>
-                  </div>
-                  <FileText className="w-4 h-4 text-[#F5A623]" />
-                </div>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                {[
+                  { count: 1 as const, label: '1 SHOT BIBLE', tag: 'BIBLE', en: 'Full page per shot with notes and optics.', bn: 'প্রতি পেজে ১টি বড় শট ও বিস্তারিত ডিরেক্টর নোট রাখুন।' },
+                  { count: 2 as const, label: '2 SHOT DUAL', tag: 'DUAL', en: 'Two stacked widescreen cards per page.', bn: 'প্রতি পেজে ২টি শট পাশাপাশি ও নিচে সাজিয়ে প্রিন্ট করুন।' },
+                  { count: 4 as const, label: '4 SHOT 2×2', tag: '2×2', en: 'Balanced 2×2 contact sheet grid.', bn: 'প্রতি পেজে ২×২ গ্রিডে ৪টি শট একসাথে দেখুন।' },
+                  { count: 6 as const, label: '6 SHOT 3×2', tag: '3×2', en: 'High-density 3×2 crew call sheet.', bn: 'প্রতি পেজে ৩×২ গ্রিডে ৬টি শট দ্রুত রেফারেন্সের জন্য রাখুন।' },
+                ].map((ly) => (
+                  <CinemaToolHUD key={ly.count} title={ly.label} en={ly.en} bn={ly.bn} accent="amber" side="top" blockWrapper>
+                    <button
+                      type="button"
+                      onClick={() => setPdfLayout(ly.count)}
+                      data-active={pdfLayout === ly.count ? 'true' : 'false'}
+                      className="cinema-tile cinema-tile-amber w-full min-h-[52px] px-3 py-2 rounded-lg flex items-center justify-between text-[10px] font-black uppercase cursor-pointer"
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <Layout className="w-3.5 h-3.5 cinema-tile-icon" />
+                        <span>{ly.label}</span>
+                      </span>
+                      <span className="text-[9px] font-mono opacity-80">{ly.tag}</span>
+                    </button>
+                  </CinemaToolHUD>
+                ))}
               </div>
 
-              {/* SECTION 1: PRESENTATION LAYOUT STRUCTURE */}
-              <div className="p-4 rounded-lg bg-[#101118] border border-[#222332] space-y-3">
-                <span className="text-[10.5px] text-[#F5A623] font-bold uppercase tracking-wider flex items-center gap-1.5">
-                  <Layout className="w-3.5 h-3.5" />
-                  <span>Storyboard Document Layout Mode</span>
-                </span>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
-                  {/* Option 1: Director's Production Bible (1 Shot / Page) */}
-                  <button
-                    type="button"
-                    onClick={() => setPdfLayout(1)}
-                    className={`p-3 rounded-lg border text-left transition-all cursor-pointer relative ${
-                      pdfLayout === 1
-                        ? 'bg-amber-950/30 border-[#F5A623] text-white shadow-[0_0_12px_rgba(245,166,35,0.25)]'
-                        : 'bg-[#0a0b10] border-[#222332] text-zinc-400 hover:border-zinc-700'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-extrabold text-white">1 Shot / Page</span>
-                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-black/60 border border-white/10 text-amber-300 font-bold">
-                        BIBLE
-                      </span>
-                    </div>
-                    <div className="text-[10px] text-zinc-300 font-bold">Director's Master Bible</div>
-                    <div className="text-[9px] text-zinc-400 font-sans mt-1 leading-normal">
-                      Full letterbox viewport with framing reticles, 4-quadrant optical slate, complete untruncated blocking notes, dialogue &amp; sound cues.
-                    </div>
-                  </button>
-
-                  {/* Option 2: Stacked Studio Storyboard (2 Shots / Page) */}
-                  <button
-                    type="button"
-                    onClick={() => setPdfLayout(2)}
-                    className={`p-3 rounded-lg border text-left transition-all cursor-pointer relative ${
-                      pdfLayout === 2
-                        ? 'bg-amber-950/30 border-[#F5A623] text-white shadow-[0_0_12px_rgba(245,166,35,0.25)]'
-                        : 'bg-[#0a0b10] border-[#222332] text-zinc-400 hover:border-zinc-700'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-extrabold text-white">2 Shots / Page</span>
-                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-black/60 border border-white/10 text-cyan-300 font-bold">
-                        DUAL
-                      </span>
-                    </div>
-                    <div className="text-[10px] text-zinc-300 font-bold">Stacked Studio Cards</div>
-                    <div className="text-[9px] text-zinc-400 font-sans mt-1 leading-normal">
-                      Dual widescreen cards with dedicated specs &amp; blocking sidebars, ideal for script supervisors &amp; cinematography crews.
-                    </div>
-                  </button>
-
-                  {/* Option 3: 4 Shots / Page (Contact Sheet) */}
-                  <button
-                    type="button"
-                    onClick={() => setPdfLayout(4)}
-                    className={`p-3 rounded-lg border text-left transition-all cursor-pointer relative ${
-                      pdfLayout === 4
-                        ? 'bg-amber-950/30 border-[#F5A623] text-white shadow-[0_0_12px_rgba(245,166,35,0.25)]'
-                        : 'bg-[#0a0b10] border-[#222332] text-zinc-400 hover:border-zinc-700'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-extrabold text-white">4 Shots / Page</span>
-                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-black/60 border border-white/10 text-emerald-300 font-bold">
-                        2×2
-                      </span>
-                    </div>
-                    <div className="text-[10px] text-zinc-300 font-bold">Balanced Contact Sheet</div>
-                    <div className="text-[9px] text-zinc-400 font-sans mt-1 leading-normal">
-                      Classic 2x2 presentation grid with camera metadata, Bengali &amp; English titles, and action summaries for client reviews.
-                    </div>
-                  </button>
-
-                  {/* Option 4: 6 Shots / Page (Crew Matrix) */}
-                  <button
-                    type="button"
-                    onClick={() => setPdfLayout(6)}
-                    className={`p-3 rounded-lg border text-left transition-all cursor-pointer relative ${
-                      pdfLayout === 6
-                        ? 'bg-amber-950/30 border-[#F5A623] text-white shadow-[0_0_12px_rgba(245,166,35,0.25)]'
-                        : 'bg-[#0a0b10] border-[#222332] text-zinc-400 hover:border-zinc-700'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-extrabold text-white">6 Shots / Page</span>
-                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-black/60 border border-white/10 text-purple-300 font-bold">
-                        3×2
-                      </span>
-                    </div>
-                    <div className="text-[10px] text-zinc-300 font-bold">Crew Reference Matrix</div>
-                    <div className="text-[9px] text-zinc-400 font-sans mt-1 leading-normal">
-                      High-density 3x2 matrix for fast on-set referencing by camera assistants, gaffers, and continuity team.
-                    </div>
-                  </button>
-                </div>
-              </div>
-
-              {/* SECTION 2: THEME & INCLUSIONS */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {/* Paper Theme */}
-                <div className="p-3.5 rounded-lg bg-[#101118] border border-[#222332] space-y-2.5">
-                  <span className="text-[10.5px] text-[#F5A623] font-bold uppercase tracking-wider block">
-                    Document Theme / Aesthetic
-                  </span>
-                  <div className="space-y-2">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                <div className="flex gap-1.5">
+                  <CinemaToolHUD title="PRINT THEME" en="Crisp white paper background for ink-saving print." bn="প্রিন্ট করার জন্য সাদা কাগজের পরিষ্কার থিম বাছুন।" accent="cyan" side="top" blockWrapper>
                     <button
                       type="button"
                       onClick={() => setPdfTheme('print')}
-                      className={`w-full p-2.5 rounded-lg border text-left transition-all cursor-pointer flex items-center justify-between ${
-                        pdfTheme === 'print'
-                          ? 'bg-white/10 border-amber-400 text-white'
-                          : 'bg-black/40 border-zinc-800 text-zinc-400'
-                      }`}
+                      data-active={pdfTheme === 'print' ? 'true' : 'false'}
+                      className="cinema-tile cinema-tile-cyan w-full min-h-[44px] px-2 rounded-lg text-[10px] font-black uppercase cursor-pointer"
                     >
-                      <div>
-                        <div className="text-xs font-bold text-white">Print-Ready (Clean Paper)</div>
-                        <div className="text-[9px] text-zinc-400 font-sans">Crisp white paper, ink-saving contrast</div>
-                      </div>
-                      {pdfTheme === 'print' && <CheckCircle2 className="w-4 h-4 text-amber-400" />}
+                      <span>PRINT</span>
                     </button>
-
+                  </CinemaToolHUD>
+                  <CinemaToolHUD title="OBSIDIAN PDF" en="Dark cinema pitch-deck OLED aesthetic." bn="প্রেজেন্টেশনের জন্য ডার্ক ওএলইডি সিনেম্যাটিক থিম বাছুন।" accent="amber" side="top" blockWrapper>
                     <button
                       type="button"
                       onClick={() => setPdfTheme('dark')}
-                      className={`w-full p-2.5 rounded-lg border text-left transition-all cursor-pointer flex items-center justify-between ${
-                        pdfTheme === 'dark'
-                          ? 'bg-amber-950/40 border-amber-400 text-white'
-                          : 'bg-black/40 border-zinc-800 text-zinc-400'
-                      }`}
+                      data-active={pdfTheme === 'dark' ? 'true' : 'false'}
+                      className="cinema-tile cinema-tile-amber w-full min-h-[44px] px-2 rounded-lg text-[10px] font-black uppercase cursor-pointer"
                     >
-                      <div>
-                        <div className="text-xs font-bold text-white">Obsidian Cinema (Dark OLED)</div>
-                        <div className="text-[9px] text-zinc-400 font-sans">Luxury dark theme for pitch decks</div>
-                      </div>
-                      {pdfTheme === 'dark' && <CheckCircle2 className="w-4 h-4 text-amber-400" />}
+                      <span>OBSIDIAN</span>
                     </button>
-                  </div>
+                  </CinemaToolHUD>
                 </div>
 
-                {/* Document Content Inclusions */}
-                <div className="md:col-span-2 p-3.5 rounded-lg bg-[#101118] border border-[#222332] space-y-2.5">
-                  <span className="text-[10.5px] text-[#F5A623] font-bold uppercase tracking-wider block">
-                    Directorial &amp; Production Metadata Inclusions
-                  </span>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                    <label className="flex items-center gap-2 p-2 rounded bg-black/40 border border-zinc-800 hover:border-zinc-700 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={includePdfCover}
-                        onChange={(e) => setIncludePdfCover(e.target.checked)}
-                        className="accent-[#F5A623] w-4 h-4 cursor-pointer"
-                      />
-                      <span className="text-zinc-200 font-sans text-[11px]">
-                        <strong>Executive Cover Page</strong> &amp; Production Slate
-                      </span>
-                    </label>
-
-                    <label className="flex items-center gap-2 p-2 rounded bg-black/40 border border-zinc-800 hover:border-zinc-700 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={includePdfIndex}
-                        onChange={(e) => setIncludePdfIndex(e.target.checked)}
-                        className="accent-[#F5A623] w-4 h-4 cursor-pointer"
-                      />
-                      <span className="text-zinc-200 font-sans text-[11px]">
-                        <strong>Shot Index Matrix</strong> &amp; SMPTE Timecodes
-                      </span>
-                    </label>
-
-                    <label className="flex items-center gap-2 p-2 rounded bg-black/40 border border-zinc-800 hover:border-zinc-700 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={includePdfSpecs}
-                        onChange={(e) => setIncludePdfSpecs(e.target.checked)}
-                        className="accent-[#F5A623] w-4 h-4 cursor-pointer"
-                      />
-                      <span className="text-zinc-200 font-sans text-[11px]">
-                        <strong>Camera &amp; Optics Slate</strong> (Lens, Aperture, LUT)
-                      </span>
-                    </label>
-
-                    <label className="flex items-center gap-2 p-2 rounded bg-black/40 border border-zinc-800 hover:border-zinc-700 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={includePdfNotes}
-                        onChange={(e) => setIncludePdfNotes(e.target.checked)}
-                        className="accent-[#F5A623] w-4 h-4 cursor-pointer"
-                      />
-                      <span className="text-zinc-200 font-sans text-[11px]">
-                        <strong>Director Blocking Notes</strong> (Complete &amp; Uncut)
-                      </span>
-                    </label>
-
-                    <label className="flex items-center gap-2 p-2 rounded bg-black/40 border border-zinc-800 hover:border-zinc-700 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={includePdfAudio}
-                        onChange={(e) => setIncludePdfAudio(e.target.checked)}
-                        className="accent-[#F5A623] w-4 h-4 cursor-pointer"
-                      />
-                      <span className="text-zinc-200 font-sans text-[11px]">
-                        <strong>Audio Cues &amp; Spoken Dialogue</strong> Directives
-                      </span>
-                    </label>
-
-                    <label className="flex items-center gap-2 p-2 rounded bg-black/40 border border-zinc-800 hover:border-zinc-700 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={includePdfBilingual}
-                        onChange={(e) => setIncludePdfBilingual(e.target.checked)}
-                        className="accent-[#F5A623] w-4 h-4 cursor-pointer"
-                      />
-                      <span className="text-zinc-200 font-sans text-[11px]">
-                        <strong>Dual-Language Titles</strong> (Bengali &amp; English)
-                      </span>
-                    </label>
-                  </div>
+                <div className="md:col-span-2 grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+                  {[
+                    { checked: includePdfCover, toggle: () => setIncludePdfCover((v) => !v), label: 'COVER', en: 'Include executive cover page.', bn: 'শুরুতে একটি প্রোডাকশন কভার পেজ যুক্ত করুন।' },
+                    { checked: includePdfIndex, toggle: () => setIncludePdfIndex((v) => !v), label: 'INDEX', en: 'Include shot index with SMPTE timecodes.', bn: 'শট ইন্ডেক্স ও টাইমকোড তালিকা যুক্ত করুন।' },
+                    { checked: includePdfSpecs, toggle: () => setIncludePdfSpecs((v) => !v), label: 'OPTICS', en: 'Include lens, aperture, and LUT metadata.', bn: 'লেন্স, অ্যাপারচার ও LUT তথ্য যুক্ত করুন।' },
+                    { checked: includePdfNotes, toggle: () => setIncludePdfNotes((v) => !v), label: 'NOTES', en: 'Include director blocking notes.', bn: 'ডিরেক্টরের ব্লকিং ও ক্যামেরা নোট যুক্ত করুন।' },
+                    { checked: includePdfAudio, toggle: () => setIncludePdfAudio((v) => !v), label: 'AUDIO', en: 'Include dialogue and sound cues.', bn: 'সংলাপ ও সাউন্ড কিউ নোট যুক্ত করুন।' },
+                    { checked: includePdfBilingual, toggle: () => setIncludePdfBilingual((v) => !v), label: 'BILINGUAL', en: 'Include Bengali and English dual titles.', bn: 'বাংলা ও ইংরেজি দ্বিভাষিক টাইটেল যুক্ত করুন।' },
+                  ].map((opt) => (
+                    <CinemaToolHUD key={opt.label} title={opt.label} en={opt.en} bn={opt.bn} accent="emerald" side="top" blockWrapper>
+                      <button
+                        type="button"
+                        onClick={opt.toggle}
+                        data-active={opt.checked ? 'true' : 'false'}
+                        className="cinema-tile cinema-tile-emerald w-full min-h-[44px] px-1.5 rounded-lg text-[9.5px] font-black uppercase cursor-pointer"
+                      >
+                        <span>{opt.label}</span>
+                      </button>
+                    </CinemaToolHUD>
+                  ))}
                 </div>
               </div>
 
-              {/* Progress bar when exporting PDF */}
               {isExporting && activeTab === 'pdf' && (
-                <div className="p-3.5 rounded-lg bg-amber-950/20 border border-amber-500/40 space-y-2">
+                <div className="p-3 rounded-lg bg-amber-950/20 border border-amber-500/40 space-y-1.5">
                   <div className="flex justify-between items-center text-xs font-mono">
-                    <span className="text-[#F5A623] font-bold flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-[#F5A623] animate-ping" />
-                      {pdfProgressText}
-                    </span>
+                    <span className="text-[#F5A623] font-bold">{pdfProgressText}</span>
                     <span className="text-white font-bold">{pdfProgressPercent}%</span>
                   </div>
                   <div className="w-full h-2 bg-zinc-900 rounded-full overflow-hidden p-0.5 border border-[#2a2c3d]">
                     <div
-                      className="h-full bg-gradient-to-r from-[#d4af37] via-[#F5A623] to-[#fbbf24] rounded-full transition-all duration-150 shadow-[0_0_10px_rgba(245,166,35,0.5)]"
+                      className="h-full bg-gradient-to-r from-[#d4af37] via-[#F5A623] to-[#fbbf24] rounded-full transition-all duration-150"
                       style={{ width: `${Math.max(4, pdfProgressPercent)}%` }}
                     />
                   </div>
                 </div>
               )}
 
-              {/* INDIVIDUAL HIGH-RESOLUTION JPEG FRAME EXPORT */}
-              <div className="p-4 rounded-lg bg-[#101118] border border-cyan-500/30 space-y-3">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <div>
-                    <span className="text-[10.5px] text-cyan-400 font-bold uppercase flex items-center gap-1.5">
-                      <Camera className="w-3.5 h-3.5" />
-                      Individual Frame High-Resolution JPEG Export (1920×1080)
-                    </span>
-                    <p className="text-[11px] text-zinc-400 font-sans mt-0.5">
-                      Select any shot in the Visual Shot Strip above (currently <strong className="text-white">SH{String((previewShotIdx || 0) + 1).padStart(3, '0')} — {frames?.[previewShotIdx || 0]?.title || 'Active Frame'}</strong>) to export a standalone 1080p graded JPEG.
-                    </p>
-                  </div>
-
-                  <label className="flex items-center gap-2 text-xs text-zinc-300 shrink-0 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={includeJpegSlate}
-                      onChange={(e) => setIncludeJpegSlate(e.target.checked)}
-                      className="accent-cyan-400 w-4 h-4 cursor-pointer"
-                    />
-                    <span>Include Camera Slate</span>
-                  </label>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2.5 pt-1">
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <CinemaToolHUD title="JPEG SLATE" en="Burn camera slate bar into exported JPEG frames." bn="ডাউনলোড করা JPEG ছবিতে ক্যামেরা স্লেট তথ্য যুক্ত করুন।" accent="cyan" side="top">
+                  <button
+                    type="button"
+                    onClick={() => setIncludeJpegSlate((v) => !v)}
+                    data-active={includeJpegSlate ? 'true' : 'false'}
+                    className="cinema-tile cinema-tile-cyan min-h-[44px] px-3 rounded-lg text-[10px] font-black uppercase cursor-pointer"
+                  >
+                    <span>SLATE {includeJpegSlate ? 'ON' : 'OFF'}</span>
+                  </button>
+                </CinemaToolHUD>
+                <CinemaToolHUD title="FRAME JPEG" en="Export current preview shot as 1080p JPEG." bn="বর্তমান নির্বাচিত শটটি হাই-রেজোলিউশন JPEG ছবি হিসেবে সেভ করুন।" accent="cyan" side="top">
                   <button
                     type="button"
                     disabled={isExporting}
                     onClick={handleExportSingleFrameJpeg}
-                    className="px-4 py-2 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/60 text-cyan-200 hover:text-white text-xs font-bold tracking-wider flex items-center gap-2 cursor-pointer transition-all disabled:opacity-50"
+                    className="cinema-tile cinema-tile-cyan min-h-[44px] px-3.5 rounded-lg text-[10px] font-black uppercase flex items-center gap-1.5 cursor-pointer"
                   >
-                    <Camera className="w-3.5 h-3.5 text-cyan-300" />
-                    <span>EXPORT SH{String((previewShotIdx || 0) + 1).padStart(3, '0')} AS HI-RES JPEG (.JPG)</span>
+                    <Camera className="w-3.5 h-3.5 cinema-tile-icon" />
+                    <span>SH{String((previewShotIdx || 0) + 1).padStart(3, '0')} JPG</span>
                   </button>
-
+                </CinemaToolHUD>
+                <CinemaToolHUD title="BATCH JPEGS" en="Export all active shots as JPEG archive ZIP." bn="সবগুলো শটের JPEG ছবি একসাথে ZIP ফাইল করে নিন।" accent="amber" side="top">
                   <button
                     type="button"
                     disabled={isExporting}
                     onClick={handleExportSelectedFramesJpegZip}
-                    className="px-3.5 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/15 text-zinc-300 hover:text-[#F5A623] text-xs font-bold tracking-wider flex items-center gap-2 cursor-pointer transition-all disabled:opacity-50"
+                    className="cinema-tile cinema-tile-amber min-h-[44px] px-3.5 rounded-lg text-[10px] font-black uppercase flex items-center gap-1.5 cursor-pointer"
                   >
-                    <Download className="w-3.5 h-3.5 text-[#F5A623]" />
-                    <span>BATCH EXPORT {activeSelection.totalShots} JPEGs (.ZIP)</span>
+                    <Download className="w-3.5 h-3.5 cinema-tile-icon" />
+                    <span>ZIP ({activeSelection.totalShots})</span>
                   </button>
-                </div>
+                </CinemaToolHUD>
               </div>
             </div>
           )}
 
           {/* TAB: DIRECTOR'S CUT (ZIP BUNDLE) */}
           {activeTab === 'directors_cut' && (
-            <div className="p-5 rounded-xl bg-[#090a0f] border border-[#1c1d29] space-y-4 animate-in fade-in duration-150">
-              <div className="flex items-start gap-3">
-                <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[#F5A623]">
-                  <Archive className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-white">Director's Cut Production Bundle (.zip)</h3>
-                  <p className="text-xs text-zinc-400 font-sans mt-0.5">
-                    Bundles the production shot list (CSV), standard screenplay (Fountain), and master project metadata into a unified archive.
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-                <div className="p-3.5 rounded-lg bg-[#101118] border border-[#222332] space-y-1.5">
-                  <div className="flex items-center gap-2 text-[#F5A623] font-bold text-xs uppercase">
-                    <FileText className="w-4 h-4" />
-                    <span>shot_list.csv</span>
-                  </div>
-                  <p className="text-[10px] text-zinc-400 font-sans leading-relaxed">
-                    Full tabular CSV with SMPTE timecodes, durations, lens data, scenes, and action cues.
-                  </p>
-                  <span className="inline-block text-[9px] font-mono text-emerald-400 bg-emerald-950/40 px-1.5 py-0.5 rounded border border-emerald-800/40">
-                    {selectedFrames.length > 0 ? selectedFrames.length : totalCount} Shots Indexed
-                  </span>
-                </div>
-
-                <div className="p-3.5 rounded-lg bg-[#101118] border border-[#222332] space-y-1.5">
-                  <div className="flex items-center gap-2 text-cyan-400 font-bold text-xs uppercase">
-                    <Film className="w-4 h-4" />
-                    <span>screenplay.fountain</span>
-                  </div>
-                  <p className="text-[10px] text-zinc-400 font-sans leading-relaxed">
-                    Industry standard Fountain screenplay script with scene headers, character cues, and dialogue.
-                  </p>
-                  <span className="inline-block text-[9px] font-mono text-cyan-400 bg-cyan-950/40 px-1.5 py-0.5 rounded border border-cyan-800/40">
-                    Fountain 1.1 Spec
-                  </span>
-                </div>
-
-                <div className="p-3.5 rounded-lg bg-[#101118] border border-[#222332] space-y-1.5">
-                  <div className="flex items-center gap-2 text-purple-400 font-bold text-xs uppercase">
-                    <Layers className="w-4 h-4" />
-                    <span>project_master.json</span>
-                  </div>
-                  <p className="text-[10px] text-zinc-400 font-sans leading-relaxed">
-                    Complete project state tree with camera setups, markers, aspect ratio, and optical settings.
-                  </p>
-                  <span className="inline-block text-[9px] font-mono text-purple-400 bg-purple-950/40 px-1.5 py-0.5 rounded border border-purple-800/40">
-                    v2.4 Cinema JSON
-                  </span>
-                </div>
-              </div>
-
-              <div className="p-3.5 rounded-lg bg-[#101118] border border-[#222332] flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-                <span className="text-zinc-400">Target Archive:</span>
-                <span className="text-[#F5A623] font-bold font-mono">
-                  {customFilename ? `${customFilename}_DirectorsCut.zip` : `HANDFILM_${projectTitle}_DirectorsCut_Bundle.zip`}
-                </span>
-              </div>
+            <div className="p-4 rounded-xl bg-[#090a0f] border border-[#1c1d29] space-y-3 animate-in fade-in duration-150">
+              <CinemaBadgeHeader
+                icon={<Archive className="w-4 h-4" strokeWidth={2.2} />}
+                label="DIR CUT BUNDLE"
+                accent="crimson"
+                rightSlot={<span className="text-[10px] font-black text-[#F5A623] uppercase">CSV · FOUNTAIN · JSON</span>}
+              />
             </div>
           )}
 
-          {/* TAB 5: FULL PROJECT BACKUP (.rawx) */}
+          {/* TAB: FULL PROJECT BACKUP (.rawx) */}
           {activeTab === 'backup' && (
-            <div className="p-5 rounded-xl bg-[#090a0f] border border-[#1c1d29] space-y-4 animate-in fade-in duration-150">
-              <div className="flex items-start gap-3">
-                <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[#F5A623]">
-                  <HardDriveDownload className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-white">Full Lossless Project Archive (.rawx)</h3>
-                  <p className="text-xs text-zinc-400 font-sans mt-0.5">
-                    One-click JSON package containing all timeline slides, bilingual titles, marker annotations, config states, and local IndexedDB media records.
-                  </p>
-                </div>
-              </div>
-
-              <div className="p-4 rounded-lg bg-[#101118] border border-[#222332] space-y-2">
-                <span className="text-[10.5px] text-[#F5A623] font-bold uppercase block">Archive Inclusions</span>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-                  <div className="p-2 bg-black/50 border border-zinc-800 rounded text-center">
-                    <span className="text-white font-bold block">{totalCount} Shots</span>
-                    <span className="text-[9px] text-zinc-500">Timeline State</span>
-                  </div>
-                  <div className="p-2 bg-black/50 border border-zinc-800 rounded text-center">
-                    <span className="text-white font-bold block">12.0s Holds</span>
-                    <span className="text-[9px] text-zinc-500">Locked 24fps</span>
-                  </div>
-                  <div className="p-2 bg-black/50 border border-zinc-800 rounded text-center">
-                    <span className="text-white font-bold block">IndexedDB</span>
-                    <span className="text-[9px] text-zinc-500">Media Vault</span>
-                  </div>
-                  <div className="p-2 bg-black/50 border border-zinc-800 rounded text-center">
-                    <span className="text-white font-bold block">Zero-Loss</span>
-                    <span className="text-[9px] text-zinc-500">Offline JSON</span>
-                  </div>
-                </div>
-              </div>
+            <div className="p-4 rounded-xl bg-[#090a0f] border border-[#1c1d29] space-y-3 animate-in fade-in duration-150">
+              <CinemaBadgeHeader
+                icon={<HardDriveDownload className="w-4 h-4" strokeWidth={2.2} />}
+                label="RAWX BACKUP"
+                accent="emerald"
+                rightSlot={<span className="text-[10px] font-black text-emerald-300 uppercase">{totalCount} SHOTS · OFFLINE</span>}
+              />
             </div>
           )}
 
@@ -3367,11 +2692,10 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
             </div>
           ) : (
             /* Idle Action Bar */
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 w-full">
-              {/* File Name Preview */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 w-full">
               <div className="flex-1 flex items-center gap-2">
-                <span className="text-[10px] text-zinc-500 uppercase tracking-wider shrink-0 font-sans">
-                  File:
+                <span className="text-[10px] text-zinc-500 uppercase font-black tracking-wider shrink-0">
+                  FILE
                 </span>
                 <input
                   type="text"
@@ -3382,129 +2706,161 @@ export const UnifiedExportStudio: React.FC<UnifiedExportStudioProps> = ({
                 />
               </div>
 
-              {/* Action Buttons based on Active Tab */}
-              <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-center">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="px-4 py-2 rounded-lg bg-[#141520] hover:bg-[#1d1f2e] text-zinc-300 hover:text-white border border-[#292b3e] text-xs font-bold cursor-pointer transition-all"
-                >
-                  ✕ Close
-                </button>
+              <div className="flex items-center gap-2 shrink-0 self-end sm:self-center flex-wrap">
+                <CinemaToolHUD title="CLOSE" en="Close export studio modal." bn="এক্সপোর্ট স্টুডিও বন্ধ করতে চাপুন।" accent="crimson" side="top">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="cinema-tile cinema-tile-crimson min-h-[44px] px-3.5 py-2 rounded-lg text-[10px] font-black tracking-wider uppercase cursor-pointer"
+                  >
+                    <span>CLOSE</span>
+                  </button>
+                </CinemaToolHUD>
 
                 {activeTab === 'mp4' && (
                   <div className="flex items-center gap-2 flex-wrap">
-                    <button
-                      type="button"
-                      onClick={handleStartMp4Export}
-                      disabled={isExporting}
-                      className="px-5 py-2 rounded-lg bg-gradient-to-r from-[#b38600] via-[#F5A623] to-[#fbbf24] hover:from-[#c29300] hover:to-[#fcd34d] text-black font-black text-xs tracking-wider flex items-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(245,166,35,0.4)] active:scale-[0.98] animate-pulse hover:animate-none hover:bg-amber-400 hover:shadow-[0_0_20px_rgba(251,191,36,0.6)] transition-all disabled:opacity-50"
-                    >
-                      <Zap className="w-4 h-4 fill-black" />
-                      <span>START MP4 EXPORT</span>
-                    </button>
+                    <CinemaToolHUD hudId="export-4k" side="top">
+                      <button
+                        type="button"
+                        onClick={handleStartMp4Export}
+                        disabled={isExporting}
+                        data-active="true"
+                        className="cinema-tile cinema-tile-amber min-h-[44px] px-4 py-2 rounded-lg font-black text-[11px] tracking-wider uppercase flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                      >
+                        <Zap className="w-4 h-4 cinema-tile-icon" />
+                        <span>START MP4 EXPORT</span>
+                      </button>
+                    </CinemaToolHUD>
 
-                    <button
-                      type="button"
-                      onClick={handleStart4KMasterExport}
-                      disabled={isExporting}
-                      className="px-5 py-2 rounded-lg bg-gradient-to-r from-amber-400 via-[#F5A623] to-yellow-300 hover:from-amber-300 hover:to-yellow-200 text-black font-black text-xs tracking-wider flex items-center gap-2 cursor-pointer shadow-[0_0_25px_rgba(245,166,35,0.6)] border border-amber-300/80 active:scale-[0.98] transition-all disabled:opacity-50"
-                      title="Export 3840×1608 4K DCI Master Scope at 80 Mbps AVC Level 5.1 with 320 kbps AAC Audio"
+                    <CinemaToolHUD
+                      title="4K MASTER"
+                      en="Render 3840×1608 4K DCI Master Scope at 80 Mbps AVC."
+                      bn="সর্বোচ্চ ৮০ এমবিপিএস বিটরেটে ৪কে DCI মাস্টার ভিডিও রেন্ডার করুন।"
+                      accent="emerald"
+                      side="top"
                     >
-                      <Crown className="w-4 h-4 fill-black text-black" />
-                      <span>Export as 4K Master</span>
-                      <span className="text-[9px] font-mono font-bold bg-black/20 px-1.5 py-0.5 rounded text-black">80 Mbps</span>
-                    </button>
+                      <button
+                        type="button"
+                        onClick={handleStart4KMasterExport}
+                        disabled={isExporting}
+                        data-active="true"
+                        className="cinema-tile cinema-tile-emerald min-h-[44px] px-4 py-2 rounded-lg font-black text-[11px] tracking-wider uppercase flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                      >
+                        <Crown className="w-4 h-4 cinema-tile-icon" />
+                        <span>Export as 4K Master</span>
+                      </button>
+                    </CinemaToolHUD>
                   </div>
                 )}
 
                 {activeTab === 'premiere' && (
-                  <button
-                    type="button"
-                    onClick={handleExportPremiereXml}
-                    className="px-5 py-2 rounded-lg bg-gradient-to-r from-[#b38600] via-[#F5A623] to-[#fbbf24] hover:from-[#c29300] hover:to-[#fcd34d] text-black font-black text-xs tracking-wider flex items-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(245,166,35,0.4)] active:scale-[0.98] animate-pulse hover:animate-none hover:bg-amber-400 hover:shadow-[0_0_20px_rgba(251,191,36,0.6)] transition-all"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span>EXPORT PREMIERE XML (.xml)</span>
-                  </button>
+                  <CinemaToolHUD title="EXPORT XML" en="Download Premiere Pro & CapCut XML sequence." bn="প্রিমিয়ার ও ক্যাপকাট XML সিকোয়েন্স ডাউনলোড করুন।" accent="amber" side="top">
+                    <button
+                      type="button"
+                      onClick={handleExportPremiereXml}
+                      data-active="true"
+                      className="cinema-tile cinema-tile-amber min-h-[44px] px-4 py-2 rounded-lg font-black text-[11px] tracking-wider uppercase flex items-center gap-2 cursor-pointer"
+                    >
+                      <Download className="w-4 h-4 cinema-tile-icon" />
+                      <span>EXPORT XML</span>
+                    </button>
+                  </CinemaToolHUD>
                 )}
 
                 {activeTab === 'fcpxml' && (
-                  <button
-                    type="button"
-                    onClick={handleExportFcpXml}
-                    className="px-5 py-2 rounded-lg bg-gradient-to-r from-cyan-600 via-cyan-500 to-sky-400 hover:from-cyan-500 hover:to-sky-300 text-black font-black text-xs tracking-wider flex items-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(56,189,248,0.4)] active:scale-[0.98] animate-pulse hover:animate-none hover:bg-cyan-400 hover:shadow-[0_0_20px_rgba(56,189,248,0.6)] transition-all"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span>EXPORT FCPXML (.fcpxml)</span>
-                  </button>
+                  <CinemaToolHUD title="EXPORT FCPXML" en="Download DaVinci & Final Cut Pro FCPXML." bn="ডাভিঞ্চি ও ফাইনাল কাটের জন্য FCPXML ডাউনলোড করুন।" accent="cyan" side="top">
+                    <button
+                      type="button"
+                      onClick={handleExportFcpXml}
+                      data-active="true"
+                      className="cinema-tile cinema-tile-cyan min-h-[44px] px-4 py-2 rounded-lg font-black text-[11px] tracking-wider uppercase flex items-center gap-2 cursor-pointer"
+                    >
+                      <Download className="w-4 h-4 cinema-tile-icon" />
+                      <span>EXPORT FCPXML</span>
+                    </button>
+                  </CinemaToolHUD>
                 )}
 
                 {activeTab === 'package' && (
-                  <button
-                    type="button"
-                    onClick={handleExportProductionPackage}
-                    disabled={isExporting}
-                    className="px-5 py-2 rounded-lg bg-gradient-to-r from-amber-500 via-[#F5A623] to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-black font-black text-xs tracking-wider flex items-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(245,166,35,0.4)] active:scale-[0.98] animate-pulse hover:animate-none hover:bg-amber-400 hover:shadow-[0_0_20px_rgba(251,191,36,0.6)] transition-all"
-                  >
-                    <Package className="w-4 h-4" />
-                    <span>DOWNLOAD PRODUCTION PKG (.ZIP)</span>
-                  </button>
+                  <CinemaToolHUD title="EXPORT ZIP" en="Download complete production ZIP archive." bn="সব মিডিয়া ও প্রজেক্ট ফাইলসহ ZIP ডাউনলোড করুন।" accent="amber" side="top">
+                    <button
+                      type="button"
+                      onClick={handleExportProductionPackage}
+                      disabled={isExporting}
+                      data-active="true"
+                      className="cinema-tile cinema-tile-amber min-h-[44px] px-4 py-2 rounded-lg font-black text-[11px] tracking-wider uppercase flex items-center gap-2 cursor-pointer"
+                    >
+                      <Package className="w-4 h-4 cinema-tile-icon" />
+                      <span>EXPORT ZIP</span>
+                    </button>
+                  </CinemaToolHUD>
                 )}
 
                 {activeTab === 'pdf' && (
                   <div className="flex items-center gap-2 flex-wrap">
-                    <button
-                      type="button"
-                      onClick={handleExportSingleFrameJpeg}
-                      disabled={isExporting}
-                      className="px-3.5 py-2 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/60 text-cyan-200 hover:text-white font-bold text-xs tracking-wider flex items-center gap-1.5 cursor-pointer transition-all disabled:opacity-50"
-                      title="Export active previewed storyboard frame as High-Resolution 1920×1080 JPEG"
-                    >
-                      <Camera className="w-3.5 h-3.5 text-cyan-300" />
-                      <span>HI-RES JPEG</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleDownloadStoryboardPdf}
-                      disabled={isExporting}
-                      className="px-5 py-2 rounded-lg bg-gradient-to-r from-amber-500 via-[#F5A623] to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-black font-black text-xs tracking-wider flex items-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(245,166,35,0.4)] active:scale-[0.98] animate-pulse hover:animate-none hover:bg-amber-400 hover:shadow-[0_0_20px_rgba(251,191,36,0.6)] transition-all disabled:opacity-50"
-                    >
-                      <Download className="w-4 h-4" />
-                      <span>DOWNLOAD STORYBOARD PDF ({estimatedPdfPages} PAGES)</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleExportContactSheet}
-                      className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-xs tracking-wider flex items-center gap-2 cursor-pointer transition-all"
-                    >
-                      <Printer className="w-4 h-4" />
-                      <span>PRINT PREVIEW</span>
-                    </button>
+                    <CinemaToolHUD title="HI-RES JPG" en="Export current frame as 1080p JPEG." bn="নির্বাচিত শটটি ১০৮০পি JPG ছবি হিসেবে সেভ করুন।" accent="cyan" side="top">
+                      <button
+                        type="button"
+                        onClick={handleExportSingleFrameJpeg}
+                        disabled={isExporting}
+                        className="cinema-tile cinema-tile-cyan min-h-[44px] px-3.5 py-2 rounded-lg font-black text-[10px] tracking-wider uppercase flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Camera className="w-3.5 h-3.5 cinema-tile-icon" />
+                        <span>HI-RES JPG</span>
+                      </button>
+                    </CinemaToolHUD>
+                    <CinemaToolHUD title="SAVE PDF" en="Download formatted storyboard PDF book." bn="স্টোরিবোর্ড ও নোটসহ PDF ফাইল ডাউনলোড করুন।" accent="amber" side="top">
+                      <button
+                        type="button"
+                        onClick={handleDownloadStoryboardPdf}
+                        disabled={isExporting}
+                        data-active="true"
+                        className="cinema-tile cinema-tile-amber min-h-[44px] px-4 py-2 rounded-lg font-black text-[11px] tracking-wider uppercase flex items-center gap-2 cursor-pointer"
+                      >
+                        <Download className="w-4 h-4 cinema-tile-icon" />
+                        <span>SAVE PDF ({estimatedPdfPages}P)</span>
+                      </button>
+                    </CinemaToolHUD>
+                    <CinemaToolHUD title="PRINT VIEW" en="Open print-ready storyboard sheet." bn="প্রিন্ট প্রিভিউ শিট ওপেন করতে চাপুন।" accent="emerald" side="top">
+                      <button
+                        type="button"
+                        onClick={handleExportContactSheet}
+                        className="cinema-tile cinema-tile-emerald min-h-[44px] px-3.5 py-2 rounded-lg font-black text-[10px] tracking-wider uppercase flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Printer className="w-3.5 h-3.5 cinema-tile-icon" />
+                        <span>PRINT</span>
+                      </button>
+                    </CinemaToolHUD>
                   </div>
                 )}
 
                 {activeTab === 'directors_cut' && (
-                  <button
-                    type="button"
-                    onClick={handleExportDirectorsCut}
-                    disabled={isExporting}
-                    className="px-5 py-2 rounded-lg bg-gradient-to-r from-amber-500 via-[#F5A623] to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-black font-black text-xs tracking-wider flex items-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(245,166,35,0.4)] active:scale-[0.98] animate-pulse hover:animate-none hover:bg-amber-400 hover:shadow-[0_0_20px_rgba(251,191,36,0.6)] transition-all"
-                  >
-                    <Archive className="w-4 h-4" />
-                    <span>DOWNLOAD DIRECTOR'S CUT (.ZIP)</span>
-                  </button>
+                  <CinemaToolHUD title="DIR CUT ZIP" en="Download CSV shot list, script & JSON bundle." bn="ডিরেক্টরস কাট জিপ বান্ডেল ডাউনলোড করুন।" accent="crimson" side="top">
+                    <button
+                      type="button"
+                      onClick={handleExportDirectorsCut}
+                      disabled={isExporting}
+                      data-active="true"
+                      className="cinema-tile cinema-tile-crimson min-h-[44px] px-4 py-2 rounded-lg font-black text-[11px] tracking-wider uppercase flex items-center gap-2 cursor-pointer"
+                    >
+                      <Archive className="w-4 h-4 cinema-tile-icon" />
+                      <span>DIR CUT ZIP</span>
+                    </button>
+                  </CinemaToolHUD>
                 )}
 
                 {activeTab === 'backup' && (
-                  <button
-                    type="button"
-                    onClick={handleExportRawxBackup}
-                    className="px-5 py-2 rounded-lg bg-gradient-to-r from-[#b38600] via-[#F5A623] to-[#fbbf24] hover:from-[#c29300] hover:to-[#fcd34d] text-black font-black text-xs tracking-wider flex items-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(245,166,35,0.4)] active:scale-[0.98] animate-pulse hover:animate-none hover:bg-amber-400 hover:shadow-[0_0_20px_rgba(251,191,36,0.6)] transition-all"
-                  >
-                    <HardDriveDownload className="w-4 h-4" />
-                    <span>DOWNLOAD BACKUP (.rawx)</span>
-                  </button>
+                  <CinemaToolHUD title="RAWX BACKUP" en="Save lossless .rawx project backup file." bn="পুরো প্রজেক্টের .rawx ব্যাকআপ ফাইল সেভ করুন।" accent="emerald" side="top">
+                    <button
+                      type="button"
+                      onClick={handleExportRawxBackup}
+                      data-active="true"
+                      className="cinema-tile cinema-tile-emerald min-h-[44px] px-4 py-2 rounded-lg font-black text-[11px] tracking-wider uppercase flex items-center gap-2 cursor-pointer"
+                    >
+                      <HardDriveDownload className="w-4 h-4 cinema-tile-icon" />
+                      <span>RAWX BACKUP</span>
+                    </button>
+                  </CinemaToolHUD>
                 )}
               </div>
             </div>

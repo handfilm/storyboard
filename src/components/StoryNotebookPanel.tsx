@@ -33,6 +33,7 @@ import {
   Flame,
   Volume2
 } from 'lucide-react';
+import { CinemaToolHUD, CinemaBadgeHeader } from './ui/CinemaToolHUD';
 
 interface MoodItem {
   id: string;
@@ -365,48 +366,57 @@ Kinetic relay sensors overload with incandescent phosphor.`
   return (
     <div className="w-full h-full flex flex-col bg-[#07070A] text-[#EDEDED] font-mono-tech select-none overflow-hidden">
       {/* Top Action Bar */}
-      <div className="h-11 px-3 border-b border-[#272732] bg-[#0c0c12] flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-2 min-w-0">
-          <BookOpen className="w-4 h-4 text-[#fbbf24] shrink-0" />
-          <span className="text-[11px] font-bold text-white tracking-widest truncate">
-            02 STORY NOTEBOOK & AI SCREENPLAY
-          </span>
-          <span className="text-[8.5px] text-zinc-400 font-mono hidden sm:inline">
-            ({wordCount} words • ~{readingTime}m read • {estimatedShots} scenes detected)
-          </span>
-        </div>
+      <div className="h-12 px-3 border-b border-[#272732] bg-[#0c0c12] flex items-center justify-between shrink-0 gap-2">
+        <CinemaBadgeHeader
+          icon={<BookOpen className="w-4 h-4" strokeWidth={2.2} />}
+          label="STORY SCRIPT"
+          accent="amber"
+          rightSlot={
+            <span className="text-[10px] font-black text-zinc-400 tabular-nums hidden sm:inline">
+              {estimatedShots} SCENES · {wordCount}W
+            </span>
+          }
+        />
 
         <div className="flex items-center gap-1.5 shrink-0">
-          <button
-            onClick={handleLinkToTimeline}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-[2px] bg-[#fbbf24] hover:bg-[#f59e0b] text-black font-bold text-[10px] cursor-pointer transition-transform active:scale-95 shadow-[0_0_10px_rgba(251,191,36,0.25)]"
-            title="Parse screenplay headings (INT./EXT./দৃশ্য) into Shots 001-100"
+          <CinemaToolHUD
+            title="LINK SCRIPT TO TIMELINE"
+            en="Parse INT./EXT./দৃশ্য scene headings directly into storyboard shots 001–100."
+            bn="স্ক্রিপ্টের দৃশ্য হেডিংগুলো (INT./EXT./দৃশ্য) এক ক্লিকেই স্টোরিবোর্ড শটে রূপান্তর করুন।"
+            accent="amber"
           >
-            <Link2 className="w-3.5 h-3.5" />
-            <span>LINK TO TIMELINE</span>
-          </button>
+            <button
+              type="button"
+              onClick={handleLinkToTimeline}
+              data-active="true"
+              className="cinema-tile cinema-tile-amber flex items-center gap-1.5 px-3 min-h-[38px] rounded-md font-black tracking-wider text-[10px] sm:text-[11px] uppercase cursor-pointer"
+            >
+              <Link2 className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+              <span>LINK TIMELINE</span>
+            </button>
+          </CinemaToolHUD>
         </div>
       </div>
 
       {/* Link Notification Banner */}
       {linkNotification && (
-        <div className="px-3 py-1.5 bg-[#fbbf24]/15 border-b border-[#fbbf24]/40 text-[#fbbf24] text-[10px] flex items-center gap-2 animate-in fade-in duration-150">
+        <div className="px-3 py-1.5 bg-[#fbbf24]/15 border-b border-[#fbbf24]/40 text-[#fbbf24] text-[10px] font-black flex items-center gap-2">
           <Check className="w-3.5 h-3.5 shrink-0" />
-          <span className="font-bold">{linkNotification}</span>
+          <span>{linkNotification}</span>
         </div>
       )}
 
-      {/* Split Workspace: Screenplay Editor (Left) & Pro Story Suite (Right) */}
+      {/* Split Workspace */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-        {/* LEFT COLUMN: Screenplay Editor & Fountain Parser */}
+        {/* LEFT COLUMN: Screenplay Editor */}
         <div className="flex-1 flex flex-col p-3 border-b lg:border-b-0 lg:border-r border-[#272732] bg-[#09090D] overflow-hidden">
           <div className="flex items-center justify-between pb-2">
-            <span className="text-[9px] text-[#fbbf24] font-bold tracking-wider uppercase">
-              BILINGUAL SCREENPLAY DRAFT (বাংলা + ENGLISH)
-            </span>
-            <span className="text-[8.5px] text-zinc-500 font-mono">
-              Auto-syncs with Project State
-            </span>
+            <CinemaBadgeHeader
+              icon={<Film className="w-3.5 h-3.5" strokeWidth={2.2} />}
+              label="FOUNTAIN DRAFT"
+              accent="amber"
+              rightSlot={<span className="text-[10px] font-black text-emerald-400">AUTO SYNC</span>}
+            />
           </div>
 
           <textarea
@@ -419,122 +429,155 @@ Kinetic relay sensors overload with incandescent phosphor.`
                 }));
               } catch {}
             }}
-            placeholder="Type your script here... Use INT., EXT., or দৃশ্য to mark scenes."
-            className="flex-1 w-full bg-[#0E0E14] border border-[#272732] focus:border-[#fbbf24]/70 rounded-[2px] p-3 text-xs text-zinc-100 font-mono leading-relaxed outline-none resize-none no-scrollbar shadow-inner"
+            placeholder="INT. / EXT. / দৃশ্য ১..."
+            className="flex-1 w-full bg-[#0E0E14] border border-[#272732] focus:border-[#F59E0B]/70 rounded-md p-3 text-xs text-zinc-100 font-mono leading-relaxed outline-none resize-none no-scrollbar shadow-inner"
             spellCheck={false}
           />
 
           {/* Quick Scene Heading Inserters */}
-          <div className="pt-2 flex items-center gap-1.5 text-[8.5px] overflow-x-auto no-scrollbar">
-            <span className="text-zinc-500 uppercase shrink-0">Insert:</span>
-            <button
-              onClick={() => setScript(p => `${p}\n\nদৃশ্য ${toBengaliNumerals(estimatedShots + 1)}: // INT. NEW SCENE - NIGHT\n`)}
-              className="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-zinc-300 border border-white/10 shrink-0 cursor-pointer"
+          <div className="pt-2 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+            <CinemaToolHUD
+              title="INSERT BANGLA SCENE (দৃশ্য)"
+              en="Insert a bilingual Bengali + English scene heading at the end of draft."
+              bn="স্ক্রিপ্টে নতুন বাংলা + ইংরেজি দৃশ্য হেডিং যুক্ত করতে + দৃশ্য চাপুন।"
+              accent="amber"
             >
-              + দৃশ্য (Bangla)
-            </button>
-            <button
-              onClick={() => setScript(p => `${p}\n\nINT. LOCATION - DAY\n`)}
-              className="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-zinc-300 border border-white/10 shrink-0 cursor-pointer"
+              <button
+                type="button"
+                onClick={() => setScript(p => `${p}\n\nদৃশ্য ${toBengaliNumerals(estimatedShots + 1)}: // INT. NEW SCENE - NIGHT\n`)}
+                className="cinema-tile cinema-tile-amber px-2.5 min-h-[36px] rounded text-[10px] font-black uppercase shrink-0 cursor-pointer"
+              >
+                + দৃশ্য
+              </button>
+            </CinemaToolHUD>
+            <CinemaToolHUD
+              title="INSERT INT. SCENE"
+              en="Insert interior Fountain screenplay slugline."
+              bn="ইন্টেরিয়র (INT.) দৃশ্য হেডিং যোগ করতে চাপুন।"
+              accent="cyan"
             >
-              + INT. (Fountain)
-            </button>
-            <button
-              onClick={() => setScript(p => `${p}\n\nEXT. LOCATION - NIGHT\n`)}
-              className="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-zinc-300 border border-white/10 shrink-0 cursor-pointer"
+              <button
+                type="button"
+                onClick={() => setScript(p => `${p}\n\nINT. LOCATION - DAY\n`)}
+                className="cinema-tile cinema-tile-cyan px-2.5 min-h-[36px] rounded text-[10px] font-black uppercase shrink-0 cursor-pointer"
+              >
+                + INT.
+              </button>
+            </CinemaToolHUD>
+            <CinemaToolHUD
+              title="INSERT EXT. SCENE"
+              en="Insert exterior Fountain screenplay slugline."
+              bn="এক্সটেরিয়র (EXT.) দৃশ্য হেডিং যোগ করতে চাপুন।"
+              accent="emerald"
             >
-              + EXT. (Fountain)
-            </button>
+              <button
+                type="button"
+                onClick={() => setScript(p => `${p}\n\nEXT. LOCATION - NIGHT\n`)}
+                className="cinema-tile cinema-tile-emerald px-2.5 min-h-[36px] rounded text-[10px] font-black uppercase shrink-0 cursor-pointer"
+              >
+                + EXT.
+              </button>
+            </CinemaToolHUD>
           </div>
         </div>
 
-        {/* RIGHT COLUMN: AI Copilot, 3-Act Curve & Moodboard Pinboard */}
+        {/* RIGHT COLUMN */}
         <div className="w-full lg:w-[420px] bg-[#0c0c12] p-3 flex flex-col gap-3.5 overflow-y-auto no-scrollbar shrink-0">
-          
           {/* 1. AI SCRIPTWRITING COPILOT */}
-          <div className="p-2.5 rounded-[2px] bg-[#12121A] border border-[#272732] flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-[#fbbf24]" />
-                <span className="text-[10px] font-bold text-[#fbbf24] tracking-wider uppercase">
-                  AI SCRIPTWRITER (GEMINI FLASH)
-                </span>
-              </div>
-              <span className="text-[8px] bg-[#fbbf24]/20 border border-[#fbbf24]/40 text-[#fbbf24] px-1 py-0.2 rounded font-bold">
-                12s BEATS
-              </span>
-            </div>
+          <div className="p-2.5 rounded-md bg-[#111215] border border-[#26282E] flex flex-col gap-2">
+            <CinemaBadgeHeader
+              icon={<Sparkles className="w-3.5 h-3.5" strokeWidth={2.2} />}
+              label="AI WRITER"
+              accent="amber"
+              rightSlot={<span className="text-[10px] font-black text-amber-400">12S BEATS</span>}
+            />
 
-            {/* AI Modes Selector */}
-            <div className="grid grid-cols-2 gap-1">
+            <div className="grid grid-cols-2 gap-1.5">
               {[
-                { id: 'expand_beat', label: 'Expand Beat', icon: Zap },
-                { id: 'polish_dialogue', label: 'Polish Dialogue', icon: Volume2 },
-                { id: 'generate_loglines', label: 'Shot Loglines', icon: Film },
-                { id: 'punch_tension', label: 'Punch Tension', icon: Flame }
+                { id: 'expand_beat', label: 'EXPAND BEAT', icon: Zap, en: 'Expand scene into 12-second cinema camera beats.', bn: 'দৃশ্যটিকে ১২ সেকেন্ডের সিনেমা বিটে সাজাতে চাপুন।' },
+                { id: 'polish_dialogue', label: 'DIALOGUE', icon: Volume2, en: 'Polish dramatic Bengali + English dialogue.', bn: 'সংলাপ আরও নাটকীয় ও ধারালো করতে চাপুন।' },
+                { id: 'generate_loglines', label: 'LOGLINES', icon: Film, en: 'Generate multi-shot loglines with lens specs.', bn: 'শট অনুযায়ী লগলাইন ও লেন্স নোট তৈরি করুন।' },
+                { id: 'punch_tension', label: 'TENSION', icon: Flame, en: 'Boost climax pacing and ticking-clock intensity.', bn: 'দৃশ্যের উত্তেজনা ও ক্লাইম্যাক্স বাড়াতে চাপুন।' }
               ].map(m => {
                 const Icon = m.icon;
                 const isSelected = aiMode === m.id;
                 return (
-                  <button
+                  <CinemaToolHUD
                     key={m.id}
-                    onClick={() => setAiMode(m.id as any)}
-                    className={`px-2 py-1 rounded-[2px] border text-[9px] flex items-center gap-1.5 cursor-pointer transition-colors ${
-                      isSelected
-                        ? 'bg-[#fbbf24]/20 border-[#fbbf24] text-[#fbbf24] font-bold'
-                        : 'bg-black/30 border-[#272732] text-zinc-400 hover:text-white'
-                    }`}
+                    title={`MODE: ${m.label}`}
+                    en={m.en}
+                    bn={m.bn}
+                    accent="amber"
+                    blockWrapper
                   >
-                    <Icon className="w-3 h-3 shrink-0" />
-                    <span className="truncate">{m.label}</span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => setAiMode(m.id as any)}
+                      data-active={isSelected ? 'true' : 'false'}
+                      className="cinema-tile cinema-tile-amber w-full min-h-[40px] px-2 py-1.5 rounded-md text-[10px] font-black tracking-wider uppercase flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Icon className="w-3.5 h-3.5 cinema-tile-icon shrink-0" strokeWidth={2.2} />
+                      <span className="truncate">{m.label}</span>
+                    </button>
+                  </CinemaToolHUD>
                 );
               })}
             </div>
 
-            {/* AI Custom Directive Input */}
             <div className="flex gap-1.5">
               <input
                 type="text"
                 value={aiPrompt}
                 onChange={(e) => setAiPrompt(e.target.value)}
-                placeholder="Direct the scene (e.g., 'Climactic confrontation with sudden blackout')..."
-                className="flex-1 bg-black/50 border border-[#272732] focus:border-[#fbbf24]/60 rounded-[2px] px-2 py-1 text-[9.5px] text-zinc-100 outline-none"
+                placeholder="Scene directive..."
+                className="flex-1 bg-black/60 border border-[#26282E] focus:border-[#F59E0B]/60 rounded px-2.5 py-1.5 text-[10.5px] text-zinc-100 outline-none"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') handleRunAi();
                 }}
               />
-              <button
-                onClick={handleRunAi}
-                disabled={isGenerating}
-                className="px-2.5 py-1 rounded-[2px] bg-[#fbbf24] hover:bg-[#f59e0b] disabled:opacity-50 text-black font-bold text-[9.5px] flex items-center gap-1 cursor-pointer shrink-0"
+              <CinemaToolHUD
+                title="GENERATE AI DRAFT"
+                en="Run AI scriptwriter for the selected mode and directive."
+                bn="নির্বাচিত মোড অনুযায়ী AI দিয়ে স্ক্রিপ্ট তৈরি করতে WRITE চাপুন।"
+                accent="amber"
               >
-                {isGenerating ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                <span>GENERATE</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={handleRunAi}
+                  disabled={isGenerating}
+                  className="cinema-tile cinema-tile-amber px-3 min-h-[40px] rounded-md font-black tracking-wider text-[10px] uppercase flex items-center gap-1.5 cursor-pointer shrink-0 disabled:opacity-50"
+                >
+                  {isGenerating ? <RefreshCw className="w-3.5 h-3.5 animate-spin cinema-tile-icon" /> : <Sparkles className="w-3.5 h-3.5 cinema-tile-icon" />}
+                  <span>WRITE</span>
+                </button>
+              </CinemaToolHUD>
             </div>
 
-            {/* Generated Stream/Output Card */}
             {generatedOutput && (
-              <div className="mt-1 p-2 bg-[#09090E] border border-[#fbbf24]/40 rounded-[2px] text-[9.5px] flex flex-col gap-1.5">
-                <div className="flex items-center justify-between border-b border-white/10 pb-1 text-[8.5px] text-zinc-400">
-                  <span className="font-bold text-[#fbbf24]">PRODUCED CINEMA DRAFT:</span>
+              <div className="mt-1 p-2 bg-[#09090E] border border-[#F59E0B]/40 rounded text-[9.5px] flex flex-col gap-1.5">
+                <div className="flex items-center justify-between border-b border-white/10 pb-1">
+                  <span className="font-black text-[#F59E0B] uppercase">AI OUTPUT</span>
                   <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={() => navigator.clipboard.writeText(generatedOutput)}
-                      className="hover:text-white flex items-center gap-0.5 cursor-pointer"
-                      title="Copy Output"
-                    >
-                      <Copy className="w-3 h-3" />
-                      <span>COPY</span>
-                    </button>
-                    <button
-                      onClick={handleAppendToScript}
-                      className="text-[#fbbf24] hover:underline flex items-center gap-0.5 cursor-pointer font-bold"
-                    >
-                      <Plus className="w-3 h-3" />
-                      <span>INSERT</span>
-                    </button>
+                    <CinemaToolHUD title="COPY DRAFT" en="Copy generated text to clipboard." bn="তৈরি হওয়া লেখাটি কপি করুন।" accent="cyan">
+                      <button
+                        type="button"
+                        onClick={() => navigator.clipboard.writeText(generatedOutput)}
+                        className="cinema-tile cinema-tile-cyan px-2 py-0.5 rounded flex items-center gap-1 text-[9px] font-black uppercase cursor-pointer"
+                      >
+                        <Copy className="w-3 h-3 cinema-tile-icon" />
+                        <span>COPY</span>
+                      </button>
+                    </CinemaToolHUD>
+                    <CinemaToolHUD title="INSERT INTO SCRIPT" en="Append AI draft directly into screenplay editor." bn="এই লেখাটি আপনার স্ক্রিপ্টে যোগ করতে INSERT চাপুন।" accent="amber">
+                      <button
+                        type="button"
+                        onClick={handleAppendToScript}
+                        className="cinema-tile cinema-tile-amber px-2 py-0.5 rounded flex items-center gap-1 text-[9px] font-black uppercase cursor-pointer"
+                      >
+                        <Plus className="w-3 h-3 cinema-tile-icon" />
+                        <span>INSERT</span>
+                      </button>
+                    </CinemaToolHUD>
                   </div>
                 </div>
                 <div className="max-h-36 overflow-y-auto no-scrollbar font-mono text-zinc-200 whitespace-pre-wrap leading-relaxed">
@@ -544,32 +587,24 @@ Kinetic relay sensors overload with incandescent phosphor.`
             )}
           </div>
 
-          {/* 2. 3-ACT BEAT MATRIX & INTERACTIVE TENSION CURVE */}
-          <div className="p-2.5 rounded-[2px] bg-[#12121A] border border-[#272732] flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
-                <TrendingUp className="w-3.5 h-3.5 text-[#fbbf24]" />
-                <span className="text-[10px] font-bold text-[#fbbf24] tracking-wider uppercase">
-                  3-ACT TENSION MATRIX (DRAG NODES)
-                </span>
-              </div>
-              <span className="text-[8.5px] text-zinc-400 font-mono">
-                Pacing Calculator
-              </span>
-            </div>
+          {/* 2. 3-ACT BEAT MATRIX */}
+          <div className="p-2.5 rounded-md bg-[#111215] border border-[#26282E] flex flex-col gap-2">
+            <CinemaBadgeHeader
+              icon={<TrendingUp className="w-3.5 h-3.5" strokeWidth={2.2} />}
+              label="TENSION ARC"
+              accent="amber"
+            />
 
-            {/* Interactive SVG Tension Canvas */}
             <div
-              className="relative w-full h-28 bg-[#09090E] border border-[#272732] rounded-[2px] overflow-hidden"
+              className="relative w-full h-28 bg-[#09090E] border border-[#272732] rounded overflow-hidden"
               onMouseMove={handleSvgMouseMove}
               onMouseUp={handleSvgMouseUp}
               onMouseLeave={handleSvgMouseUp}
             >
-              {/* Act Boundaries Grid */}
-              <div className="absolute inset-0 flex text-[8px] text-zinc-600 pointer-events-none">
-                <div className="w-[28%] border-r border-white/5 p-1">ACT I (SETUP)</div>
-                <div className="w-[50%] border-r border-white/5 p-1">ACT II (CONFRONTATION)</div>
-                <div className="w-[22%] p-1">ACT III (PAYOFF)</div>
+              <div className="absolute inset-0 flex text-[8px] font-black text-zinc-600 pointer-events-none">
+                <div className="w-[28%] border-r border-white/5 p-1">ACT I</div>
+                <div className="w-[50%] border-r border-white/5 p-1">ACT II</div>
+                <div className="w-[22%] p-1">ACT III</div>
               </div>
 
               <svg
@@ -578,7 +613,6 @@ Kinetic relay sensors overload with incandescent phosphor.`
                 className="w-full h-full cursor-crosshair"
                 preserveAspectRatio="none"
               >
-                {/* Tension Gradient Fill Under Curve */}
                 <defs>
                   <linearGradient id="tensionGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#fbbf24" stopOpacity="0.4" />
@@ -589,10 +623,8 @@ Kinetic relay sensors overload with incandescent phosphor.`
                   d={`${pathD} L ${points[points.length - 1].x} ${svgHeight} L ${points[0].x} ${svgHeight} Z`}
                   fill="url(#tensionGrad)"
                 />
-                {/* Tension Line */}
                 <path d={pathD} fill="none" stroke="#fbbf24" strokeWidth="2.5" strokeLinecap="round" />
 
-                {/* Draggable Control Nodes */}
                 {tensionNodes.map((node, i) => {
                   const pt = points[i];
                   const isDragging = activeDragNode === node.id;
@@ -622,77 +654,76 @@ Kinetic relay sensors overload with incandescent phosphor.`
               </svg>
             </div>
 
-            {/* Calculated Tension Telemetry */}
             <div className="grid grid-cols-3 gap-1 text-[8px] text-zinc-400">
-              <div className="p-1 rounded bg-black/40 border border-[#272732] flex flex-col">
-                <span className="text-zinc-500">AVG TENSION</span>
-                <span className="text-zinc-200 font-bold text-[9.5px]">
+              <div className="p-1.5 rounded bg-black/40 border border-[#26282E] flex flex-col">
+                <span className="text-zinc-500 font-black">AVG</span>
+                <span className="text-zinc-200 font-black text-[10px]">
                   {Math.round(tensionNodes.reduce((acc, n) => acc + n.tension, 0) / tensionNodes.length)}%
                 </span>
               </div>
-              <div className="p-1 rounded bg-black/40 border border-[#272732] flex flex-col">
-                <span className="text-zinc-500">CLIMAX PEAK</span>
-                <span className="text-rose-400 font-bold text-[9.5px]">
-                  {Math.max(...tensionNodes.map(n => n.tension))}% (Act II)
+              <div className="p-1.5 rounded bg-black/40 border border-[#26282E] flex flex-col">
+                <span className="text-zinc-500 font-black">PEAK</span>
+                <span className="text-rose-400 font-black text-[10px]">
+                  {Math.max(...tensionNodes.map(n => n.tension))}%
                 </span>
               </div>
-              <div className="p-1 rounded bg-black/40 border border-[#272732] flex flex-col">
-                <span className="text-zinc-500">PACE VELOCITY</span>
-                <span className="text-[#fbbf24] font-bold text-[9.5px]">12.0s / CUT</span>
+              <div className="p-1.5 rounded bg-black/40 border border-[#26282E] flex flex-col">
+                <span className="text-zinc-500 font-black">PACE</span>
+                <span className="text-[#fbbf24] font-black text-[10px]">12.0s</span>
               </div>
             </div>
           </div>
 
-          {/* 3. UNLIMITED MOODBOARD & REFERENCE PINBOARD */}
-          <div className="p-2.5 rounded-[2px] bg-[#12121A] border border-[#272732] flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
-                <Palette className="w-3.5 h-3.5 text-[#fbbf24]" />
-                <span className="text-[10px] font-bold text-[#fbbf24] tracking-wider uppercase">
-                  SCENE MOODBOARD & PINBOARD
-                </span>
-              </div>
-              <span className="text-[8px] text-zinc-400 font-mono">
-                {moodboard.length} References
-              </span>
-            </div>
+          {/* 3. MOODBOARD & REFERENCE PINBOARD */}
+          <div className="p-2.5 rounded-md bg-[#111215] border border-[#26282E] flex flex-col gap-2">
+            <CinemaBadgeHeader
+              icon={<Palette className="w-3.5 h-3.5" strokeWidth={2.2} />}
+              label="MOODBOARD"
+              accent="amber"
+              rightSlot={<span className="text-[10px] font-black text-zinc-400">{moodboard.length} PINS</span>}
+            />
 
-            {/* Add Mood Item Input */}
-            <div className="p-1.5 bg-black/40 rounded-[2px] border border-[#272732] flex flex-col gap-1.5 text-[9px]">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setMoodTab('image')}
-                  className={`px-2 py-0.5 rounded cursor-pointer ${
-                    moodTab === 'image' ? 'bg-[#fbbf24] text-black font-bold' : 'text-zinc-400'
-                  }`}
-                >
-                  + Photo URL
-                </button>
-                <button
-                  onClick={() => setMoodTab('color')}
-                  className={`px-2 py-0.5 rounded cursor-pointer ${
-                    moodTab === 'color' ? 'bg-[#fbbf24] text-black font-bold' : 'text-zinc-400'
-                  }`}
-                >
-                  + Color Swatch
-                </button>
+            <div className="p-1.5 bg-black/40 rounded border border-[#26282E] flex flex-col gap-1.5 text-[9px]">
+              <div className="grid grid-cols-2 gap-1.5">
+                <CinemaToolHUD title="PHOTO URL" en="Pin a reference photo URL." bn="রেফারেন্স ছবির লিংক যোগ করুন।" accent="amber" blockWrapper>
+                  <button
+                    type="button"
+                    onClick={() => setMoodTab('image')}
+                    data-active={moodTab === 'image' ? 'true' : 'false'}
+                    className="cinema-tile cinema-tile-amber w-full min-h-[34px] px-2 py-1 rounded text-[9.5px] font-black uppercase flex items-center justify-center gap-1 cursor-pointer"
+                  >
+                    <ImageIcon className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+                    <span>+ PHOTO</span>
+                  </button>
+                </CinemaToolHUD>
+                <CinemaToolHUD title="COLOR SWATCH" en="Pin a grade hex color swatch." bn="কালার সোয়াচ পিন করতে চাপুন।" accent="cyan" blockWrapper>
+                  <button
+                    type="button"
+                    onClick={() => setMoodTab('color')}
+                    data-active={moodTab === 'color' ? 'true' : 'false'}
+                    className="cinema-tile cinema-tile-cyan w-full min-h-[34px] px-2 py-1 rounded text-[9.5px] font-black uppercase flex items-center justify-center gap-1 cursor-pointer"
+                  >
+                    <Palette className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+                    <span>+ COLOR</span>
+                  </button>
+                </CinemaToolHUD>
               </div>
 
               <div className="flex gap-1.5">
                 <input
                   type="text"
-                  placeholder="Label (e.g. Maya Wardrobe / Cyber Fog)"
+                  placeholder="Tag..."
                   value={newMoodLabel}
                   onChange={(e) => setNewMoodLabel(e.target.value)}
-                  className="flex-1 bg-black/60 border border-[#272732] px-2 py-1 rounded text-zinc-200 outline-none"
+                  className="flex-1 bg-black/60 border border-[#26282E] px-2 py-1 rounded text-zinc-200 outline-none"
                 />
                 {moodTab === 'image' ? (
                   <input
                     type="text"
-                    placeholder="Image URL..."
+                    placeholder="URL..."
                     value={newMoodUrl}
                     onChange={(e) => setNewMoodUrl(e.target.value)}
-                    className="flex-1 bg-black/60 border border-[#272732] px-2 py-1 rounded text-zinc-200 outline-none"
+                    className="flex-1 bg-black/60 border border-[#26282E] px-2 py-1 rounded text-zinc-200 outline-none"
                   />
                 ) : (
                   <div className="flex items-center gap-1">
@@ -706,48 +737,54 @@ Kinetic relay sensors overload with incandescent phosphor.`
                       type="text"
                       value={newMoodHex}
                       onChange={(e) => setNewMoodHex(e.target.value)}
-                      className="w-16 bg-black/60 border border-[#272732] px-1 py-1 rounded text-zinc-200 uppercase outline-none text-center"
+                      className="w-16 bg-black/60 border border-[#26282E] px-1 py-1 rounded text-zinc-200 uppercase outline-none text-center"
                     />
                   </div>
                 )}
-                <button
-                  onClick={handleAddMoodItem}
-                  className="px-2 py-1 rounded bg-[#fbbf24] text-black font-bold cursor-pointer"
-                >
-                  PIN
-                </button>
+                <CinemaToolHUD title="PIN TO BOARD" en="Add reference card to moodboard." bn="মুডবোর্ডে রেফারেন্স পিন করতে PIN চাপুন।" accent="amber">
+                  <button
+                    type="button"
+                    onClick={handleAddMoodItem}
+                    data-active="true"
+                    className="cinema-tile cinema-tile-amber px-2.5 min-h-[32px] rounded font-black text-[9.5px] uppercase cursor-pointer"
+                  >
+                    PIN
+                  </button>
+                </CinemaToolHUD>
               </div>
             </div>
 
-            {/* Pinned References Grid */}
             <div className="grid grid-cols-2 gap-1.5 max-h-48 overflow-y-auto no-scrollbar">
               {moodboard.map(item => (
                 <div
                   key={item.id}
-                  className="p-1.5 rounded-[2px] bg-black/60 border border-[#272732] flex items-center justify-between gap-1.5 group relative"
+                  className="p-1.5 rounded bg-black/60 border border-[#26282E] flex items-center justify-between gap-1.5 group relative"
                 >
                   {item.type === 'image' ? (
                     <img
                       src={item.url}
                       alt={item.label}
-                      className="w-10 h-10 object-cover rounded-[1px] border border-white/10 shrink-0"
+                      className="w-10 h-10 object-cover rounded border border-white/10 shrink-0"
                     />
                   ) : (
                     <div
-                      className="w-10 h-10 rounded-[1px] border border-white/20 shrink-0 shadow-sm"
+                      className="w-10 h-10 rounded border border-white/20 shrink-0 shadow-sm"
                       style={{ backgroundColor: item.hex }}
                     />
                   )}
                   <div className="min-w-0 flex-1">
-                    <div className="text-[9px] font-bold text-zinc-200 truncate">{item.label}</div>
+                    <div className="text-[9px] font-black text-zinc-200 truncate">{item.label}</div>
                     <div className="text-[7.5px] text-zinc-500 font-mono truncate">{item.tag}</div>
                   </div>
-                  <button
-                    onClick={() => handleRemoveMood(item.id)}
-                    className="p-1 text-zinc-600 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </button>
+                  <CinemaToolHUD title="REMOVE PIN" en="Remove item from moodboard." bn="মুডবোর্ড থেকে সরাতে চাপুন।" accent="crimson">
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveMood(item.id)}
+                      className="cinema-tile cinema-tile-crimson p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                    >
+                      <Trash2 className="w-3 h-3 cinema-tile-icon" />
+                    </button>
+                  </CinemaToolHUD>
                 </div>
               ))}
             </div>

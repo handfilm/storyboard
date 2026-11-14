@@ -29,6 +29,7 @@ import {
 } from '../../services/lightingRelightingService';
 import { renderProceduralBackdropToCanvas } from '../../data/proceduralCinemaEngine';
 import { useLicenseStore } from '../../services/licenseService';
+import { CinemaToolHUD, CinemaBadgeHeader } from '../ui/CinemaToolHUD';
 
 export type LightingFilterTabId = 'ALL' | 'ATMO' | 'GORO' | 'TONE' | 'STUDIO';
 
@@ -190,56 +191,74 @@ export const LightingRelightingWorkbench: React.FC<LightingRelightingWorkbenchPr
         {/* Header + Filter Pills */}
         <div className="p-2.5 border-b border-white/[0.08] space-y-2 shrink-0">
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <Sun className="w-3.5 h-3.5 text-[#F59E0B] shrink-0" />
-              <span className="text-[10px] font-black tracking-wider text-white uppercase truncate">
-                LIGHT RIG ({LIGHTING_PRESETS.length})
-              </span>
-            </div>
+            <CinemaBadgeHeader
+              icon={Sun}
+              label={`LIGHT RIG (${LIGHTING_PRESETS.length})`}
+              accent="amber"
+            />
             <div className="flex items-center gap-1 shrink-0">
-              <button
-                type="button"
-                onClick={() => setLightConfig({ ...DEFAULT_SHOT_LIGHT_CONFIG })}
-                className="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/10 text-zinc-300 border border-white/10 text-[8.5px] uppercase flex items-center gap-1 cursor-pointer"
-                title="Reset 3D light nodes & sliders"
+              <CinemaToolHUD
+                title="RESET 3-POINT ORBS"
+                en="Resets Key, Rim, and Fill orb coordinates and sliders to neutral."
+                bn="কীভাবে ব্যবহার করবেন: লাইটের পজিশন ও স্লাইডার রিসেট করতে RESET চাপুন।"
+                accent="amber"
+                side="bottom"
               >
-                <RotateCcw className="w-2.5 h-2.5" />
-                <span>RESET</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleClearRig}
-                className="px-1.5 py-0.5 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 text-[8.5px] uppercase flex items-center gap-1 cursor-pointer"
-                title="Clear active lighting rig"
+                <button
+                  type="button"
+                  onClick={() => setLightConfig({ ...DEFAULT_SHOT_LIGHT_CONFIG })}
+                  className="cinema-tile cinema-tile-amber px-2 py-1 rounded text-[9px] font-black tracking-wider uppercase flex items-center gap-1 cursor-pointer"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>RESET</span>
+                </button>
+              </CinemaToolHUD>
+              <CinemaToolHUD
+                title="CLEAR LIGHT RIG"
+                en="Removes active 34-preset atmospheric lighting from the shot."
+                bn="কীভাবে ব্যবহার করবেন: শটের লাইটিং ইফেক্ট পুরোপুরি মুছে ফেলতে CLEAR চাপুন।"
+                accent="crimson"
+                side="bottom"
               >
-                <Trash2 className="w-2.5 h-2.5" />
-                <span>CLEAR</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={handleClearRig}
+                  className="cinema-tile cinema-tile-crimson px-2 py-1 rounded text-[9px] font-black tracking-wider uppercase flex items-center gap-1 cursor-pointer"
+                >
+                  <Trash2 className="w-3 h-3" />
+                  <span>CLEAR</span>
+                </button>
+              </CinemaToolHUD>
             </div>
           </div>
 
-          <div className="grid grid-cols-5 gap-1 bg-black/60 p-0.5 rounded border border-white/10">
+          <div className="grid grid-cols-5 gap-1 bg-black/60 p-1 rounded border border-white/10">
             {(['ALL', 'ATMO', 'GORO', 'TONE', 'STUDIO'] as const).map((tab) => (
-              <button
+              <CinemaToolHUD
                 key={tab}
-                type="button"
-                data-testid={`lighting-filter-${tab.toLowerCase()}`}
-                onClick={() => setFilterTab(tab)}
-                className={`py-1 rounded text-[8.5px] font-bold uppercase tracking-wider cursor-pointer whitespace-nowrap transition-colors ${
-                  filterTab === tab
-                    ? 'bg-[#F59E0B] text-black'
-                    : 'text-zinc-400 hover:text-white'
-                }`}
+                title={`FILTER: ${tab}`}
+                en={`Filters lighting presets by ${tab} category.`}
+                bn="কীভাবে ব্যবহার করবেন: ক্যাটাগরি অনুযায়ী লাইটিং প্রিসেট ফিল্টার করতে ট্যাবে চাপুন।"
+                accent="amber"
+                side="bottom"
               >
-                {tab}
-              </button>
+                <button
+                  type="button"
+                  data-testid={`lighting-filter-${tab.toLowerCase()}`}
+                  data-active={filterTab === tab ? 'true' : 'false'}
+                  onClick={() => setFilterTab(tab)}
+                  className="cinema-tile cinema-tile-amber w-full py-1 rounded text-[9px] font-black uppercase tracking-wider cursor-pointer whitespace-nowrap"
+                >
+                  {tab}
+                </button>
+              </CinemaToolHUD>
             ))}
           </div>
 
-          <div className="px-2 py-1 rounded bg-black/60 border border-white/10 flex items-center justify-between text-[8.5px]">
-            <span className="text-zinc-400 uppercase">ACTIVE RIG</span>
-            <span className="text-[#FFE066] font-bold truncate max-w-[190px]">
-              {activePreset ? activePreset.name : 'CUSTOM 3-POINT RIG'}
+          <div className="px-2 py-1 rounded bg-black/60 border border-white/10 flex items-center justify-between text-[9px]">
+            <span className="text-zinc-400 font-black uppercase tracking-wider">ACTIVE</span>
+            <span className="text-[#FFE066] font-black uppercase truncate max-w-[190px]">
+              {activePreset ? activePreset.name : '3-POINT RIG'}
             </span>
           </div>
         </div>
@@ -250,70 +269,91 @@ export const LightingRelightingWorkbench: React.FC<LightingRelightingWorkbenchPr
             {filteredPresets.map((preset, idx) => {
               const isSelected = selectedLightId === preset.id;
               return (
-                <button
+                <CinemaToolHUD
                   key={preset.id}
-                  type="button"
-                  data-testid={`lighting-preset-${preset.id}`}
-                  onClick={() => handleSelectPreset(preset)}
-                  className={`group rounded-md border overflow-hidden text-left cursor-pointer transition-all flex flex-col ${
-                    isSelected
-                      ? 'border-[#F59E0B] bg-[#F59E0B]/10 ring-1 ring-[#F59E0B]/50'
-                      : 'border-white/10 bg-black/50 hover:border-white/30'
-                  }`}
-                  title={preset.name}
+                  title={preset.name.toUpperCase()}
+                  en={`${preset.category} lighting rig preset (#${String(idx + 1).padStart(2, '0')}).`}
+                  bn="কীভাবে ব্যবহার করবেন: প্রিভিউ করতে এই লাইট কার্ডে ক্লিক করুন এবং নিচে APPLY চাপুন।"
+                  accent="amber"
+                  side="right"
                 >
-                  <div
-                    className="h-9 w-full relative flex items-start justify-between p-1"
-                    style={{ background: getPresetSwatchGradient(preset) }}
+                  <button
+                    type="button"
+                    data-testid={`lighting-preset-${preset.id}`}
+                    data-active={isSelected ? 'true' : 'false'}
+                    onClick={() => handleSelectPreset(preset)}
+                    className="cinema-tile cinema-tile-amber w-full rounded-md overflow-hidden text-left cursor-pointer flex flex-col"
                   >
-                    <span className="text-[7.5px] font-bold px-1 rounded bg-black/65 text-zinc-200 tabular-nums">
-                      #{String(idx + 1).padStart(2, '0')}
-                    </span>
-                    {isSelected && (
-                      <span className="w-2 h-2 rounded-full bg-[#F59E0B]" />
-                    )}
-                  </div>
-                  <div className="px-1.5 py-1 bg-[#0B0B0D]">
                     <div
-                      className={`text-[8px] font-bold leading-tight truncate ${
-                        isSelected ? 'text-[#FFE066]' : 'text-zinc-300 group-hover:text-white'
-                      }`}
+                      className="h-9 w-full relative flex items-start justify-between p-1"
+                      style={{ background: getPresetSwatchGradient(preset) }}
                     >
-                      {preset.name}
+                      <span className="text-[7.5px] font-bold px-1 rounded bg-black/65 text-zinc-200 tabular-nums">
+                        #{String(idx + 1).padStart(2, '0')}
+                      </span>
+                      {isSelected && (
+                        <span className="w-2 h-2 rounded-full bg-[#F59E0B]" />
+                      )}
                     </div>
-                  </div>
-                </button>
+                    <div className="px-1.5 py-1 bg-[#0B0B0D] w-full">
+                      <div
+                        className={`text-[9px] font-black uppercase tracking-wider leading-tight truncate ${
+                          isSelected ? 'text-[#FFE066]' : 'text-zinc-200'
+                        }`}
+                      >
+                        {preset.name}
+                      </div>
+                    </div>
+                  </button>
+                </CinemaToolHUD>
               );
             })}
           </div>
         </div>
 
         {/* Pinned Always-Visible Bottom Footer */}
-        <div className="shrink-0 p-3 border-t border-white/[0.08] bg-[#0B0B0D] flex flex-col gap-1.5">
-          <button
-            type="button"
-            data-testid="apply-lighting-to-shot-btn"
-            onClick={() => {
-              if (!useLicenseStore.getState().requireProAccess('34 Pro Light Rigs')) return;
-              onApplyToShot(selectedLightId, lightConfig);
-            }}
-            className="w-full py-2 rounded bg-[#F59E0B] hover:bg-amber-400 active:scale-[0.99] text-black font-black text-[10px] tracking-wider uppercase flex items-center justify-center gap-1.5 cursor-pointer transition-all whitespace-nowrap"
+        <div className="shrink-0 p-3 border-t border-white/[0.08] bg-[#0B0B0D] grid grid-cols-2 gap-2">
+          <CinemaToolHUD
+            title="APPLY LIGHT TO SHOT"
+            en="Commits selected lighting rig and 3D orb setup to current shot."
+            bn="কীভাবে ব্যবহার করবেন: শুধু বর্তমান শটে আলো সেট করতে APPLY SHOT চাপুন।"
+            accent="amber"
+            side="top"
           >
-            <Check className="w-3.5 h-3.5" />
-            <span>✓ APPLY TO SHOT</span>
-          </button>
-          <button
-            type="button"
-            data-testid="apply-lighting-to-all-btn"
-            onClick={() => {
-              if (!useLicenseStore.getState().requireProAccess('34 Pro Light Rigs')) return;
-              onApplyToAllShots(selectedLightId, lightConfig);
-            }}
-            className="w-full py-1.5 rounded bg-neutral-900 hover:bg-neutral-800 border border-[#F59E0B]/50 text-amber-300 font-bold text-[9.5px] tracking-wider uppercase flex items-center justify-center gap-1.5 cursor-pointer transition-all whitespace-nowrap"
+            <button
+              type="button"
+              data-testid="apply-lighting-to-shot-btn"
+              data-active="true"
+              onClick={() => {
+                if (!useLicenseStore.getState().requireProAccess('34 Pro Light Rigs')) return;
+                onApplyToShot(selectedLightId, lightConfig);
+              }}
+              className="cinema-tile cinema-tile-amber w-full min-h-[44px] px-2 rounded font-black text-[10px] tracking-wider uppercase flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
+            >
+              <Check className="w-4 h-4" />
+              <span>APPLY SHOT</span>
+            </button>
+          </CinemaToolHUD>
+          <CinemaToolHUD
+            title="APPLY LIGHT TO ALL SHOTS"
+            en="Syncs this lighting rig across every shot in the sequence."
+            bn="কীভাবে ব্যবহার করবেন: পুরো সিনেমার সব শটে একই আলো দিতে APPLY ALL চাপুন।"
+            accent="cyan"
+            side="top"
           >
-            <Zap className="w-3.5 h-3.5 text-[#F59E0B]" />
-            <span>⚡ APPLY TO ALL SHOTS</span>
-          </button>
+            <button
+              type="button"
+              data-testid="apply-lighting-to-all-btn"
+              onClick={() => {
+                if (!useLicenseStore.getState().requireProAccess('34 Pro Light Rigs')) return;
+                onApplyToAllShots(selectedLightId, lightConfig);
+              }}
+              className="cinema-tile cinema-tile-cyan w-full min-h-[44px] px-2 rounded font-black text-[10px] tracking-wider uppercase flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
+            >
+              <Zap className="w-4 h-4 text-[#F59E0B]" />
+              <span>APPLY ALL</span>
+            </button>
+          </CinemaToolHUD>
         </div>
       </aside>
 
@@ -368,150 +408,211 @@ export const LightingRelightingWorkbench: React.FC<LightingRelightingWorkbenchPr
                 }
               ] as const
             ).map((orb) => (
-              <button
+              <CinemaToolHUD
                 key={orb.key}
-                type="button"
-                data-testid={`light-orb-${orb.key}`}
-                onPointerDown={(e) => {
-                  e.stopPropagation();
-                  (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
-                  setDraggingNode(orb.key);
-                }}
-                onPointerMove={(e) => {
-                  if (draggingNode === orb.key) {
-                    updateLightPosFromPointer(e.clientX, e.clientY, orb.key);
-                  }
-                }}
-                onPointerUp={() => setDraggingNode(null)}
-                style={{
-                  left: `${orb.pos.x}%`,
-                  top: `${orb.pos.y}%`,
-                  borderColor: orb.color,
-                  boxShadow: `0 0 14px ${orb.color}`
-                }}
-                className="absolute -translate-x-1/2 -translate-y-1/2 px-2 py-0.5 rounded-full bg-black/80 border-2 text-[8px] font-black text-white tracking-wider cursor-grab active:cursor-grabbing hover:scale-110 transition-transform tabular-nums"
-                title={`Drag ${orb.label} light position`}
+                title={`${orb.label} LIGHT ORB`}
+                en={`Drag to reposition ${orb.label} light source in 3D space.`}
+                bn="কীভাবে ব্যবহার করবেন: স্ক্রিনের KEY, RIM ও FILL বলগুলো ড্র্যাগ করে সিনেমার আলো সেট করুন।"
+                accent={orb.key === 'rimPos' ? 'cyan' : 'amber'}
+                side="top"
               >
-                {orb.label} {orb.pos.x}%
-              </button>
+                <button
+                  type="button"
+                  data-testid={`light-orb-${orb.key}`}
+                  onPointerDown={(e) => {
+                    e.stopPropagation();
+                    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+                    setDraggingNode(orb.key);
+                  }}
+                  onPointerMove={(e) => {
+                    if (draggingNode === orb.key) {
+                      updateLightPosFromPointer(e.clientX, e.clientY, orb.key);
+                    }
+                  }}
+                  onPointerUp={() => setDraggingNode(null)}
+                  style={{
+                    left: `${orb.pos.x}%`,
+                    top: `${orb.pos.y}%`,
+                    borderColor: orb.color,
+                    boxShadow: `0 0 14px ${orb.color}`
+                  }}
+                  className="absolute -translate-x-1/2 -translate-y-1/2 px-2 py-0.5 rounded-full bg-black/80 border-2 text-[8px] font-black text-white tracking-wider cursor-grab active:cursor-grabbing hover:scale-110 transition-transform tabular-nums"
+                >
+                  {orb.label} {orb.pos.x}%
+                </button>
+              </CinemaToolHUD>
             ))}
 
-            <div className="absolute bottom-1.5 left-2 px-1.5 py-0.5 rounded bg-black/75 border border-white/10 text-[8px] text-zinc-300 pointer-events-none tabular-nums">
-              DRAG KEY / RIM / FILL ORBS • {lightConfig.colorTempK}K • {frame?.aspectRatio || '2.39:1'}
+            <div className="absolute bottom-1.5 left-2 px-1.5 py-0.5 rounded bg-black/75 border border-white/10 text-[8px] font-black uppercase text-zinc-300 pointer-events-none tabular-nums">
+              {lightConfig.colorTempK}K • {frame?.aspectRatio || '2.39:1'}
             </div>
           </div>
         </div>
 
         {/* Bottom 6-Slider Pro Cinematography Rack */}
         <div className="shrink-0 px-4 py-2.5 border-t border-white/[0.08] bg-[#0B0B0D] grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2 text-[9px]">
-          <div>
-            <div className="flex justify-between text-zinc-400 tabular-nums">
-              <span>KEY INTENSITY</span>
-              <span className="text-[#FFE066] font-bold">{lightConfig.keyIntensity}%</span>
+          <CinemaToolHUD
+            title="KEY LIGHT INTENSITY"
+            en="Controls primary key light brightness on the subject."
+            bn="কীভাবে ব্যবহার করবেন: স্লাইডার টেনে মূল আলোর তীব্রতা বাড়ান বা কমান।"
+            accent="amber"
+            side="top"
+            blockWrapper
+          >
+            <div>
+              <div className="flex justify-between font-black tracking-wider text-zinc-400 tabular-nums">
+                <span>KEY LIGHT</span>
+                <span className="text-[#FFE066]">{lightConfig.keyIntensity}%</span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={lightConfig.keyIntensity}
+                onChange={(e) =>
+                  setLightConfig((p) => ({ ...p, keyIntensity: Number(e.target.value) }))
+                }
+                className="w-full accent-[#F59E0B] cursor-pointer"
+              />
             </div>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={lightConfig.keyIntensity}
-              onChange={(e) =>
-                setLightConfig((p) => ({ ...p, keyIntensity: Number(e.target.value) }))
-              }
-              className="w-full accent-[#F59E0B] cursor-pointer"
-            />
-          </div>
+          </CinemaToolHUD>
 
-          <div>
-            <div className="flex justify-between text-zinc-400 tabular-nums">
-              <span className="flex items-center gap-1">
-                <span
-                  className="inline-block w-2 h-2 rounded-full"
-                  style={{ backgroundColor: `rgb(${kelvinRgb.r},${kelvinRgb.g},${kelvinRgb.b})` }}
-                />
-                COLOR TEMP
-              </span>
-              <span className="text-[#FFE066] font-bold">{lightConfig.colorTempK}K</span>
+          <CinemaToolHUD
+            title="KELVIN COLOR TEMP"
+            en="Shifts key light warmth from 2400K tungsten to 7500K cool daylight."
+            bn="কীভাবে ব্যবহার করবেন: উষ্ণ সোনালি বা শীতল নীল আলো পেতে স্লাইডার সরান।"
+            accent="amber"
+            side="top"
+            blockWrapper
+          >
+            <div>
+              <div className="flex justify-between font-black tracking-wider text-zinc-400 tabular-nums">
+                <span className="flex items-center gap-1">
+                  <span
+                    className="inline-block w-2 h-2 rounded-full"
+                    style={{ backgroundColor: `rgb(${kelvinRgb.r},${kelvinRgb.g},${kelvinRgb.b})` }}
+                  />
+                  TEMP K
+                </span>
+                <span className="text-[#FFE066]">{lightConfig.colorTempK}K</span>
+              </div>
+              <input
+                type="range"
+                min={2400}
+                max={7500}
+                step={100}
+                value={lightConfig.colorTempK}
+                onChange={(e) =>
+                  setLightConfig((p) => ({ ...p, colorTempK: Number(e.target.value) }))
+                }
+                className="w-full accent-[#F59E0B] cursor-pointer"
+              />
             </div>
-            <input
-              type="range"
-              min={2400}
-              max={7500}
-              step={100}
-              value={lightConfig.colorTempK}
-              onChange={(e) =>
-                setLightConfig((p) => ({ ...p, colorTempK: Number(e.target.value) }))
-              }
-              className="w-full accent-[#F59E0B] cursor-pointer"
-            />
-          </div>
+          </CinemaToolHUD>
 
-          <div>
-            <div className="flex justify-between text-zinc-400 tabular-nums">
-              <span>VOLUMETRIC HAZE</span>
-              <span className="text-[#FFE066] font-bold">{lightConfig.hazeBloom}%</span>
+          <CinemaToolHUD
+            title="VOLUMETRIC HAZE"
+            en="Adds atmospheric fog bloom around light sources."
+            bn="কীভাবে ব্যবহার করবেন: স্লাইডার বাড়িয়ে ফ্রেমে সিনেমার ধোঁয়া ও গ্লো যোগ করুন।"
+            accent="amber"
+            side="top"
+            blockWrapper
+          >
+            <div>
+              <div className="flex justify-between font-black tracking-wider text-zinc-400 tabular-nums">
+                <span>HAZE</span>
+                <span className="text-[#FFE066]">{lightConfig.hazeBloom}%</span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={lightConfig.hazeBloom}
+                onChange={(e) =>
+                  setLightConfig((p) => ({ ...p, hazeBloom: Number(e.target.value) }))
+                }
+                className="w-full accent-[#F59E0B] cursor-pointer"
+              />
             </div>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={lightConfig.hazeBloom}
-              onChange={(e) =>
-                setLightConfig((p) => ({ ...p, hazeBloom: Number(e.target.value) }))
-              }
-              className="w-full accent-[#F59E0B] cursor-pointer"
-            />
-          </div>
+          </CinemaToolHUD>
 
-          <div>
-            <div className="flex justify-between text-zinc-400 tabular-nums">
-              <span>RIM CATCHLIGHT</span>
-              <span className="text-[#38BDF8] font-bold">{lightConfig.rimCatchlight}%</span>
+          <CinemaToolHUD
+            title="RIM CATCHLIGHT"
+            en="Boosts backlight edge separation along subject contours."
+            bn="কীভাবে ব্যবহার করবেন: চরিত্রের চারপাশে শার্ফ রিম লাইট দিতে বাড়ান।"
+            accent="cyan"
+            side="top"
+            blockWrapper
+          >
+            <div>
+              <div className="flex justify-between font-black tracking-wider text-zinc-400 tabular-nums">
+                <span>RIM LIGHT</span>
+                <span className="text-[#38BDF8]">{lightConfig.rimCatchlight}%</span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={lightConfig.rimCatchlight}
+                onChange={(e) =>
+                  setLightConfig((p) => ({ ...p, rimCatchlight: Number(e.target.value) }))
+                }
+                className="w-full accent-[#38BDF8] cursor-pointer"
+              />
             </div>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={lightConfig.rimCatchlight}
-              onChange={(e) =>
-                setLightConfig((p) => ({ ...p, rimCatchlight: Number(e.target.value) }))
-              }
-              className="w-full accent-[#38BDF8] cursor-pointer"
-            />
-          </div>
+          </CinemaToolHUD>
 
-          <div>
-            <div className="flex justify-between text-zinc-400 tabular-nums">
-              <span>VIGNETTE FALLOFF</span>
-              <span className="text-zinc-200 font-bold">{lightConfig.vignetteFalloff}%</span>
+          <CinemaToolHUD
+            title="VIGNETTE FALLOFF"
+            en="Darkens frame corners to draw focus into the illuminated center."
+            bn="কীভাবে ব্যবহার করবেন: চারপাশ ডার্ক করে মাঝে ফোকাস আনতে ভিনিয়েট বাড়ান।"
+            accent="amber"
+            side="top"
+            blockWrapper
+          >
+            <div>
+              <div className="flex justify-between font-black tracking-wider text-zinc-400 tabular-nums">
+                <span>VIGNETTE</span>
+                <span className="text-zinc-200">{lightConfig.vignetteFalloff}%</span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={lightConfig.vignetteFalloff}
+                onChange={(e) =>
+                  setLightConfig((p) => ({ ...p, vignetteFalloff: Number(e.target.value) }))
+                }
+                className="w-full accent-zinc-300 cursor-pointer"
+              />
             </div>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={lightConfig.vignetteFalloff}
-              onChange={(e) =>
-                setLightConfig((p) => ({ ...p, vignetteFalloff: Number(e.target.value) }))
-              }
-              className="w-full accent-zinc-300 cursor-pointer"
-            />
-          </div>
+          </CinemaToolHUD>
 
-          <div>
-            <div className="flex justify-between text-zinc-400 tabular-nums">
-              <span>STREAK ANGLE</span>
-              <span className="text-[#FFE066] font-bold">{lightConfig.streakAngle}°</span>
+          <CinemaToolHUD
+            title="ANAMORPHIC STREAK ANGLE"
+            en="Rotates horizontal optical lens flare streak angle (-45° to +45°)."
+            bn="কীভাবে ব্যবহার করবেন: অ্যানামর্ফিক ফ্লেয়ার রেখার কোণ ঘোরাতে স্লাইডার সরান।"
+            accent="amber"
+            side="top"
+            blockWrapper
+          >
+            <div>
+              <div className="flex justify-between font-black tracking-wider text-zinc-400 tabular-nums">
+                <span>STREAK</span>
+                <span className="text-[#FFE066]">{lightConfig.streakAngle}°</span>
+              </div>
+              <input
+                type="range"
+                min={-45}
+                max={45}
+                value={lightConfig.streakAngle}
+                onChange={(e) =>
+                  setLightConfig((p) => ({ ...p, streakAngle: Number(e.target.value) }))
+                }
+                className="w-full accent-[#F59E0B] cursor-pointer"
+              />
             </div>
-            <input
-              type="range"
-              min={-45}
-              max={45}
-              value={lightConfig.streakAngle}
-              onChange={(e) =>
-                setLightConfig((p) => ({ ...p, streakAngle: Number(e.target.value) }))
-              }
-              className="w-full accent-[#F59E0B] cursor-pointer"
-            />
-          </div>
+          </CinemaToolHUD>
         </div>
       </section>
     </div>

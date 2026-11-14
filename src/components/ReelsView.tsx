@@ -64,8 +64,12 @@ import {
   EyeOff,
   RotateCcw,
   ArrowDownCircle,
-  Check
+  Check,
+  Repeat,
+  SkipBack,
+  SkipForward
 } from 'lucide-react';
+import { CinemaBadgeHeader, CinemaToolHUD } from './ui/CinemaToolHUD';
 
 export type ReelsSafeZonePosition = 'top' | 'center' | 'bottom';
 
@@ -579,22 +583,26 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
                   )}
                 </div>
               ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center bg-[#08090C] p-6 text-center">
-                  <Film className="w-10 h-10 text-[#F5A623]/40 mb-3" />
-                  <p className="text-[11px] text-zinc-200 font-bold tracking-widest uppercase">
-                    9:16 REELS SLOT · SH{String(currentIndex + 1).padStart(3, '0')}
+                <div className="w-full h-full flex flex-col items-center justify-center bg-[#08090C] p-6 text-center gap-3">
+                  <Film className="w-10 h-10 text-[#F5A623]/40" />
+                  <p className="text-[11px] text-zinc-200 font-black tracking-widest uppercase">
+                    9:16 · SH{String(currentIndex + 1).padStart(3, '0')}
                   </p>
-                  <p className="text-[10px] text-zinc-500 mt-1 max-w-[220px]">
-                    Drop vertical or 2.39:1 horizontal video to auto-crop in 9:16.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="mt-4 px-3 py-1.5 bg-[#F5A623] text-black text-[11px] font-black flex items-center gap-1.5 cursor-pointer"
+                  <CinemaToolHUD
+                    title="UPLOAD FOOTAGE"
+                    en="Attach video or image plate to this 9:16 Reels slot."
+                    bn="এই রিলস স্লটে ভিডিও বা ছবি আপলোড করতে ক্লিক করুন।"
+                    accent="amber"
                   >
-                    <Upload className="w-3.5 h-3.5" />
-                    <span>UPLOAD FOOTAGE</span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="cinema-tile cinema-tile-amber px-3.5 py-2 min-h-[44px] rounded-md font-black tracking-wider text-[11px] uppercase flex items-center gap-2 cursor-pointer"
+                    >
+                      <Upload className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                      <span>UPLOAD MEDIA</span>
+                    </button>
+                  </CinemaToolHUD>
                 </div>
               )}
 
@@ -657,23 +665,31 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
 
               {/* Top-Right Quick Overlay Controls inside frame */}
               <div className="absolute top-2 right-2 z-40 flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => setShowSafeZoneGuides((g) => !g)}
-                  className="px-1.5 py-0.5 bg-black/80 border border-white/20 text-[9px] text-zinc-200 hover:text-[#F5A623] flex items-center gap-1 cursor-pointer"
-                  title="Toggle 9:16 Platform Safe-Zone Guides"
+                <CinemaToolHUD
+                  title="REELS SAFE GUIDES"
+                  en="Toggle 1080x1920 Reels & TikTok UI clearance overlay."
+                  bn="রিলস ও টিকটক সেফ-জোন গাইড লাইন দেখাতে বা লুকাতে চাপুন।"
+                  accent="cyan"
+                  side="left"
                 >
-                  {showSafeZoneGuides ? <Eye className="w-2.5 h-2.5" /> : <EyeOff className="w-2.5 h-2.5" />}
-                  <span>GUIDES</span>
-                </button>
+                  <button
+                    type="button"
+                    data-active={showSafeZoneGuides ? 'true' : 'false'}
+                    onClick={() => setShowSafeZoneGuides((g) => !g)}
+                    className="cinema-tile cinema-tile-cyan px-2 py-1 rounded text-[10px] font-black tracking-wider uppercase flex items-center gap-1 cursor-pointer"
+                  >
+                    {showSafeZoneGuides ? <Eye className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} /> : <EyeOff className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />}
+                    <span>GUIDES</span>
+                  </button>
+                </CinemaToolHUD>
               </div>
 
               {/* Drop Indicator */}
               {isDraggingOver && (
                 <div className="absolute inset-0 bg-black/90 border-2 border-dashed border-[#F5A623] flex flex-col items-center justify-center p-4 z-50 pointer-events-none">
                   <ArrowDownCircle className="w-10 h-10 text-[#F5A623] mb-2" />
-                  <p className="text-[11px] font-bold text-[#F5A623] uppercase tracking-widest text-center">
-                    DROP CLIP INTO 9:16 REELS SLOT
+                  <p className="text-[11px] font-black text-[#F5A623] uppercase tracking-widest text-center">
+                    DROP CLIP
                   </p>
                 </div>
               )}
@@ -732,39 +748,72 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
             {/* Transport Row */}
             <div className="h-10 px-3 flex items-center justify-between gap-2 text-xs">
               <div className="flex items-center gap-1.5 shrink-0">
-                <button
-                  type="button"
-                  onClick={onTogglePlay}
-                  className="px-3 py-1 bg-[#E50914] hover:bg-[#ff1e2b] text-white font-black text-[10px] flex items-center gap-1 cursor-pointer whitespace-nowrap"
+                <CinemaToolHUD
+                  title={isPlaying ? 'PAUSE REEL' : 'PLAY REEL'}
+                  en="Play or pause 9:16 master reel preview."
+                  bn="৯:১৬ রিলস প্রিভিউ চালাতে বা থামাতে চাপুন।"
+                  shortcut="SPACE"
+                  accent="crimson"
                 >
-                  {isPlaying ? <Pause className="w-3 h-3 fill-current" /> : <Play className="w-3 h-3 fill-current" />}
-                  <span>{isPlaying ? 'PAUSE' : 'PLAY'}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onStepFrame(false)}
-                  className="px-1.5 py-1 bg-white/5 hover:bg-white/15 border border-white/10 text-[10px] font-bold text-zinc-200 cursor-pointer"
+                  <button
+                    type="button"
+                    data-active={isPlaying ? 'true' : 'false'}
+                    onClick={onTogglePlay}
+                    className="cinema-tile cinema-tile-crimson px-3 py-1 rounded font-black text-[10px] tracking-wider uppercase flex items-center gap-1 cursor-pointer whitespace-nowrap"
+                  >
+                    {isPlaying ? <Pause className="w-3.5 h-3.5 cinema-tile-icon fill-current" /> : <Play className="w-3.5 h-3.5 cinema-tile-icon fill-current" />}
+                    <span>{isPlaying ? 'PAUSE' : 'PLAY'}</span>
+                  </button>
+                </CinemaToolHUD>
+                <CinemaToolHUD
+                  title="STEP BACK 1 FRAME"
+                  en="Step playhead backward by 1 frame."
+                  bn="প্লেহেড ১ ফ্রেম পেছনে নিতে চাপুন।"
+                  shortcut="←"
+                  accent="amber"
                 >
-                  -1F
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onStepFrame(true)}
-                  className="px-1.5 py-1 bg-white/5 hover:bg-white/15 border border-white/10 text-[10px] font-bold text-zinc-200 cursor-pointer"
+                  <button
+                    type="button"
+                    onClick={() => onStepFrame(false)}
+                    className="cinema-tile cinema-tile-amber px-2 py-1 rounded text-[10px] font-black flex items-center gap-0.5 cursor-pointer"
+                  >
+                    <SkipBack className="w-3 h-3 cinema-tile-icon" />
+                    <span>-1F</span>
+                  </button>
+                </CinemaToolHUD>
+                <CinemaToolHUD
+                  title="STEP FORWARD 1 FRAME"
+                  en="Step playhead forward by 1 frame."
+                  bn="প্লেহেড ১ ফ্রেম সামনে নিতে চাপুন।"
+                  shortcut="→"
+                  accent="amber"
                 >
-                  +1F
-                </button>
-                <button
-                  type="button"
-                  onClick={onToggleLoop}
-                  className={`px-2 py-1 border text-[10px] font-bold cursor-pointer tabular-nums ${
-                    isLooping
-                      ? 'bg-amber-950/60 border-[#F5A623]/50 text-[#F5A623]'
-                      : 'bg-white/5 border-white/10 text-zinc-400'
-                  }`}
+                  <button
+                    type="button"
+                    onClick={() => onStepFrame(true)}
+                    className="cinema-tile cinema-tile-amber px-2 py-1 rounded text-[10px] font-black flex items-center gap-0.5 cursor-pointer"
+                  >
+                    <span>+1F</span>
+                    <SkipForward className="w-3 h-3 cinema-tile-icon" />
+                  </button>
+                </CinemaToolHUD>
+                <CinemaToolHUD
+                  title="LOOP PLAYBACK"
+                  en="Toggle continuous shot/reel loop playback."
+                  bn="রিলস বা শট বারবার লুপে চালাতে চালু বা বন্ধ করুন।"
+                  shortcut="L"
+                  accent="amber"
                 >
-                  LOOP {formatDurationPillValue(activeDurationSec)}
-                </button>
+                  <button
+                    type="button"
+                    data-active={isLooping ? 'true' : 'false'}
+                    onClick={onToggleLoop}
+                    className="cinema-tile cinema-tile-amber px-2 py-1 rounded text-[10px] font-black flex items-center gap-1 cursor-pointer tabular-nums"
+                  >
+                    <Repeat className="w-3 h-3 cinema-tile-icon" />
+                    <span>LOOP {formatDurationPillValue(activeDurationSec)}</span>
+                  </button>
+                </CinemaToolHUD>
                 {onChangeSlideDuration && (
                   <CadenceSelectorPill
                     durationSec={activeDurationSec}
@@ -802,231 +851,305 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
         <aside className="w-full lg:w-[30%] lg:min-w-[320px] lg:max-w-[440px] bg-[#08090C] flex flex-col overflow-y-auto shrink-0">
           {/* Deck Header */}
           <div className="px-3.5 py-2.5 bg-[#0B0C10] border-b border-white/10 flex items-center justify-between gap-2 shrink-0">
-            <div>
-              <h2 className="text-[11px] font-black tracking-widest text-white uppercase">
-                CRAZY 12s SPEED REELS DECK
-              </h2>
-              <p className="text-[9px] text-zinc-400 tabular-nums">
-                MASTER REEL: {totalSequenceSec.toFixed(2)}s · {totalSequenceFrames}F @ 24FPS
-              </p>
-            </div>
+            <CinemaBadgeHeader
+              icon={<Zap className="w-4 h-4" strokeWidth={2.3} />}
+              label="SPEED REELS"
+              accent="amber"
+            />
             <span
-              className={`px-1.5 py-0.5 text-[9px] font-black border tabular-nums ${
+              className={`px-2 py-0.5 rounded text-[9px] font-black border tabular-nums ${
                 Math.abs(totalSequenceSec - 12.0) < 0.06
                   ? 'bg-emerald-950/60 border-emerald-500/50 text-emerald-300'
-                  : 'bg-white/5 border-white/15 text-[#F5A623]'
+                  : 'bg-[#111215] border-[#26282E] text-[#F5A623]'
               }`}
             >
-              {Math.abs(totalSequenceSec - 12.0) < 0.06 ? '12.00s LOCKED' : `${activeSlideList.length} CUTS`}
+              {totalSequenceSec.toFixed(1)}S · {activeSlideList.length}C
             </span>
           </div>
 
           {deckNotice && (
-            <div className="mx-3 mt-2.5 px-2.5 py-1.5 bg-[#F5A623]/15 border border-[#F5A623]/60 text-[#FFE066] text-[10px] font-bold flex items-center gap-1.5">
+            <div className="mx-3 mt-2.5 px-2.5 py-1.5 bg-[#F5A623]/15 border border-[#F5A623]/60 text-[#FFE066] text-[10px] font-black tracking-wider uppercase flex items-center gap-1.5">
               <Check className="w-3.5 h-3.5 shrink-0" />
               <span className="truncate">{deckNotice}</span>
             </div>
           )}
 
           <div className="p-3 space-y-3 flex-1">
-            {/* 1. 1-CLICK "12s HYPER-REEL" AUTO-PACKER */}
-            <section className="p-2.5 bg-[#0C0D12] border border-[#E50914]/50 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-black tracking-wider text-white flex items-center gap-1.5">
-                  <Flame className="w-3.5 h-3.5 text-[#E50914]" />
-                  <span>1. 12s HYPER-REEL AUTO-PACKER</span>
-                </span>
-                <span className="text-[9px] text-zinc-400 tabular-nums">{HYPER_REEL_TOTAL_FRAMES}F / 24FPS</span>
-              </div>
-              <p className="text-[10px] text-zinc-400 leading-snug">
-                Ranks loaded cuts by visual energy and packs a viral 12.00s cadence: 1.5s Hook, rapid middle cuts, and 2.5s Climax Slam.
-              </p>
-              <button
-                type="button"
-                data-testid="reels-pack-12s-btn"
-                onClick={handlePack12sHyperReel}
-                className="w-full py-2 px-3 bg-[#E50914] hover:bg-[#ff1e2b] text-white font-black text-[11px] tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-colors"
-              >
-                <Zap className="w-3.5 h-3.5 fill-current" />
-                <span>PACK 12s HYPER-REEL ({activeSlideList.length >= 10 ? '10 CUTS' : `${activeSlideList.length} CUTS`})</span>
-              </button>
-            </section>
-
-            {/* 2. VELOCITY SPEED-RAMP PRESETS */}
-            <section className="p-2.5 bg-[#0C0D12] border border-white/10 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-black tracking-wider text-white flex items-center gap-1.5">
-                  <Zap className="w-3.5 h-3.5 text-[#F5A623]" />
-                  <span>2. VELOCITY SPEED-RAMP</span>
-                </span>
+            {/* 1. 12s HYPER-REEL */}
+            <section className="p-2.5 rounded-lg bg-[#0C0D12] border border-[#E50914]/40 space-y-2">
+              <CinemaBadgeHeader
+                icon={<Flame className="w-3.5 h-3.5" strokeWidth={2.3} />}
+                label="HYPER REEL"
+                accent="crimson"
+                rightSlot={
+                  <span className="text-[9px] font-black text-zinc-400 tabular-nums">{HYPER_REEL_TOTAL_FRAMES}F</span>
+                }
+              />
+              <CinemaToolHUD hudId="hyper-reel" side="left" blockWrapper>
                 <button
                   type="button"
-                  onClick={handleApplySpeedRampAll}
-                  className="text-[9px] font-bold text-[#F5A623] hover:underline cursor-pointer"
+                  data-testid="reels-pack-12s-btn"
+                  data-active="true"
+                  onClick={handlePack12sHyperReel}
+                  className="cinema-tile cinema-tile-crimson w-full min-h-[44px] py-2 px-3 rounded-lg font-black tracking-wider text-[11px] uppercase flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  APPLY ALL
+                  <Zap className="w-4 h-4 cinema-tile-icon fill-current" strokeWidth={2.2} />
+                  <span>PACK 12S</span>
                 </button>
-              </div>
+              </CinemaToolHUD>
+            </section>
 
-              <div className="grid grid-cols-2 gap-1.5">
+            {/* 2. SPEED RAMP */}
+            <section className="p-2.5 rounded-lg bg-[#0C0D12] border border-white/10 space-y-2">
+              <CinemaBadgeHeader
+                icon={<Zap className="w-3.5 h-3.5" strokeWidth={2.3} />}
+                label="SPEED RAMP"
+                accent="amber"
+                rightSlot={
+                  <CinemaToolHUD
+                    title="SYNC RAMP ALL"
+                    en="Apply current shot speed ramp to every cut in sequence."
+                    bn="বর্তমান স্পিড র‍্যাম্প সবগুলো শটে একসাথে প্রয়োগ করতে চাপুন।"
+                    accent="amber"
+                    side="left"
+                  >
+                    <button
+                      type="button"
+                      onClick={handleApplySpeedRampAll}
+                      className="cinema-tile cinema-tile-amber px-2 py-1 rounded text-[9px] font-black tracking-wider uppercase cursor-pointer"
+                    >
+                      SYNC ALL
+                    </button>
+                  </CinemaToolHUD>
+                }
+              />
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
                 {SPEED_RAMP_PRESETS.map((preset) => {
                   const active = (activeSlide?.speedRampPreset || 'NONE') === preset.id;
+                  const shortTag =
+                    preset.id === 'NONE'
+                      ? 'LINEAR'
+                      : preset.id === 'BULLET_TIME'
+                        ? 'BULLET'
+                        : preset.id === 'WHIP_CUT'
+                          ? 'WHIP CUT'
+                          : preset.id === 'HEARTBEAT_PULSE'
+                            ? 'PULSE'
+                            : preset.shortLabel.toUpperCase();
                   return (
-                    <button
+                    <CinemaToolHUD
                       key={preset.id}
-                      type="button"
-                      onClick={() => handleApplySpeedRampShot(preset.id)}
-                      className={`p-1.5 border text-left cursor-pointer transition-colors ${
-                        active
-                          ? 'bg-[#1D160B] border-[#F5A623] text-white'
-                          : 'bg-black/60 border-white/10 text-zinc-400 hover:border-white/30 hover:text-white'
-                      }`}
+                      hudId={preset.id === 'HERO_RAMP' ? 'hero-ramp' : undefined}
+                      title={`${preset.label.toUpperCase()} RAMP`}
+                      en={`Apply ${preset.label} velocity curve (${preset.curveSummary}).`}
+                      bn={`ক্লিপে ${preset.label} গতির স্মুথ স্লো-মোশন বা ফাস্ট কার্ভ প্রয়োগ করুন।`}
+                      accent="amber"
+                      side="left"
+                      blockWrapper
                     >
-                      <div className={`text-[10px] font-black ${active ? 'text-[#F5A623]' : 'text-zinc-200'}`}>
-                        {preset.label}
-                      </div>
-                      <div className="text-[9px] text-zinc-500">{preset.curveSummary}</div>
-                    </button>
+                      <button
+                        type="button"
+                        data-active={active ? 'true' : 'false'}
+                        onClick={() => handleApplySpeedRampShot(preset.id)}
+                        className="cinema-tile cinema-tile-amber w-full min-h-[44px] px-2 py-1.5 rounded-lg flex flex-col items-center justify-center gap-1 cursor-pointer"
+                      >
+                        <Zap className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                        <span className="font-black tracking-wider text-[10px] uppercase leading-none truncate max-w-full">
+                          {shortTag}
+                        </span>
+                      </button>
+                    </CinemaToolHUD>
                   );
                 })}
               </div>
             </section>
 
-            {/* 3. BEAT-DROP & FLASH-CUT GENERATOR */}
-            <section className="p-2.5 bg-[#0C0D12] border border-white/10 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-black tracking-wider text-white flex items-center gap-1.5">
-                  <Flame className="w-3.5 h-3.5 text-cyan-400" />
-                  <span>3. BEAT-DROP & FLASH CUTS</span>
-                </span>
-                <button
-                  type="button"
-                  onClick={() =>
-                    handleToggleBeatFx(
-                      {
-                        flashCutEnabled: activeSlide?.flashCutEnabled ?? true,
-                        beatDropEnabled: activeSlide?.beatDropEnabled ?? true,
-                        flashCutIntervalSec: activeSlide?.flashCutIntervalSec ?? 1.0
-                      },
-                      true
-                    )
-                  }
-                  className="text-[9px] font-bold text-cyan-300 hover:underline cursor-pointer"
-                >
-                  APPLY ALL
-                </button>
-              </div>
+            {/* 3. BEAT CUT */}
+            <section className="p-2.5 rounded-lg bg-[#0C0D12] border border-white/10 space-y-2">
+              <CinemaBadgeHeader
+                icon={<Flame className="w-3.5 h-3.5" strokeWidth={2.3} />}
+                label="BEAT CUT"
+                accent="cyan"
+                rightSlot={
+                  <CinemaToolHUD
+                    title="SYNC BEAT FX"
+                    en="Apply flash-cut and beat-slam FX across all timeline shots."
+                    bn="বিট-ফ্ল্যাশ ও বিট-স্ল্যাম ইফেক্ট সব শটে প্রয়োগ করতে চাপুন।"
+                    accent="cyan"
+                    side="left"
+                  >
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleToggleBeatFx(
+                          {
+                            flashCutEnabled: activeSlide?.flashCutEnabled ?? true,
+                            beatDropEnabled: activeSlide?.beatDropEnabled ?? true,
+                            flashCutIntervalSec: activeSlide?.flashCutIntervalSec ?? 1.0
+                          },
+                          true
+                        )
+                      }
+                      className="cinema-tile cinema-tile-cyan px-2 py-1 rounded text-[9px] font-black tracking-wider uppercase cursor-pointer"
+                    >
+                      SYNC ALL
+                    </button>
+                  </CinemaToolHUD>
+                }
+              />
 
               <div className="grid grid-cols-2 gap-1.5">
-                <button
-                  type="button"
-                  data-testid="reels-flash-cut-toggle"
-                  onClick={() =>
-                    handleToggleBeatFx({
-                      flashCutEnabled: !activeSlide?.flashCutEnabled,
-                      beatDropEnabled: !activeSlide?.flashCutEnabled || Boolean(activeSlide?.beatDropEnabled)
-                    })
-                  }
-                  className={`py-1.5 px-2 border text-[10px] font-bold cursor-pointer ${
-                    activeSlide?.flashCutEnabled
-                      ? 'bg-[#E50914]/20 border-[#E50914] text-white'
-                      : 'bg-black/60 border-white/10 text-zinc-400 hover:text-white'
-                  }`}
+                <CinemaToolHUD
+                  title="2F FLASH CUT"
+                  en="Toggle 2-frame vantablack flash strobe on rhythmic intervals."
+                  bn="প্রতি বিটে ২-ফ্রেমের সিনেমাটিক ফ্ল্যাশ কাট চালু বা বন্ধ করুন।"
+                  accent="crimson"
+                  side="left"
+                  blockWrapper
                 >
-                  2F FLASH: {activeSlide?.flashCutEnabled ? 'ON' : 'OFF'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleToggleBeatFx({ beatDropEnabled: !activeSlide?.beatDropEnabled })}
-                  className={`py-1.5 px-2 border text-[10px] font-bold cursor-pointer ${
-                    activeSlide?.beatDropEnabled
-                      ? 'bg-cyan-950/50 border-cyan-400 text-cyan-200'
-                      : 'bg-black/60 border-white/10 text-zinc-400 hover:text-white'
-                  }`}
+                  <button
+                    type="button"
+                    data-testid="reels-flash-cut-toggle"
+                    data-active={activeSlide?.flashCutEnabled ? 'true' : 'false'}
+                    onClick={() =>
+                      handleToggleBeatFx({
+                        flashCutEnabled: !activeSlide?.flashCutEnabled,
+                        beatDropEnabled: !activeSlide?.flashCutEnabled || Boolean(activeSlide?.beatDropEnabled)
+                      })
+                    }
+                    className="cinema-tile cinema-tile-crimson w-full min-h-[44px] px-2 py-1.5 rounded-lg flex items-center justify-center gap-1.5 font-black tracking-wider text-[10px] uppercase cursor-pointer"
+                  >
+                    <Zap className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                    <span>FLASH {activeSlide?.flashCutEnabled ? 'ON' : 'OFF'}</span>
+                  </button>
+                </CinemaToolHUD>
+                <CinemaToolHUD
+                  title="BEAT SLAM"
+                  en="Punch title scale and chromatic edge pulse on every beat."
+                  bn="বিটের তালে টাইটেল পাঞ্চ এবং ক্রোম্যাটিক গ্লো চালু করতে চাপুন।"
+                  accent="cyan"
+                  side="left"
+                  blockWrapper
                 >
-                  BEAT SLAM: {activeSlide?.beatDropEnabled ? 'ON' : 'OFF'}
-                </button>
+                  <button
+                    type="button"
+                    data-active={activeSlide?.beatDropEnabled ? 'true' : 'false'}
+                    onClick={() => handleToggleBeatFx({ beatDropEnabled: !activeSlide?.beatDropEnabled })}
+                    className="cinema-tile cinema-tile-cyan w-full min-h-[44px] px-2 py-1.5 rounded-lg flex items-center justify-center gap-1.5 font-black tracking-wider text-[10px] uppercase cursor-pointer"
+                  >
+                    <Flame className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                    <span>SLAM {activeSlide?.beatDropEnabled ? 'ON' : 'OFF'}</span>
+                  </button>
+                </CinemaToolHUD>
               </div>
 
-              <div className="flex items-center justify-between gap-1 pt-0.5">
-                <span className="text-[9px] text-zinc-400 shrink-0">INTERVAL:</span>
-                <div className="grid grid-cols-4 gap-1 flex-1">
-                  {BEAT_INTERVAL_OPTIONS.map((sec) => {
-                    const active = Math.abs((activeSlide?.flashCutIntervalSec ?? 1.0) - sec) < 0.05;
-                    return (
+              <div className="grid grid-cols-4 gap-1 pt-0.5">
+                {BEAT_INTERVAL_OPTIONS.map((sec) => {
+                  const active = Math.abs((activeSlide?.flashCutIntervalSec ?? 1.0) - sec) < 0.05;
+                  return (
+                    <CinemaToolHUD
+                      key={sec}
+                      title={`${sec.toFixed(1)}S BEAT PULSE`}
+                      en={`Trigger flash-cut and beat-slam every ${sec.toFixed(1)} seconds.`}
+                      bn={`প্রতি ${sec.toFixed(1)} সেকেন্ড পরপর বিট ফ্ল্যাশ সেট করতে চাপুন।`}
+                      accent="amber"
+                      side="left"
+                      blockWrapper
+                    >
                       <button
-                        key={sec}
                         type="button"
+                        data-active={active ? 'true' : 'false'}
                         onClick={() =>
                           handleToggleBeatFx({
                             flashCutIntervalSec: sec,
                             beatDropEnabled: true
                           })
                         }
-                        className={`py-1 text-[10px] font-bold border cursor-pointer tabular-nums ${
-                          active
-                            ? 'bg-[#F5A623] border-[#F5A623] text-black'
-                            : 'bg-black/60 border-white/10 text-zinc-400 hover:text-white'
-                        }`}
+                        className="cinema-tile cinema-tile-amber w-full min-h-[34px] rounded text-[10px] font-black cursor-pointer tabular-nums"
                       >
                         {sec.toFixed(1)}s
                       </button>
-                    );
-                  })}
-                </div>
+                    </CinemaToolHUD>
+                  );
+                })}
               </div>
             </section>
 
-            {/* 4. AUTO SMART-CROP (9:16 SUBJECT LOCK) */}
-            <section className="p-2.5 bg-[#0C0D12] border border-white/10 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-black tracking-wider text-white flex items-center gap-1.5">
-                  <Crop className="w-3.5 h-3.5 text-[#F5A623]" />
-                  <span>4. 9:16 AUTO SMART-CROP</span>
-                </span>
-                <button
-                  type="button"
-                  onClick={handleApplySmartCropAll}
-                  className="text-[9px] font-bold text-[#F5A623] hover:underline cursor-pointer"
-                >
-                  APPLY ALL
-                </button>
-              </div>
+            {/* 4. SMART CROP */}
+            <section className="p-2.5 rounded-lg bg-[#0C0D12] border border-white/10 space-y-2">
+              <CinemaBadgeHeader
+                icon={<Crop className="w-3.5 h-3.5" strokeWidth={2.3} />}
+                label="SMART CROP"
+                accent="emerald"
+                rightSlot={
+                  <CinemaToolHUD
+                    title="SYNC CROP ALL"
+                    en="Lock 9:16 subject pan and zoom across all shots."
+                    bn="বর্তমান ৯:১৬ ক্রপ পজিশন সব শটে প্রয়োগ করতে চাপুন।"
+                    accent="emerald"
+                    side="left"
+                  >
+                    <button
+                      type="button"
+                      onClick={handleApplySmartCropAll}
+                      className="cinema-tile cinema-tile-emerald px-2 py-1 rounded text-[9px] font-black tracking-wider uppercase cursor-pointer"
+                    >
+                      SYNC ALL
+                    </button>
+                  </CinemaToolHUD>
+                }
+              />
 
               <div className="grid grid-cols-4 gap-1">
                 {SMART_CROP_MODES.map((m) => {
                   const active = activeSlide?.smartCropMode === m.id;
+                  const shortCrop = m.id === 'AUTO_ZOOM' ? 'AUTO' : m.label.toUpperCase();
                   return (
-                    <button
+                    <CinemaToolHUD
                       key={m.id}
-                      type="button"
-                      onClick={() => handleApplySmartCropPreset(m.id)}
-                      className={`py-1.5 px-1 text-[9px] font-black border cursor-pointer whitespace-nowrap ${
-                        active
-                          ? 'bg-[#F5A623] border-[#F5A623] text-black'
-                          : 'bg-black/60 border-white/10 text-zinc-300 hover:border-white/30'
-                      }`}
+                      title={`9:16 ${shortCrop}`}
+                      en={`Lock vertical 9:16 framing to ${m.label} subject focus.`}
+                      bn={`ভিডিওর ${m.label} অংশে ৯:১৬ ফ্রেম লক করতে চাপুন।`}
+                      accent="emerald"
+                      side="left"
+                      blockWrapper
                     >
-                      {m.label}
-                    </button>
+                      <button
+                        type="button"
+                        data-active={active ? 'true' : 'false'}
+                        onClick={() => handleApplySmartCropPreset(m.id)}
+                        className="cinema-tile cinema-tile-emerald w-full min-h-[38px] px-1 rounded text-[10px] font-black tracking-wider uppercase cursor-pointer whitespace-nowrap"
+                      >
+                        {shortCrop}
+                      </button>
+                    </CinemaToolHUD>
                   );
                 })}
               </div>
 
               <div className="space-y-1.5 pt-1 text-[10px] tabular-nums">
                 <div className="flex items-center justify-between text-zinc-400">
-                  <span className="flex items-center gap-1">
+                  <span className="flex items-center gap-1 font-black tracking-wider uppercase">
                     <Move className="w-3 h-3 text-cyan-400" />
-                    REFRAME ZOOM: <strong className="text-white">{cropGeom.zoom.toFixed(2)}x</strong>
+                    ZOOM <strong className="text-white">{cropGeom.zoom.toFixed(2)}x</strong>
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => handleApplySmartCropPreset('CENTER')}
-                    className="text-[9px] text-zinc-400 hover:text-white flex items-center gap-1 cursor-pointer"
+                  <CinemaToolHUD
+                    title="RESET CROP"
+                    en="Reset 9:16 pan and zoom back to center."
+                    bn="ক্রপ এবং জুম রিসেট করে মাঝখানে আনতে চাপুন।"
+                    accent="amber"
+                    side="left"
                   >
-                    <RotateCcw className="w-2.5 h-2.5" />
-                    <span>RESET</span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => handleApplySmartCropPreset('CENTER')}
+                      className="cinema-tile cinema-tile-amber px-2 py-0.5 rounded text-[9px] font-black uppercase flex items-center gap-1 cursor-pointer"
+                    >
+                      <RotateCcw className="w-2.5 h-2.5 cinema-tile-icon" />
+                      <span>RESET</span>
+                    </button>
+                  </CinemaToolHUD>
                 </div>
                 <input
                   type="range"
@@ -1042,24 +1165,27 @@ export const ReelsView: React.FC<ReelsViewProps> = ({
                   }
                   className="w-full h-1 bg-zinc-800 appearance-none cursor-pointer accent-[#F5A623]"
                 />
-                <div className="flex items-center justify-between text-[9px] text-zinc-500">
-                  <span>PAN X: {Math.round(cropGeom.objectPositionX)}%</span>
-                  <span>PAN Y: {Math.round(cropGeom.objectPositionY)}%</span>
-                  <span>DRAG FRAME TO PAN</span>
+                <div className="flex items-center justify-between text-[9px] font-bold text-zinc-500">
+                  <span>X {Math.round(cropGeom.objectPositionX)}%</span>
+                  <span>Y {Math.round(cropGeom.objectPositionY)}%</span>
+                  <span>DRAG STAGE</span>
                 </div>
               </div>
             </section>
 
             {/* Export 9:16 Action */}
             {onOpenExport && (
-              <button
-                type="button"
-                onClick={onOpenExport}
-                className="w-full py-2 px-3 bg-[#F5A623] hover:bg-amber-400 text-black font-black text-[11px] tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-colors"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>EXPORT 9:16 REEL MP4 (1080×1920)</span>
-              </button>
+              <CinemaToolHUD hudId="export-4k" side="left" blockWrapper>
+                <button
+                  type="button"
+                  data-active="true"
+                  onClick={onOpenExport}
+                  className="cinema-tile cinema-tile-amber w-full min-h-[44px] py-2 px-3 rounded-lg font-black text-[11px] tracking-wider uppercase flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Download className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                  <span>9:16 EXPORT</span>
+                </button>
+              </CinemaToolHUD>
             )}
           </div>
         </aside>

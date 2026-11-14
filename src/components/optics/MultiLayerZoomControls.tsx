@@ -13,7 +13,8 @@
 
 import React, { useState } from 'react';
 import { useStudioStore } from '../../core/store';
-import { ZoomIn, ZoomOut, Link, Unlink, RotateCcw, Eye, Sparkles, X, SlidersHorizontal } from 'lucide-react';
+import { ZoomIn, ZoomOut, Link, Unlink, RotateCcw, X, Layers } from 'lucide-react';
+import { CinemaBadgeHeader, CinemaToolHUD } from '../ui/CinemaToolHUD';
 
 export interface MultiLayerZoomControlsProps {
   variant?: 'floating-hud' | 'embedded' | 'inspector';
@@ -62,40 +63,53 @@ export const MultiLayerZoomControls: React.FC<MultiLayerZoomControlsProps> = ({
 
   return (
     <div
-      className={`bg-[#08080C]/98 backdrop-blur-2xl border border-[#D4AF37]/50 rounded-[4px] shadow-[0_12px_40px_rgba(0,0,0,0.95),0_0_20px_rgba(212,175,55,0.25)] p-3 select-none font-mono-tech z-40 text-xs ${className}`}
+      className={`bg-[#08080C]/98 backdrop-blur-2xl border border-[#26282E] rounded-lg shadow-[0_12px_40px_rgba(0,0,0,0.95)] p-3 select-none font-mono-tech z-40 text-xs ${className}`}
     >
       {/* Header */}
       <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-white/10">
-        <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-[#FFE066] shadow-[0_0_8px_#FFE066]" />
-          <span className="font-bold text-[#FFE066] tracking-wider text-[10.5px] uppercase">
-            MULTI-LAYER ZOOM ENGINE
-          </span>
-          {isVertigo && (
-            <span className="text-[8px] bg-amber-500/20 text-[#FFE066] border border-amber-500/40 px-1.5 py-0.2 rounded font-bold uppercase tracking-tight">
-              VERTIGO LINKED
-            </span>
-          )}
-        </div>
+        <CinemaBadgeHeader
+          icon={<Layers className="w-3.5 h-3.5" strokeWidth={2.2} />}
+          label="PARALLAX ZOOM"
+          accent="amber"
+        />
 
         <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={resetZoom}
-            className="p-1 rounded-[2px] bg-white/5 hover:bg-white/15 text-zinc-400 hover:text-[#FFE066] border border-white/10 cursor-pointer"
-            title="Reset All Layers to 1.00x Flat"
+          {isVertigo && (
+            <span className="text-[9px] font-black tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40 px-1.5 py-0.5 rounded uppercase">
+              VERTIGO
+            </span>
+          )}
+          <CinemaToolHUD
+            title="RESET ZOOM"
+            en="Restores foreground and background zoom layers back to 1.00x."
+            bn="জুম রিসেট করে আসল ১.০০x সাইজে ফিরতে চাপুন।"
+            accent="amber"
           >
-            <RotateCcw className="w-3 h-3" />
-          </button>
-          {onClose && (
             <button
               type="button"
-              onClick={onClose}
-              className="p-1 rounded-[2px] bg-white/5 hover:bg-white/15 text-zinc-400 hover:text-white border border-white/10 cursor-pointer"
-              title="Close Zoom HUD"
+              onClick={resetZoom}
+              className="cinema-tile cinema-tile-amber p-1 rounded-md cursor-pointer"
+              aria-label="Reset Zoom"
             >
-              <X className="w-3 h-3" />
+              <RotateCcw className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
             </button>
+          </CinemaToolHUD>
+          {onClose && (
+            <CinemaToolHUD
+              title="CLOSE ZOOM HUD"
+              en="Closes the parallax zoom panel."
+              bn="জুম প্যানেল বন্ধ করতে চাপুন।"
+              accent="amber"
+            >
+              <button
+                type="button"
+                onClick={onClose}
+                className="cinema-tile cinema-tile-amber p-1 rounded-md cursor-pointer"
+                aria-label="Close Zoom HUD"
+              >
+                <X className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+              </button>
+            </CinemaToolHUD>
           )}
         </div>
       </div>
@@ -103,13 +117,13 @@ export const MultiLayerZoomControls: React.FC<MultiLayerZoomControlsProps> = ({
       {/* Sliders Container */}
       <div className="space-y-3">
         {/* 1. Foreground Layer Zoom */}
-        <div className="bg-[#050508] p-2 rounded-[2px] border border-white/10">
-          <div className="flex items-center justify-between text-[9.5px] mb-1.5">
-            <span className="text-zinc-300 font-bold uppercase tracking-wider flex items-center gap-1.5">
+        <div className="bg-[#111215] p-2 rounded-md border border-[#26282E]">
+          <div className="flex items-center justify-between text-[10px] mb-1.5">
+            <span className="text-cyan-300 font-black uppercase tracking-wider flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
-              FOREGROUND ZOOM (TITLES & HUD)
+              FG ZOOM
             </span>
-            <span className="text-[#FFE066] font-bold tabular-nums text-[10px]">
+            <span className="text-[#FFE066] font-black tabular-nums">
               {fgZoom.toFixed(2)}x
             </span>
           </div>
@@ -123,43 +137,47 @@ export const MultiLayerZoomControls: React.FC<MultiLayerZoomControlsProps> = ({
               value={fgZoom}
               onChange={(e) => setFg(parseFloat(e.target.value))}
               className="w-full accent-[#FFE066] cursor-pointer h-1 bg-white/20 rounded"
-              title={`Foreground Scale: ${fgZoom.toFixed(2)}x`}
+              aria-label="Foreground Zoom"
             />
             <ZoomIn className="w-3 h-3 text-zinc-400 shrink-0" />
           </div>
         </div>
 
         {/* 2. Vertigo Dolly Zoom Link Switch */}
-        <div className="flex items-center justify-between px-2 py-1.5 bg-[#0C0C12] border border-white/10 rounded-[2px]">
-          <div className="flex items-center gap-1.5 text-[9px] text-zinc-300">
+        <div className="flex items-center justify-between px-2 py-1.5 bg-[#111215] border border-[#26282E] rounded-md">
+          <div className="flex items-center gap-1.5 text-[10px] text-zinc-200 font-black tracking-wider uppercase">
             {isVertigo ? (
-              <Link className="w-3.5 h-3.5 text-[#FFE066]" />
+              <Link className="w-3.5 h-3.5 text-amber-400" strokeWidth={2.2} />
             ) : (
-              <Unlink className="w-3.5 h-3.5 text-zinc-500" />
+              <Unlink className="w-3.5 h-3.5 text-zinc-500" strokeWidth={2.2} />
             )}
-            <span className="font-bold">VERTIGO / DOLLY ZOOM LINK</span>
+            <span>VERTIGO</span>
           </div>
-          <button
-            type="button"
-            onClick={() => setVertigo(!isVertigo)}
-            className={`px-2 py-0.5 rounded-[2px] text-[8.5px] font-bold cursor-pointer transition-all border ${
-              isVertigo
-                ? 'bg-[#D4AF37] text-black border-[#FFE066] shadow-[0_0_8px_rgba(212,175,55,0.7)]'
-                : 'bg-white/5 text-zinc-400 border-white/10 hover:text-white'
-            }`}
+          <CinemaToolHUD
+            title="VERTIGO DOLLY LINK"
+            en="Inversely couples background and foreground zoom for Hitchcock vertigo."
+            bn="ব্যাকগ্রাউন্ড ও টাইটেলকে বিপরীতমুখী জুম লিংকে বাঁধতে চাপুন।"
+            accent="amber"
           >
-            {isVertigo ? 'LINKED (ON)' : 'INDEPENDENT'}
-          </button>
+            <button
+              type="button"
+              onClick={() => setVertigo(!isVertigo)}
+              data-active={isVertigo ? 'true' : 'false'}
+              className="cinema-tile cinema-tile-amber px-2.5 py-1 rounded-md text-[10px] font-black tracking-wider uppercase cursor-pointer"
+            >
+              {isVertigo ? 'LINKED' : 'FREE'}
+            </button>
+          </CinemaToolHUD>
         </div>
 
         {/* 3. Background Layer Zoom */}
-        <div className="bg-[#050508] p-2 rounded-[2px] border border-white/10">
-          <div className="flex items-center justify-between text-[9.5px] mb-1.5">
-            <span className="text-zinc-300 font-bold uppercase tracking-wider flex items-center gap-1.5">
+        <div className="bg-[#111215] p-2 rounded-md border border-[#26282E]">
+          <div className="flex items-center justify-between text-[10px] mb-1.5">
+            <span className="text-amber-300 font-black uppercase tracking-wider flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-              BACKGROUND ZOOM (RAW MEDIA PLATE)
+              BG ZOOM
             </span>
-            <span className="text-[#FFE066] font-bold tabular-nums text-[10px]">
+            <span className="text-[#FFE066] font-black tabular-nums">
               {bgZoom.toFixed(2)}x
             </span>
           </div>
@@ -173,24 +191,22 @@ export const MultiLayerZoomControls: React.FC<MultiLayerZoomControlsProps> = ({
               value={bgZoom}
               onChange={(e) => setBg(parseFloat(e.target.value))}
               className="w-full accent-[#D4AF37] cursor-pointer h-1 bg-white/20 rounded"
-              title={`Background Scale: ${bgZoom.toFixed(2)}x`}
+              aria-label="Background Zoom"
             />
             <ZoomIn className="w-3 h-3 text-zinc-400 shrink-0" />
           </div>
         </div>
 
         {/* Optical Lens Depth Perception Gauge */}
-        <div className="bg-[#0B0C12] p-2 rounded-[2px] border border-[#D4AF37]/30 flex flex-col gap-1">
-          <div className="flex items-center justify-between text-[8.5px] font-mono">
-            <span className="text-zinc-400 uppercase font-semibold">OPTICAL DEPTH SEPARATION</span>
-            <span className="text-[#FFE066] font-bold tabular-nums">
+        <div className="bg-[#111215] p-2 rounded-md border border-[#26282E] flex flex-col gap-1">
+          <div className="flex items-center justify-between text-[9px] font-mono">
+            <span className="text-zinc-400 uppercase font-black tracking-wider">DEPTH SPLIT</span>
+            <span className="text-[#FFE066] font-black tabular-nums">
               {(fgZoom - bgZoom) >= 0 ? `+${(fgZoom - bgZoom).toFixed(2)}` : (fgZoom - bgZoom).toFixed(2)}
             </span>
           </div>
           <div className="w-full h-1.5 bg-black/80 rounded-full overflow-hidden flex relative border border-white/10">
-            {/* Center zero mark */}
             <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-white/40 z-10 -translate-x-1/2" />
-            {/* Left or Right fill */}
             {(fgZoom - bgZoom) >= 0 ? (
               <div
                 className="h-full bg-gradient-to-r from-amber-500 to-[#FFE066] rounded-r-full shadow-[0_0_8px_rgba(255,224,102,0.8)]"
@@ -209,60 +225,87 @@ export const MultiLayerZoomControls: React.FC<MultiLayerZoomControlsProps> = ({
               />
             )}
           </div>
-          <div className="flex items-center justify-between text-[7.5px] text-zinc-500 font-mono pt-0.5">
-            <span>DEEP FOCUS (BG+)</span>
-            <span className="text-zinc-400">{Math.abs(fgZoom - bgZoom) < 0.1 ? '1:1 PARALLEL' : (fgZoom > bgZoom ? 'SHALLOW BOKEH ACTIVE' : 'WIDE EXPANSION')}</span>
-            <span>SHALLOW DOF (FG+)</span>
+          <div className="flex items-center justify-between text-[8px] text-zinc-400 font-black tracking-wider uppercase pt-0.5">
+            <span>BG+</span>
+            <span>{Math.abs(fgZoom - bgZoom) < 0.1 ? 'FLAT' : (fgZoom > bgZoom ? 'BOKEH' : 'WIDE')}</span>
+            <span>FG+</span>
           </div>
         </div>
       </div>
 
       {/* Preset Quick Buttons */}
       <div className="pt-2.5 mt-2.5 border-t border-white/10">
-        <div className="text-[8px] text-zinc-500 uppercase tracking-widest mb-1.5">
-          OPTICAL PRESETS
-        </div>
-        <div className="grid grid-cols-5 gap-1 text-[8px]">
-          <button
-            type="button"
-            onClick={() => applyPreset('flat')}
-            className="py-1 rounded-[2px] bg-white/5 hover:bg-white/15 border border-white/10 text-zinc-300 hover:text-white cursor-pointer text-center"
-            title="Reset both to 1.00x"
+        <div className="grid grid-cols-5 gap-1">
+          <CinemaToolHUD
+            title="1:1 FLAT ZOOM"
+            en="Resets foreground and background scales equally to 1.00x."
+            bn="দুটি লেয়ারকে স্বাভাবিক ১.০০x সাইজে ফিরিয়ে আনতে চাপুন।"
+            accent="cyan"
           >
-            1:1 FLAT
-          </button>
-          <button
-            type="button"
-            onClick={() => applyPreset('push')}
-            className="py-1 rounded-[2px] bg-amber-950/40 hover:bg-amber-900/60 border border-amber-500/40 text-amber-300 cursor-pointer text-center font-bold"
-            title="Hitchcock Vertigo Push (BG 1.45x / FG 0.69x)"
+            <button
+              type="button"
+              onClick={() => applyPreset('flat')}
+              className="cinema-tile cinema-tile-cyan w-full py-1.5 px-1 rounded-md text-[9.5px] font-black tracking-wider uppercase cursor-pointer text-center"
+            >
+              1:1 FLAT
+            </button>
+          </CinemaToolHUD>
+          <CinemaToolHUD
+            title="VERTIGO PUSH"
+            en="Zooms background in (1.45x) while pulling foreground out."
+            bn="পেছনের দৃশ্য জুম-ইন ও টাইটেল ছোট করে ভার্টিগো ইফেক্ট পেতে চাপুন।"
+            accent="amber"
           >
-            VERTIGO +
-          </button>
-          <button
-            type="button"
-            onClick={() => applyPreset('pull')}
-            className="py-1 rounded-[2px] bg-amber-950/40 hover:bg-amber-900/60 border border-amber-500/40 text-amber-300 cursor-pointer text-center font-bold"
-            title="Hitchcock Vertigo Pull (BG 0.72x / FG 1.39x)"
+            <button
+              type="button"
+              onClick={() => applyPreset('push')}
+              className="cinema-tile cinema-tile-amber w-full py-1.5 px-1 rounded-md text-[9.5px] font-black tracking-wider uppercase cursor-pointer text-center"
+            >
+              PUSH +
+            </button>
+          </CinemaToolHUD>
+          <CinemaToolHUD
+            title="VERTIGO PULL"
+            en="Pulls background wide (0.72x) while enlarging foreground."
+            bn="পেছনের দৃশ্য ওয়াইড করে টাইটেল সামনে পপ করাতে চাপুন।"
+            accent="amber"
           >
-            VERTIGO -
-          </button>
-          <button
-            type="button"
-            onClick={() => applyPreset('fg-pop')}
-            className="py-1 rounded-[2px] bg-cyan-950/40 hover:bg-cyan-900/60 border border-cyan-500/40 text-cyan-300 cursor-pointer text-center font-bold"
-            title="Foreground Pop (FG 1.35x / BG 1.00x)"
+            <button
+              type="button"
+              onClick={() => applyPreset('pull')}
+              className="cinema-tile cinema-tile-amber w-full py-1.5 px-1 rounded-md text-[9.5px] font-black tracking-wider uppercase cursor-pointer text-center"
+            >
+              PULL -
+            </button>
+          </CinemaToolHUD>
+          <CinemaToolHUD
+            title="FG HERO POP"
+            en="Scales foreground titles up to 1.35x over 1.00x plate."
+            bn="ব্যাকগ্রাউন্ড স্থির রেখে শুধু টাইটেল বড় করে ফুটিয়ে তুলতে চাপুন।"
+            accent="cyan"
           >
-            FG POP
-          </button>
-          <button
-            type="button"
-            onClick={() => applyPreset('deep-bg')}
-            className="py-1 rounded-[2px] bg-white/5 hover:bg-white/15 border border-white/10 text-zinc-300 hover:text-white cursor-pointer text-center"
-            title="Deep Background (BG 1.30x / FG 1.00x)"
+            <button
+              type="button"
+              onClick={() => applyPreset('fg-pop')}
+              className="cinema-tile cinema-tile-cyan w-full py-1.5 px-1 rounded-md text-[9.5px] font-black tracking-wider uppercase cursor-pointer text-center"
+            >
+              FG POP
+            </button>
+          </CinemaToolHUD>
+          <CinemaToolHUD
+            title="DEEP BACKGROUND"
+            en="Pushes background plate to 1.30x with steady 1.00x foreground."
+            bn="টাইটেল স্থির রেখে ব্যাকগ্রাউন্ড ভিডিও ক্লিপ জুম করতে চাপুন।"
+            accent="emerald"
           >
-            DEEP BG
-          </button>
+            <button
+              type="button"
+              onClick={() => applyPreset('deep-bg')}
+              className="cinema-tile cinema-tile-emerald w-full py-1.5 px-1 rounded-md text-[9.5px] font-black tracking-wider uppercase cursor-pointer text-center"
+            >
+              DEEP BG
+            </button>
+          </CinemaToolHUD>
         </div>
       </div>
     </div>

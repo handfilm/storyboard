@@ -50,6 +50,7 @@ import { MultiCamBinMenu } from './multicam/MultiCamBinMenu';
 import { MultiCamGridMonitor } from './multicam/MultiCamGridMonitor';
 import { MultiCamGroup } from '../types/multicam';
 import { MediaVaultD3Dashboard } from './dashboard/MediaVaultD3Dashboard';
+import { CinemaToolHUD, CinemaBadgeHeader } from './ui/CinemaToolHUD';
 
 export interface MediaBinDrawerProps {
   onAssignToShot?: (assetId: string, shotIndex: number, filename: string) => void;
@@ -725,138 +726,165 @@ export const MediaBinDrawer: React.FC<MediaBinDrawerProps> = ({
 
       {/* Header Bar & Multi-File Trigger Controls */}
       <div className="p-3 bg-[#0c0c10] border-b border-[#272732] shrink-0 flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <HardDrive className="w-4 h-4 text-[#fbbf24]" />
-            <h2 className="text-xs font-bold text-white tracking-wider uppercase">
-              HIGH-SPEED MEDIA VAULT
-            </h2>
-            <span className="text-[8.5px] px-1.5 py-0.5 bg-[#fbbf24]/20 border border-[#fbbf24]/40 text-[#fbbf24] font-bold rounded-[1px]" title="True User-Uploaded Master Files">
-              {vaultItems.length} MASTER RAW
-            </span>
-            {purgeFeedback && (
-              <span className="text-[8px] text-emerald-400 bg-emerald-950/60 border border-emerald-500/40 px-2 py-0.5 rounded-[1px] animate-fade-in">
-                {purgeFeedback}
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <CinemaBadgeHeader
+            icon={<HardDrive className="w-4 h-4" strokeWidth={2.2} />}
+            label="MEDIA VAULT"
+            accent="amber"
+            rightSlot={
+              <span className="text-[10px] px-1.5 py-0.5 bg-[#fbbf24]/20 border border-[#fbbf24]/40 text-[#fbbf24] font-black rounded">
+                {vaultItems.length} RAW
               </span>
-            )}
-          </div>
+            }
+          />
+          {purgeFeedback && (
+            <span className="text-[9px] text-emerald-400 bg-emerald-950/60 border border-emerald-500/40 px-2 py-0.5 rounded font-black uppercase">
+              {purgeFeedback}
+            </span>
+          )}
 
-          <div className="flex items-center gap-1.5">
-            {/* D3 Disk & RAM Telemetry Toggle */}
-            <button
-              type="button"
-              onClick={() => setShowD3Telemetry(prev => !prev)}
-              className={`px-2 py-1 active:scale-95 border rounded-[2px] text-[9px] font-bold flex items-center gap-1 cursor-pointer transition-all ${
-                showD3Telemetry 
-                  ? 'bg-[#F5A623] text-black border-[#F5A623] shadow-[0_0_8px_rgba(245,166,35,0.3)]' 
-                  : 'bg-white/5 hover:bg-white/10 border-white/15 text-zinc-300 hover:text-white'
-              }`}
-              title="Toggle D3 Disk Allocation & Memory Telemetry Dashboard"
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <CinemaToolHUD
+              title="D3 VAULT TELEMETRY"
+              en="Toggle disk allocation and RAM usage analytics dashboard."
+              bn="ডিস্ক ও র‍্যাম ব্যবহারের লাইভ গ্রাফ দেখতে STATS চাপুন।"
+              accent="cyan"
             >
-              <BarChart2 className="w-3 h-3 text-[#F5A623]" />
-              <span>📊 D3 TELEMETRY</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => setShowD3Telemetry(prev => !prev)}
+                data-active={showD3Telemetry ? 'true' : 'false'}
+                className="cinema-tile cinema-tile-cyan px-2.5 min-h-[38px] rounded-md text-[10px] font-black tracking-wider uppercase flex items-center gap-1 cursor-pointer"
+              >
+                <BarChart2 className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+                <span>STATS</span>
+              </button>
+            </CinemaToolHUD>
 
-            {/* Maintenance Trigger: Purge Orphan Thumbs & Temp Cache */}
-            <button
-              type="button"
-              onClick={handlePurgeTransientCache}
-              className="px-2 py-1 bg-white/5 hover:bg-amber-950/40 active:scale-95 border border-white/15 hover:border-[#F5A623]/60 text-zinc-300 hover:text-[#FFE066] rounded-[2px] text-[9px] font-bold flex items-center gap-1 cursor-pointer transition-colors"
-              title="Purge orphan thumbnails and downscaled proxy caches without deleting imported footage"
+            <CinemaToolHUD
+              title="PURGE TEMP CACHE"
+              en="Clear orphan thumbnails and temporary caches without deleting footage."
+              bn="মূল ভিডিও বা ছবি অক্ষত রেখে অস্থায়ী ক্যাশ মুছে ফেলতে PURGE চাপুন।"
+              accent="crimson"
             >
-              <span>🧹 Purge Orphan Thumbs & Temp Cache</span>
-            </button>
+              <button
+                type="button"
+                onClick={handlePurgeTransientCache}
+                className="cinema-tile cinema-tile-crimson px-2.5 min-h-[38px] rounded-md text-[10px] font-black tracking-wider uppercase flex items-center gap-1 cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+                <span>PURGE</span>
+              </button>
+            </CinemaToolHUD>
 
-            {/* Primary Multi-Files Ingest Button */}
-            <button
-              type="button"
-              id="ingest-files-btn"
-              onClick={() => fileInputRef.current?.click()}
-              onTouchEnd={(e) => {
-                e.preventDefault();
-                fileInputRef.current?.click();
-              }}
-              className="px-2.5 py-1 bg-gradient-to-b from-[#1e1e2c] to-[#12121c] hover:from-[#28283a] hover:to-[#181824] active:scale-95 border border-[#d4af37]/60 hover:border-[#fbbf24] text-[#fbbf24] hover:text-white rounded-[2px] text-[9.5px] font-bold flex items-center gap-1.5 cursor-pointer transition-all shadow-[0_0_8px_rgba(245,166,35,0.15)]"
-              title="Ingest multiple 4K videos, images, or audio files"
+            <CinemaToolHUD
+              title="INGEST FILES"
+              en="Upload multiple 4K videos, photos, or audio tracks into Vault."
+              bn="ফোন বা পিসি থেকে একসাথে একাধিক ভিডিও, ছবি বা অডিও আপলোড করতে FILES চাপুন।"
+              accent="amber"
             >
-              <Upload className="w-3 h-3 text-[#F5A623]" />
-              <span>INGEST FILES</span>
-            </button>
+              <button
+                type="button"
+                id="ingest-files-btn"
+                onClick={() => fileInputRef.current?.click()}
+                onTouchEnd={(e) => {
+                  e.preventDefault();
+                  fileInputRef.current?.click();
+                }}
+                data-active="true"
+                className="cinema-tile cinema-tile-amber px-2.5 min-h-[38px] rounded-md text-[10px] font-black tracking-wider uppercase flex items-center gap-1 cursor-pointer"
+              >
+                <Upload className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+                <span>FILES</span>
+              </button>
+            </CinemaToolHUD>
 
-            {/* Folder Drop / Directory Input Button */}
-            <button
-              type="button"
-              id="ingest-folder-btn"
-              onClick={() => folderInputRef.current?.click()}
-              onTouchEnd={(e) => {
-                e.preventDefault();
-                folderInputRef.current?.click();
-              }}
-              className="px-2 py-1 bg-white/5 hover:bg-white/10 active:scale-95 border border-[#272732] text-zinc-300 hover:text-white rounded-[1px] text-[9.5px] font-bold flex items-center gap-1 cursor-pointer transition-colors"
-              title="Ingest entire folder of footage"
+            <CinemaToolHUD
+              title="INGEST FOLDER"
+              en="Import an entire directory of footage at once."
+              bn="একসাথে পুরো ফোল্ডারের সব ফুটেজ ইমপোর্ট করতে FOLDER চাপুন।"
+              accent="cyan"
             >
-              <FolderPlus className="w-3 h-3 text-cyan-400" />
-              <span>FOLDER</span>
-            </button>
+              <button
+                type="button"
+                id="ingest-folder-btn"
+                onClick={() => folderInputRef.current?.click()}
+                onTouchEnd={(e) => {
+                  e.preventDefault();
+                  folderInputRef.current?.click();
+                }}
+                className="cinema-tile cinema-tile-cyan px-2.5 min-h-[38px] rounded-md text-[10px] font-black tracking-wider uppercase flex items-center gap-1 cursor-pointer"
+              >
+                <FolderPlus className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+                <span>FOLDER</span>
+              </button>
+            </CinemaToolHUD>
           </div>
         </div>
 
-        {/* Search Input & Real-Time Category Filter Chips */}
+        {/* Search & Category Filter Chips */}
         <div className="flex flex-col gap-2">
           <div className="relative flex items-center">
-            <Search className="w-3 h-3 text-zinc-500 absolute left-2 pointer-events-none" />
+            <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 pointer-events-none" />
             <input
               type="text"
-              placeholder="Search assets by filename..."
+              placeholder="Search..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-[#121218] border border-[#272732] rounded-[1px] pl-7 pr-2 py-1 text-[10px] text-white focus:outline-none focus:border-[#fbbf24]"
+              className="w-full bg-[#121218] border border-[#272732] rounded-md pl-8 pr-7 py-1.5 text-[11px] text-white focus:outline-none focus:border-[#F59E0B]"
             />
             {searchQuery && (
-              <button 
+              <button
+                type="button"
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2 text-zinc-500 hover:text-zinc-200 text-xs"
+                className="absolute right-2 text-zinc-400 hover:text-white text-sm cursor-pointer"
               >
                 ×
               </button>
             )}
           </div>
 
-          {/* Filter Chips: [ ALL ], [ VIDEO ], [ STILLS ], [ AUDIO ], [ UNASSIGNED ] */}
           <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5">
             {(['ALL', 'VIDEO', 'STILLS', 'AUDIO', 'UNASSIGNED'] as MediaFilterType[]).map((tab) => (
-              <button
+              <CinemaToolHUD
                 key={tab}
-                type="button"
-                onClick={() => setFilterType(tab)}
-                className={`px-2 py-0.5 text-[8.5px] font-bold cursor-pointer rounded-[1px] transition-all whitespace-nowrap border ${
-                  filterType === tab
-                    ? 'bg-[#fbbf24] text-black border-[#fbbf24] shadow-[0_0_6px_rgba(251,191,36,0.3)]'
-                    : 'bg-[#121218] text-zinc-400 border-[#272732] hover:text-zinc-200 hover:border-zinc-600'
-                }`}
+                title={`FILTER: ${tab}`}
+                en={`Show only ${tab.toLowerCase()} assets in the media vault.`}
+                bn={`মিডিয়া ভল্টে শুধুমাত্র ${tab} ফাইল দেখতে চাপুন।`}
+                accent="amber"
               >
-                {tab === 'ALL' && 'ALL'}
-                {tab === 'VIDEO' && 'VIDEO'}
-                {tab === 'STILLS' && 'STILLS'}
-                {tab === 'AUDIO' && 'AUDIO'}
-                {tab === 'UNASSIGNED' && 'UNASSIGNED'}
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setFilterType(tab)}
+                  data-active={filterType === tab ? 'true' : 'false'}
+                  className="cinema-tile cinema-tile-amber px-2.5 min-h-[34px] text-[10px] font-black tracking-wider uppercase cursor-pointer rounded whitespace-nowrap"
+                >
+                  {tab}
+                </button>
+              </CinemaToolHUD>
             ))}
 
-            <div className="ml-auto flex items-center gap-1.5 pl-2">
-              <button
-                type="button"
-                onClick={handleSelectAll}
-                className="text-[8px] text-zinc-400 hover:text-white flex items-center gap-1 cursor-pointer"
-                title="Select all currently filtered assets"
+            <div className="ml-auto flex items-center pl-2">
+              <CinemaToolHUD
+                title="SELECT ALL FILTERED"
+                en="Select or deselect all visible assets for batch actions."
+                bn="সব দৃশ্যমান ফাইল একসাথে সিলেক্ট বা ডিসিলেক্ট করতে ALL চাপুন।"
+                accent="cyan"
               >
-                {selectedIds.size === filteredItems.length && filteredItems.length > 0 ? (
-                  <CheckSquare className="w-2.5 h-2.5 text-[#fbbf24]" />
-                ) : (
-                  <Square className="w-2.5 h-2.5 text-zinc-500" />
-                )}
-                <span>SELECT ALL</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={handleSelectAll}
+                  data-active={selectedIds.size === filteredItems.length && filteredItems.length > 0 ? 'true' : 'false'}
+                  className="cinema-tile cinema-tile-cyan px-2.5 min-h-[34px] text-[10px] font-black uppercase rounded flex items-center gap-1 cursor-pointer"
+                >
+                  {selectedIds.size === filteredItems.length && filteredItems.length > 0 ? (
+                    <CheckSquare className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+                  ) : (
+                    <Square className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+                  )}
+                  <span>ALL</span>
+                </button>
+              </CinemaToolHUD>
             </div>
           </div>
         </div>
@@ -864,115 +892,139 @@ export const MediaBinDrawer: React.FC<MediaBinDrawerProps> = ({
 
       {/* Collapsible D3 Disk & RAM Telemetry Dashboard */}
       {showD3Telemetry && (
-        <div className="p-3 border-b border-[#272732] bg-[#08080C] animate-in slide-in-from-top duration-200 shrink-0 max-h-[420px] overflow-y-auto custom-scrollbar">
+        <div className="p-3 border-b border-[#272732] bg-[#08080C] shrink-0 max-h-[420px] overflow-y-auto custom-scrollbar">
           <MediaVaultD3Dashboard compact />
         </div>
       )}
 
-      {/* Target Notification Banner: Shows active shot index for quick assignment */}
-      <div className="bg-[#0b0c10] border-b border-[#1c1c24] px-3 py-1 flex items-center justify-between text-[9px] text-zinc-400 shrink-0">
+      {/* Compact Active Shot Target Strip */}
+      <div className="bg-[#0b0c10] border-b border-[#1c1c24] px-3 py-1.5 flex items-center justify-between text-[10px] font-black tracking-wider uppercase text-zinc-400 shrink-0">
         <div className="flex items-center gap-1.5">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#fbbf24]" />
-          <span>ACTIVE TARGET:</span>
-          <span className="text-[#fbbf24] font-bold">
-            SHOT {String((activeShotIndex || 0) + 1).padStart(3, '0')} (12.0s SLIDE)
+          <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B]" />
+          <span>TARGET:</span>
+          <span className="text-[#F59E0B]">
+            SH{String((activeShotIndex || 0) + 1).padStart(3, '0')}
           </span>
         </div>
-        <span className="text-zinc-500 hidden sm:inline">
-          TAP CARD OR CLICK + ASSIGN TO SHOT
-        </span>
+        <span className="text-zinc-500">12.0S SLOT</span>
       </div>
 
-      {/* ===================================================================== */}
-      {/* 3. BULK ACTIONS BAR (Visible when items are selected)                 */}
-      {/* ===================================================================== */}
+      {/* Bulk Actions Bar */}
       {selectedIds.size > 0 && (
-        <div className="bg-[#120f06] border-b border-[#F5A623]/60 px-3 py-1.5 flex items-center justify-between shrink-0 animate-in slide-in-from-top duration-150">
-          <div className="flex items-center gap-2">
-            <span className="px-1.5 py-0.5 bg-[#F5A623] text-black text-[8.5px] font-black rounded-[1px]">
-              {selectedIds.size} SELECTED
-            </span>
-          </div>
+        <div className="bg-[#120f06] border-b border-[#F59E0B]/60 px-3 py-2 flex items-center justify-between gap-2 flex-wrap shrink-0">
+          <span className="px-2 py-0.5 bg-[#F59E0B] text-black text-[10px] font-black uppercase rounded">
+            {selectedIds.size} PICKED
+          </span>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 flex-wrap">
             {selectedIds.size >= 2 && (
-              <button
-                type="button"
-                onClick={() => setIsMultiCamModalOpen(true)}
-                className="px-2 py-0.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black text-[8.5px] font-black rounded-[1px] flex items-center gap-1 cursor-pointer transition-all shadow-[0_0_10px_rgba(245,166,35,0.4)]"
-                title="Create Multi-Camera Clip from selected media"
+              <CinemaToolHUD
+                title="CREATE MULTI-CAM GROUP"
+                en="Combine selected clips into a synced Multi-Cam switch angle."
+                bn="সিলেক্ট করা ক্লিপগুলো দিয়ে একটি মাল্টি-ক্যাম গ্রুপ তৈরি করুন।"
+                accent="amber"
               >
-                <Video className="w-2.5 h-2.5 fill-current" />
-                <span>🎥 Create Multi-Camera Clip ({selectedIds.size})</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setIsMultiCamModalOpen(true)}
+                  data-active="true"
+                  className="cinema-tile cinema-tile-amber px-2.5 min-h-[36px] text-[10px] font-black uppercase rounded flex items-center gap-1 cursor-pointer"
+                >
+                  <Video className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+                  <span>MULTI-CAM</span>
+                </button>
+              </CinemaToolHUD>
             )}
 
-            <button
-              type="button"
-              onClick={handleBulkAssignToSequence}
-              className="px-2 py-0.5 bg-emerald-950/90 hover:bg-emerald-900 border border-emerald-500/50 text-emerald-300 text-[8.5px] font-bold rounded-[1px] flex items-center gap-1 cursor-pointer transition-colors"
-              title="Assign selected media consecutively starting from current shot"
+            <CinemaToolHUD
+              title="ASSIGN TO SEQUENCE"
+              en="Drop selected clips sequentially starting from active shot."
+              bn="সিলেক্ট করা ক্লিপগুলো পরপর শটগুলোতে অটো বসিয়ে দিন।"
+              accent="emerald"
             >
-              <Layers className="w-2.5 h-2.5" />
-              <span>ASSIGN TO SEQUENCE</span>
-            </button>
+              <button
+                type="button"
+                onClick={handleBulkAssignToSequence}
+                className="cinema-tile cinema-tile-emerald px-2.5 min-h-[36px] text-[10px] font-black uppercase rounded flex items-center gap-1 cursor-pointer"
+              >
+                <Layers className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+                <span>SEQUENCE</span>
+              </button>
+            </CinemaToolHUD>
 
-            <button
-              type="button"
-              onClick={handleBulkExportMetadata}
-              className="px-2 py-0.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 text-zinc-200 text-[8.5px] font-bold rounded-[1px] flex items-center gap-1 cursor-pointer transition-colors"
-              title="Export selected assets manifest JSON"
+            <CinemaToolHUD
+              title="EXPORT METADATA JSON"
+              en="Download JSON manifest of selected vault assets."
+              bn="সিলেক্ট করা ফাইলের মেটাডাটা JSON হিসেবে ডাউনলোড করুন।"
+              accent="cyan"
             >
-              <Download className="w-2.5 h-2.5 text-cyan-400" />
-              <span>EXPORT METADATA</span>
-            </button>
+              <button
+                type="button"
+                onClick={handleBulkExportMetadata}
+                className="cinema-tile cinema-tile-cyan px-2.5 min-h-[36px] text-[10px] font-black uppercase rounded flex items-center gap-1 cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+                <span>META JSON</span>
+              </button>
+            </CinemaToolHUD>
 
-            <button
-              type="button"
-              onClick={handleBulkPurgeSelected}
-              className="px-2 py-0.5 bg-red-950/90 hover:bg-red-900 border border-red-500/50 text-red-300 text-[8.5px] font-bold rounded-[1px] flex items-center gap-1 cursor-pointer transition-colors"
-              title="Purge selected media from IndexedDB"
+            <CinemaToolHUD
+              title="PURGE SELECTED"
+              en="Permanently delete selected assets from IndexedDB vault."
+              bn="সিলেক্ট করা ফাইলগুলো ভল্ট থেকে স্থায়ীভাবে মুছে ফেলুন।"
+              accent="crimson"
             >
-              <Trash2 className="w-2.5 h-2.5" />
-              <span>PURGE SELECTED</span>
-            </button>
+              <button
+                type="button"
+                onClick={handleBulkPurgeSelected}
+                className="cinema-tile cinema-tile-crimson px-2.5 min-h-[36px] text-[10px] font-black uppercase rounded flex items-center gap-1 cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+                <span>DELETE</span>
+              </button>
+            </CinemaToolHUD>
 
-            <button
-              type="button"
-              onClick={() => setSelectedIds(new Set())}
-              className="p-1 text-zinc-400 hover:text-white cursor-pointer"
-              title="Clear selection"
-            >
-              <X className="w-3 h-3" />
-            </button>
+            <CinemaToolHUD title="CLEAR SELECTION" en="Clear current selection." bn="সিলেকশন বাতিল করুন।" accent="crimson">
+              <button
+                type="button"
+                onClick={() => setSelectedIds(new Set())}
+                className="cinema-tile cinema-tile-crimson p-1.5 min-h-[36px] rounded cursor-pointer"
+              >
+                <X className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+              </button>
+            </CinemaToolHUD>
           </div>
         </div>
       )}
 
-      {/* ===================================================================== */}
-      {/* 4. ASSET CARDS GRID WITH CARD TELEMETRY BADGES                        */}
-      {/* ===================================================================== */}
+      {/* Asset Cards Grid */}
       <div className="flex-1 overflow-y-auto p-3 no-scrollbar">
         {filteredItems.length === 0 ? (
-          <div className="h-64 border-2 border-dashed border-[#272732] rounded-[2px] flex flex-col items-center justify-center p-6 text-center">
-            <Upload className="w-8 h-8 text-zinc-600 mb-2 animate-bounce" />
-            <p className="text-xs font-bold text-zinc-300 uppercase tracking-wider">
-              NO ASSETS IN VAULT
-            </p>
-            <p className="text-[10px] text-zinc-500 max-w-xs mt-1">
-              Drag & drop a folder or 10+ 4K video files directly here to start high-speed bulk ingestion into IndexedDB.
-            </p>
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              onTouchEnd={(e) => {
-                e.preventDefault();
-                fileInputRef.current?.click();
-              }}
-              className="mt-3 px-3 py-1.5 bg-gradient-to-b from-[#2a2214] to-[#1a140a] border border-[#d4af37]/60 text-[#fbbf24] text-[10px] font-bold rounded-[2px] hover:from-[#3a301c] hover:to-[#221a0e] active:scale-95 transition-all cursor-pointer shadow-[0_0_12px_rgba(245,166,35,0.25)]"
+          <div className="h-64 border-2 border-dashed border-[#272732] rounded-lg flex flex-col items-center justify-center p-6 text-center gap-3">
+            <Upload className="w-8 h-8 text-zinc-500" />
+            <span className="text-xs font-black text-zinc-300 uppercase tracking-wider">
+              VAULT EMPTY
+            </span>
+            <CinemaToolHUD
+              title="INGEST MEDIA FILES"
+              en="Upload videos, stills, or audio files directly into local IndexedDB vault."
+              bn="মিডিয়া ভল্টে ভিডিও, ছবি বা অডিও আপলোড করতে INGEST FILES চাপুন।"
+              accent="amber"
             >
-              INGEST FILES
-            </button>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                onTouchEnd={(e) => {
+                  e.preventDefault();
+                  fileInputRef.current?.click();
+                }}
+                data-active="true"
+                className="cinema-tile cinema-tile-amber px-4 min-h-[44px] text-[11px] font-black tracking-wider uppercase rounded-lg flex items-center gap-2 cursor-pointer"
+              >
+                <Upload className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                <span>INGEST FILES</span>
+              </button>
+            </CinemaToolHUD>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -995,23 +1047,23 @@ export const MediaBinDrawer: React.FC<MediaBinDrawerProps> = ({
         )}
       </div>
 
-      {/* ===================================================================== */}
-      {/* PREVIEW MODAL                                                         */}
-      {/* ===================================================================== */}
+      {/* Preview Modal */}
       {previewItem && (
         <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="relative max-w-4xl w-full bg-[#0c0c12] border border-[#272732] rounded-[2px] overflow-hidden shadow-2xl flex flex-col">
-            <div className="h-10 px-3 bg-[#08080c] border-b border-[#272732] flex items-center justify-between">
-              <span className="text-xs font-bold text-[#fbbf24] truncate">
+          <div className="relative max-w-4xl w-full bg-[#0c0c12] border border-[#272732] rounded-lg overflow-hidden shadow-2xl flex flex-col">
+            <div className="h-11 px-3 bg-[#08080c] border-b border-[#272732] flex items-center justify-between gap-2">
+              <span className="text-xs font-black text-[#F59E0B] truncate">
                 {previewItem.title}
               </span>
-              <button
-                type="button"
-                onClick={() => setPreviewItem(null)}
-                className="p-1 text-zinc-400 hover:text-white cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
+              <CinemaToolHUD title="CLOSE PREVIEW" en="Close full-screen media preview." bn="প্রিভিউ বন্ধ করুন।" accent="crimson">
+                <button
+                  type="button"
+                  onClick={() => setPreviewItem(null)}
+                  className="cinema-tile cinema-tile-crimson p-1.5 rounded cursor-pointer"
+                >
+                  <X className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                </button>
+              </CinemaToolHUD>
             </div>
             <div className="relative w-full aspect-video bg-black flex items-center justify-center">
               {previewItem.isVideo ? (

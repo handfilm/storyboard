@@ -24,6 +24,7 @@ import {
   Loader2,
   Activity
 } from 'lucide-react';
+import { CinemaBadgeHeader, CinemaToolHUD } from '../ui/CinemaToolHUD';
 import type {
   AnthologyFrame,
   CaptionStyle,
@@ -276,34 +277,66 @@ export const CapCutProSuitePanel: React.FC<CapCutProSuitePanelProps> = ({
         <div className="flex items-center gap-1 bg-[#141417] p-1 rounded border border-white/[0.08] overflow-x-auto no-scrollbar">
           {(
             [
-              { id: 'ai-captions', label: 'AI & Captions', icon: Sparkles },
-              { id: 'keyframes', label: 'Keyframes', icon: Diamond },
-              { id: 'speed-ramp', label: 'Speed & Flow', icon: Gauge },
-              { id: 'color-fx', label: 'Color & 3D FX', icon: Palette }
+              {
+                id: 'ai-captions',
+                label: 'AUTO CAP',
+                icon: Sparkles,
+                en: 'Generate bilingual captions, smart cutout, and script shots.',
+                bn: 'অটো ক্যাপশন, ব্যাকগ্রাউন্ড রিমুভ ও স্ক্রিপ্ট শট বানাতে ব্যবহার করুন।',
+                accent: 'amber'
+              },
+              {
+                id: 'keyframes',
+                label: 'KEYFRAME',
+                icon: Diamond,
+                en: 'Animate position, scale, rotation, opacity, and volume curves.',
+                bn: 'ক্লিপের জুম, পজিশন, রোটেশন ও অপাসিটি অ্যানিমেট করতে চাপুন।',
+                accent: 'cyan'
+              },
+              {
+                id: 'speed-ramp',
+                label: 'SPEED RAMP',
+                icon: Gauge,
+                en: 'Sculpt velocity speed-ramps and optical-flow slow motion.',
+                bn: 'স্মুথ স্লো-মোশন ও ভেলোসিটি স্পিড কার্ভ সেট করতে চাপুন।',
+                accent: 'amber'
+              },
+              {
+                id: 'color-fx',
+                label: 'COLOR 3D',
+                icon: Palette,
+                en: 'Adjust Lift/Gamma/Gain wheels, 35mm grain, halation & blur.',
+                bn: 'কালার হুইল, ফিল্ম গ্রেইন ও হ্যালেশন গ্লো নিয়ন্ত্রণ করতে চাপুন।',
+                accent: 'emerald'
+              }
             ] as const
           ).map((t) => {
             const Icon = t.icon;
             return (
-              <button
+              <CinemaToolHUD
                 key={t.id}
-                type="button"
-                data-testid={`pro-suite-tab-${t.id}`}
-                onClick={() => setActiveTab(t.id)}
-                className={`px-2.5 py-1.5 rounded-[3px] text-[10px] font-bold uppercase flex items-center gap-1.5 whitespace-nowrap cursor-pointer transition-colors touch-manipulation ${
-                  activeTab === t.id
-                    ? 'bg-[#F59E0B] text-[#0B0B0D]'
-                    : 'text-zinc-400 hover:text-white'
-                }`}
+                title={t.label}
+                en={t.en}
+                bn={t.bn}
+                accent={t.accent}
               >
-                <Icon className="w-3 h-3 shrink-0" />
-                <span>{t.label}</span>
-              </button>
+                <button
+                  type="button"
+                  data-testid={`pro-suite-tab-${t.id}`}
+                  data-active={activeTab === t.id ? 'true' : 'false'}
+                  onClick={() => setActiveTab(t.id)}
+                  className={`cinema-tile cinema-tile-${t.accent} px-2.5 min-h-[36px] rounded text-[10px] font-black tracking-wider uppercase flex items-center gap-1.5 whitespace-nowrap cursor-pointer touch-manipulation`}
+                >
+                  <Icon className="w-3.5 h-3.5 cinema-tile-icon shrink-0" strokeWidth={2.2} />
+                  <span>{t.label}</span>
+                </button>
+              </CinemaToolHUD>
             );
           })}
         </div>
 
-        <span className="px-2 py-1 rounded bg-[#141417] border border-white/[0.1] text-[10px] font-bold text-[#F59E0B] tabular-nums">
-          SHOT {String(currentIndex + 1).padStart(2, '0')} · PRO SUITE
+        <span className="px-2 py-1 rounded bg-[#141417] border border-white/[0.1] text-[10px] font-black tracking-wider text-[#F59E0B] tabular-nums">
+          SH{String(currentIndex + 1).padStart(2, '0')} · PRO
         </span>
       </div>
 
@@ -314,24 +347,23 @@ export const CapCutProSuitePanel: React.FC<CapCutProSuitePanelProps> = ({
         </div>
       )}
 
-      {/* TAB 1: AI VIDEO, BILINGUAL CAPTIONS, SMART CUTOUT & BEAT SYNC */}
+      {/* TAB 1: AUTO CAP, CUTOUT & AI SHOTS */}
       {activeTab === 'ai-captions' && (
         <div className="space-y-3.5">
-          {/* Auto Captions & Bilingual Subtitles */}
-          <div className="p-3 rounded bg-[#141417] border border-white/[0.08] space-y-2.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-[#F59E0B] uppercase flex items-center gap-1.5">
-                <Captions className="w-3.5 h-3.5" />
-                <span>Auto Captions (Bangla + English)</span>
-              </span>
-              <span className="text-[9px] text-zinc-400">KINETIC BURN-IN</span>
-            </div>
+          {/* AUTO CAP */}
+          <div className="p-3 rounded-lg bg-[#141417] border border-white/[0.08] space-y-2.5">
+            <CinemaBadgeHeader
+              icon={<Captions className="w-3.5 h-3.5" strokeWidth={2.3} />}
+              label="AUTO CAP"
+              accent="amber"
+              rightSlot={<span className="text-[9px] font-black text-zinc-400">BN + EN</span>}
+            />
 
             <textarea
               value={captionScript}
               onChange={(e) => setCaptionScript(e.target.value)}
               rows={2}
-              placeholder="Paste spoken dialogue or lyrics in Bangla or English..."
+              placeholder="Bangla / English..."
               className="w-full p-2 rounded bg-[#0B0B0D] border border-white/[0.12] text-xs text-white outline-none focus:border-[#F59E0B] resize-none"
             />
 
@@ -340,11 +372,11 @@ export const CapCutProSuitePanel: React.FC<CapCutProSuitePanelProps> = ({
                 aria-label="Caption Language Mode"
                 value={captionLangMode}
                 onChange={(e) => setCaptionLangMode(e.target.value as any)}
-                className="h-8 px-2 rounded bg-[#0B0B0D] border border-white/[0.12] text-[10px] text-zinc-200 outline-none"
+                className="h-9 px-2 rounded bg-[#0B0B0D] border border-white/[0.12] text-[10px] font-black text-zinc-200 outline-none uppercase"
               >
-                <option value="bilingual">Bilingual (BN + EN)</option>
-                <option value="en">English Only</option>
-                <option value="bn">Bangla Only</option>
+                <option value="bilingual">BN + EN</option>
+                <option value="en">EN ONLY</option>
+                <option value="bn">BN ONLY</option>
               </select>
 
               <select
@@ -360,73 +392,88 @@ export const CapCutProSuitePanel: React.FC<CapCutProSuitePanelProps> = ({
                     });
                   }
                 }}
-                className="h-8 px-2 rounded bg-[#0B0B0D] border border-white/[0.12] text-[10px] text-amber-300 outline-none"
+                className="h-9 px-2 rounded bg-[#0B0B0D] border border-white/[0.12] text-[10px] font-black text-amber-300 outline-none uppercase"
               >
-                <option value="karaoke">Preset: Karaoke Sweep</option>
-                <option value="bounce">Preset: Bounce Pop</option>
-                <option value="editorial">Preset: Editorial Mono</option>
-                <option value="bilingual_dual">Preset: Bilingual Calligraphy</option>
+                <option value="karaoke">KARAOKE</option>
+                <option value="bounce">BOUNCE</option>
+                <option value="editorial">EDITORIAL</option>
+                <option value="bilingual_dual">DUAL SCRIPT</option>
               </select>
             </div>
 
-            <button
-              type="button"
-              data-testid="generate-captions-btn"
-              disabled={isGeneratingCaptions}
-              onClick={handleGenerateCaptions}
-              className="w-full h-9 rounded bg-[#F59E0B] hover:bg-amber-400 text-[#0B0B0D] font-space-grotesk font-black text-[11px] uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer"
-            >
-              {isGeneratingCaptions ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Captions className="w-3.5 h-3.5" />}
-              <span>{isGeneratingCaptions ? 'Generating Subtitles...' : 'Generate Bilingual Captions'}</span>
-            </button>
-          </div>
-
-          {/* AI Smart Cutout / Background Removal */}
-          <div className="p-3 rounded bg-[#141417] border border-white/[0.08] space-y-2.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-cyan-300 uppercase flex items-center gap-1.5">
-                <Scissors className="w-3.5 h-3.5" />
-                <span>AI Smart Cutout / Background Removal</span>
-              </span>
+            <CinemaToolHUD hudId="auto-cap" blockWrapper>
               <button
                 type="button"
-                data-testid="toggle-smart-cutout-btn"
-                onClick={() => updateCutout({ enabled: !cutout.enabled })}
-                className={`px-2.5 py-1 rounded text-[10px] font-black uppercase cursor-pointer ${
-                  cutout.enabled ? 'bg-cyan-400 text-[#0B0B0D]' : 'bg-[#0B0B0D] text-zinc-400 border border-white/[0.12]'
-                }`}
+                data-testid="generate-captions-btn"
+                data-active="true"
+                disabled={isGeneratingCaptions}
+                onClick={handleGenerateCaptions}
+                className="cinema-tile cinema-tile-amber w-full min-h-[44px] rounded-lg font-black text-[11px] uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer"
               >
-                {cutout.enabled ? 'ENABLED' : 'OFF'}
+                {isGeneratingCaptions ? <Loader2 className="w-4 h-4 cinema-tile-icon animate-spin" /> : <Captions className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />}
+                <span>{isGeneratingCaptions ? 'BUILDING' : 'AUTO CAP'}</span>
               </button>
-            </div>
+            </CinemaToolHUD>
+          </div>
+
+          {/* CUTOUT */}
+          <div className="p-3 rounded-lg bg-[#141417] border border-white/[0.08] space-y-2.5">
+            <CinemaBadgeHeader
+              icon={<Scissors className="w-3.5 h-3.5" strokeWidth={2.3} />}
+              label="CUTOUT"
+              accent="cyan"
+              rightSlot={
+                <CinemaToolHUD
+                  title="SMART CUTOUT"
+                  en="Toggle AI background removal or chroma key matte."
+                  bn="ব্যাকগ্রাউন্ড রিমুভ বা গ্রিন-স্ক্রিন কাটআউট চালু বা বন্ধ করতে চাপুন।"
+                  accent="cyan"
+                >
+                  <button
+                    type="button"
+                    data-testid="toggle-smart-cutout-btn"
+                    data-active={cutout.enabled ? 'true' : 'false'}
+                    onClick={() => updateCutout({ enabled: !cutout.enabled })}
+                    className="cinema-tile cinema-tile-cyan px-2.5 py-1 rounded text-[10px] font-black uppercase cursor-pointer"
+                  >
+                    {cutout.enabled ? 'ON' : 'OFF'}
+                  </button>
+                </CinemaToolHUD>
+              }
+            />
 
             <div className="grid grid-cols-3 gap-1.5">
               {(
                 [
-                  { id: 'ai-subject', label: 'AI Subject' },
-                  { id: 'chroma-green', label: 'Chroma Green' },
-                  { id: 'chroma-blue', label: 'Chroma Blue' }
+                  { id: 'ai-subject', label: 'SUBJECT' },
+                  { id: 'chroma-green', label: 'GREEN' },
+                  { id: 'chroma-blue', label: 'BLUE' }
                 ] as const
               ).map((m) => (
-                <button
+                <CinemaToolHUD
                   key={m.id}
-                  type="button"
-                  onClick={() => updateCutout({ enabled: true, mode: m.id })}
-                  className={`py-1.5 rounded text-[9.5px] font-bold uppercase cursor-pointer border ${
-                    cutout.mode === m.id && cutout.enabled
-                      ? 'bg-cyan-500/20 border-cyan-400 text-cyan-200'
-                      : 'bg-[#0B0B0D] border-white/[0.08] text-zinc-400 hover:text-white'
-                  }`}
+                  title={`KEY ${m.label}`}
+                  en={`Set smart matte keying mode to ${m.label}.`}
+                  bn={`সাবজেক্ট বা ${m.label} ব্যাকগ্রাউন্ড আলাদা করতে চাপুন।`}
+                  accent="cyan"
+                  blockWrapper
                 >
-                  {m.label}
-                </button>
+                  <button
+                    type="button"
+                    data-active={cutout.mode === m.id && cutout.enabled ? 'true' : 'false'}
+                    onClick={() => updateCutout({ enabled: true, mode: m.id })}
+                    className="cinema-tile cinema-tile-cyan w-full min-h-[38px] rounded text-[10px] font-black tracking-wider uppercase cursor-pointer"
+                  >
+                    {m.label}
+                  </button>
+                </CinemaToolHUD>
               ))}
             </div>
 
-            <div className="grid grid-cols-2 gap-3 text-[10px]">
+            <div className="grid grid-cols-2 gap-3 text-[10px] font-bold">
               <div>
-                <div className="flex justify-between text-zinc-400 mb-1">
-                  <span>Tolerance</span>
+                <div className="flex justify-between text-zinc-400 mb-1 uppercase">
+                  <span>TOLERANCE</span>
                   <span className="text-white tabular-nums">{cutout.tolerance}</span>
                 </div>
                 <input
@@ -439,8 +486,8 @@ export const CapCutProSuitePanel: React.FC<CapCutProSuitePanelProps> = ({
                 />
               </div>
               <div>
-                <div className="flex justify-between text-zinc-400 mb-1">
-                  <span>Edge Feather</span>
+                <div className="flex justify-between text-zinc-400 mb-1 uppercase">
+                  <span>FEATHER</span>
                   <span className="text-white tabular-nums">{cutout.feather}px</span>
                 </div>
                 <input
@@ -455,52 +502,68 @@ export const CapCutProSuitePanel: React.FC<CapCutProSuitePanelProps> = ({
             </div>
           </div>
 
-          {/* Script-to-Storyboard + Beat-Sync Auto-Cut */}
-          <div className="p-3 rounded bg-[#141417] border border-white/[0.08] space-y-2.5">
-            <span className="text-[11px] font-bold text-emerald-300 uppercase flex items-center gap-1.5">
-              <Wand2 className="w-3.5 h-3.5" />
-              <span>AI Script-to-Storyboard &amp; Beat-Sync Auto-Cut</span>
-            </span>
+          {/* AI SHOTS + BEAT CUT */}
+          <div className="p-3 rounded-lg bg-[#141417] border border-white/[0.08] space-y-2.5">
+            <CinemaBadgeHeader
+              icon={<Wand2 className="w-3.5 h-3.5" strokeWidth={2.3} />}
+              label="AI SHOTS"
+              accent="emerald"
+            />
 
             <div className="flex gap-2">
               <input
                 type="text"
                 value={storyScript}
                 onChange={(e) => setStoryScript(e.target.value)}
-                placeholder="Paste scene outline to generate 4 storyboard shots..."
-                className="flex-1 min-w-0 h-9 px-2.5 rounded bg-[#0B0B0D] border border-white/[0.12] text-xs text-white outline-none focus:border-emerald-400"
+                placeholder="Scene outline..."
+                className="flex-1 min-w-0 h-10 px-2.5 rounded bg-[#0B0B0D] border border-white/[0.12] text-xs text-white outline-none focus:border-emerald-400"
               />
-              <button
-                type="button"
-                disabled={isGeneratingStoryboard || !storyScript.trim()}
-                onClick={handleGenerateScriptStoryboard}
-                className="h-9 px-3 rounded bg-emerald-400 hover:bg-emerald-300 disabled:opacity-40 text-[#0B0B0D] font-space-grotesk font-black text-[10px] uppercase cursor-pointer shrink-0"
+              <CinemaToolHUD
+                title="BUILD SHOTS"
+                en="Generate 4 structured storyboard shots from text prompt."
+                bn="স্ক্রিপ্ট লিখে চাপলে অটোমেটিক ৪টি শট তৈরি হয়ে যাবে।"
+                accent="emerald"
               >
-                {isGeneratingStoryboard ? 'Building...' : 'Build Shots'}
-              </button>
+                <button
+                  type="button"
+                  disabled={isGeneratingStoryboard || !storyScript.trim()}
+                  data-active={!isGeneratingStoryboard && Boolean(storyScript.trim()) ? 'true' : 'false'}
+                  onClick={handleGenerateScriptStoryboard}
+                  className="cinema-tile cinema-tile-emerald h-10 px-3 rounded font-black text-[10px] tracking-wider uppercase cursor-pointer shrink-0 disabled:opacity-40"
+                >
+                  {isGeneratingStoryboard ? 'BUILDING' : 'BUILD'}
+                </button>
+              </CinemaToolHUD>
             </div>
 
             <div className="flex items-center justify-between gap-2 pt-2 border-t border-white/[0.06]">
-              <div className="flex items-center gap-2 text-[10px] text-zinc-300">
+              <div className="flex items-center gap-2 text-[10px] font-black text-zinc-300">
                 <Activity className="w-3.5 h-3.5 text-[#F59E0B]" />
-                <span>BPM:</span>
+                <span>BPM</span>
                 <input
                   type="number"
                   min={60}
                   max={200}
                   value={bpmInput}
                   onChange={(e) => setBpmInput(Number(e.target.value) || 120)}
-                  className="w-16 h-7 px-2 rounded bg-[#0B0B0D] border border-white/[0.12] text-xs text-white tabular-nums"
+                  className="w-16 h-8 px-2 rounded bg-[#0B0B0D] border border-white/[0.12] text-xs text-white tabular-nums"
                 />
               </div>
-              <button
-                type="button"
-                data-testid="beat-sync-autocut-btn"
-                onClick={handleGenerateBeatMarkers}
-                className="h-8 px-3 rounded bg-white/[0.08] hover:bg-[#F59E0B] hover:text-[#0B0B0D] text-xs font-bold uppercase cursor-pointer transition-colors"
+              <CinemaToolHUD
+                title="BEAT CUT"
+                en="Inject rhythmic beat-sync cut markers into the shot timeline."
+                bn="বিপিএম অনুযায়ী শট টাইমলাইনে অটো বিট-কাট মার্কার বসাতে চাপুন।"
+                accent="amber"
               >
-                Beat-Sync Auto-Cut ({currentFrame.beatMarkersSec?.length || 0})
-              </button>
+                <button
+                  type="button"
+                  data-testid="beat-sync-autocut-btn"
+                  onClick={handleGenerateBeatMarkers}
+                  className="cinema-tile cinema-tile-amber min-h-[38px] px-3 rounded font-black text-[10px] tracking-wider uppercase cursor-pointer"
+                >
+                  BEAT CUT ({currentFrame.beatMarkersSec?.length || 0})
+                </button>
+              </CinemaToolHUD>
             </div>
           </div>
         </div>
@@ -508,32 +571,47 @@ export const CapCutProSuitePanel: React.FC<CapCutProSuitePanelProps> = ({
 
       {/* TAB 2: KEYFRAME ANIMATION SYSTEM */}
       {activeTab === 'keyframes' && (
-        <div className="p-3 rounded bg-[#141417] border border-white/[0.08] space-y-3">
+        <div className="p-3 rounded-lg bg-[#141417] border border-white/[0.08] space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-[11px] font-bold text-[#F59E0B] uppercase flex items-center gap-1.5">
-              <Diamond className="w-3.5 h-3.5" />
-              <span>Clip Keyframe Timeline ({Math.round(normPlayhead * 100)}%)</span>
-            </span>
+            <CinemaBadgeHeader
+              icon={<Diamond className="w-3.5 h-3.5" strokeWidth={2.3} />}
+              label={`KEYFRAME ${Math.round(normPlayhead * 100)}%`}
+              accent="amber"
+            />
 
             <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                data-testid="add-keyframe-btn"
-                onClick={() => addOrUpdateKeyframeAtPlayhead()}
-                className="px-2.5 py-1 rounded bg-[#F59E0B] hover:bg-amber-400 text-[#0B0B0D] text-[10px] font-black uppercase flex items-center gap-1 cursor-pointer"
+              <CinemaToolHUD
+                title="ADD KEYFRAME"
+                en="Drop or update an animation keyframe at playhead position."
+                bn="বর্তমান ফ্রেমে অ্যানিমেশন কীফ্রেম যোগ বা আপডেট করতে চাপুন।"
+                accent="amber"
               >
-                <Plus className="w-3 h-3" />
-                <span>Add Keyframe</span>
-              </button>
-              {selectedKfId && (
                 <button
                   type="button"
-                  onClick={removeSelectedKeyframe}
-                  className="p-1 rounded bg-red-500/20 hover:bg-red-500/35 text-red-300 cursor-pointer"
-                  title="Delete selected keyframe"
+                  data-testid="add-keyframe-btn"
+                  data-active="true"
+                  onClick={() => addOrUpdateKeyframeAtPlayhead()}
+                  className="cinema-tile cinema-tile-amber px-2.5 min-h-[36px] rounded text-[10px] font-black tracking-wider uppercase flex items-center gap-1 cursor-pointer"
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
+                  <Plus className="w-3.5 h-3.5 cinema-tile-icon" />
+                  <span>KEYFRAME</span>
                 </button>
+              </CinemaToolHUD>
+              {selectedKfId && (
+                <CinemaToolHUD
+                  title="DELETE KEYFRAME"
+                  en="Remove the selected keyframe diamond."
+                  bn="সিলেক্ট করা কীফ্রেম মুছে ফেলতে চাপুন।"
+                  accent="crimson"
+                >
+                  <button
+                    type="button"
+                    onClick={removeSelectedKeyframe}
+                    className="cinema-tile cinema-tile-crimson p-2 rounded cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 cinema-tile-icon" />
+                  </button>
+                </CinemaToolHUD>
               )}
             </div>
           </div>
@@ -545,8 +623,8 @@ export const CapCutProSuitePanel: React.FC<CapCutProSuitePanelProps> = ({
               style={{ left: `${normPlayhead * 100}%` }}
             />
             {keyframes.length === 0 && (
-              <span className="text-[10px] text-zinc-500 mx-auto">
-                Click "Add Keyframe" to animate Position, Scale, Rotation &amp; Opacity
+              <span className="text-[10px] font-black tracking-wider text-zinc-500 mx-auto uppercase">
+                NO KEYFRAMES
               </span>
             )}
             {keyframes.map((kf) => (
@@ -568,38 +646,43 @@ export const CapCutProSuitePanel: React.FC<CapCutProSuitePanelProps> = ({
           {/* Easing Curve Selector */}
           <div className="grid grid-cols-4 gap-1">
             {(['linear', 'ease-in', 'ease-out', 'ease-in-out'] as const).map((ease) => (
-              <button
+              <CinemaToolHUD
                 key={ease}
-                type="button"
-                onClick={() => {
-                  setKfEasing(ease);
-                  if (keyframes.length > 0) addOrUpdateKeyframeAtPlayhead({ easing: ease });
-                }}
-                className={`py-1.5 rounded text-[9px] font-bold uppercase cursor-pointer border ${
-                  kfEasing === ease
-                    ? 'bg-[#F59E0B]/20 border-[#F59E0B] text-[#F59E0B]'
-                    : 'bg-[#0B0B0D] border-white/[0.08] text-zinc-400'
-                }`}
+                title={`EASING: ${ease.toUpperCase()}`}
+                en={`Use ${ease} motion interpolation curve between keyframes.`}
+                bn={`কীফ্রেম অ্যানিমেশনের গতি ${ease} মোডে সেট করতে চাপুন।`}
+                accent="amber"
+                blockWrapper
               >
-                {ease}
-              </button>
+                <button
+                  type="button"
+                  data-active={kfEasing === ease ? 'true' : 'false'}
+                  onClick={() => {
+                    setKfEasing(ease);
+                    if (keyframes.length > 0) addOrUpdateKeyframeAtPlayhead({ easing: ease });
+                  }}
+                  className="cinema-tile cinema-tile-amber w-full min-h-[34px] rounded text-[9px] font-black tracking-wider uppercase cursor-pointer"
+                >
+                  {ease === 'ease-in-out' ? 'EASE I/O' : ease}
+                </button>
+              </CinemaToolHUD>
             ))}
           </div>
 
           {/* Animated Property Sliders */}
-          <div className="grid grid-cols-2 gap-3 text-[10px]">
+          <div className="grid grid-cols-2 gap-3 text-[10px] font-bold">
             {(
               [
-                { key: 'x', label: 'Position X', min: -40, max: 40, step: 1, val: activeInterp.x, unit: '%' },
-                { key: 'y', label: 'Position Y', min: -40, max: 40, step: 1, val: activeInterp.y, unit: '%' },
-                { key: 'scale', label: 'Scale', min: 0.5, max: 2.5, step: 0.05, val: activeInterp.scale, unit: 'x' },
-                { key: 'rotation', label: 'Rotation', min: -180, max: 180, step: 1, val: activeInterp.rotation, unit: '°' },
-                { key: 'opacity', label: 'Opacity', min: 0, max: 1, step: 0.05, val: activeInterp.opacity, unit: '' },
-                { key: 'volume', label: 'Audio Gain', min: 0, max: 2, step: 0.05, val: activeInterp.volume, unit: 'x' }
+                { key: 'x', label: 'POS X', min: -40, max: 40, step: 1, val: activeInterp.x, unit: '%' },
+                { key: 'y', label: 'POS Y', min: -40, max: 40, step: 1, val: activeInterp.y, unit: '%' },
+                { key: 'scale', label: 'SCALE', min: 0.5, max: 2.5, step: 0.05, val: activeInterp.scale, unit: 'x' },
+                { key: 'rotation', label: 'ROTATE', min: -180, max: 180, step: 1, val: activeInterp.rotation, unit: '°' },
+                { key: 'opacity', label: 'OPACITY', min: 0, max: 1, step: 0.05, val: activeInterp.opacity, unit: '' },
+                { key: 'volume', label: 'GAIN', min: 0, max: 2, step: 0.05, val: activeInterp.volume, unit: 'x' }
               ] as const
             ).map((ctrl) => (
               <div key={ctrl.key}>
-                <div className="flex justify-between text-zinc-400 mb-0.5">
+                <div className="flex justify-between text-zinc-400 mb-0.5 uppercase">
                   <span>{ctrl.label}</span>
                   <span className="text-white tabular-nums">
                     {ctrl.step < 1 ? ctrl.val.toFixed(2) : Math.round(ctrl.val)}
@@ -623,16 +706,15 @@ export const CapCutProSuitePanel: React.FC<CapCutProSuitePanelProps> = ({
         </div>
       )}
 
-      {/* TAB 3: SPEED RAMPING (VELOCITY CURVES) + OPTICAL FLOW */}
+      {/* TAB 3: SPEED RAMPING + OPTICAL FLOW */}
       {activeTab === 'speed-ramp' && (
-        <div className="p-3 rounded bg-[#141417] border border-white/[0.08] space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-[#F59E0B] uppercase flex items-center gap-1.5">
-              <Gauge className="w-3.5 h-3.5" />
-              <span>Velocity Speed Ramp Curves</span>
-            </span>
-            <span className="text-[10px] text-cyan-300 font-bold">{activePreset}</span>
-          </div>
+        <div className="p-3 rounded-lg bg-[#141417] border border-white/[0.08] space-y-3">
+          <CinemaBadgeHeader
+            icon={<Gauge className="w-3.5 h-3.5" strokeWidth={2.3} />}
+            label="SPEED RAMP"
+            accent="amber"
+            rightSlot={<span className="text-[10px] text-cyan-300 font-black">{activePreset}</span>}
+          />
 
           {/* Live Velocity Curve SVG Graph */}
           <svg
@@ -659,93 +741,123 @@ export const CapCutProSuitePanel: React.FC<CapCutProSuitePanelProps> = ({
             />
           </svg>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-            {SPEED_RAMP_PRESETS.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                data-testid={`speed-ramp-${p.id}`}
-                onClick={() => {
-                  if (!guardPro('Speed Ramping & Optical Flow')) return;
-                  onUpdateFrame({
-                    ...currentFrame,
-                    speedRampPreset: p.id,
-                    speedRampKeyframes: undefined
-                  });
-                  flash(`Speed ramp preset: ${p.label}`);
-                }}
-                className={`p-2 rounded text-left border cursor-pointer transition-colors ${
-                  activePreset === p.id
-                    ? 'bg-[#F59E0B]/20 border-[#F59E0B] text-white'
-                    : 'bg-[#0B0B0D] border-white/[0.08] text-zinc-400 hover:text-white'
-                }`}
-              >
-                <div className="text-[10px] font-black text-[#F59E0B]">{p.shortLabel}</div>
-                <div className="text-[9px] truncate">{p.curveSummary}</div>
-              </button>
-            ))}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+            {SPEED_RAMP_PRESETS.map((p) => {
+              const shortTag =
+                p.id === 'NONE'
+                  ? 'LINEAR'
+                  : p.id === 'BULLET_TIME'
+                    ? 'BULLET'
+                    : p.id === 'WHIP_CUT'
+                      ? 'WHIP CUT'
+                      : p.id === 'HEARTBEAT_PULSE'
+                        ? 'PULSE'
+                        : p.shortLabel.toUpperCase();
+              return (
+                <CinemaToolHUD
+                  key={p.id}
+                  hudId={p.id === 'HERO_RAMP' ? 'hero-ramp' : undefined}
+                  title={`${p.label.toUpperCase()} RAMP`}
+                  en={`Apply ${p.label} speed curve (${p.curveSummary}).`}
+                  bn={`ক্লিপে ${p.label} গতির স্মুথ স্পিড র‍্যাম্প প্রয়োগ করতে চাপুন।`}
+                  accent="amber"
+                  blockWrapper
+                >
+                  <button
+                    type="button"
+                    data-testid={`speed-ramp-${p.id}`}
+                    data-active={activePreset === p.id ? 'true' : 'false'}
+                    onClick={() => {
+                      if (!guardPro('Speed Ramping & Optical Flow')) return;
+                      onUpdateFrame({
+                        ...currentFrame,
+                        speedRampPreset: p.id,
+                        speedRampKeyframes: undefined
+                      });
+                      flash(`Speed ramp preset: ${p.label}`);
+                    }}
+                    className="cinema-tile cinema-tile-amber w-full min-h-[44px] px-2 rounded-lg flex flex-col items-center justify-center gap-1 cursor-pointer"
+                  >
+                    <Gauge className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                    <span className="text-[10px] font-black tracking-wider uppercase">{shortTag}</span>
+                  </button>
+                </CinemaToolHUD>
+              );
+            })}
           </div>
 
           {/* Optical Flow Frame Interpolation Toggle */}
           <div className="pt-2 border-t border-white/[0.08] flex flex-wrap items-center justify-between gap-2">
-            <span className="text-[10px] text-zinc-300 font-bold uppercase">
-              Slow-Motion Optical Flow Synthesis
+            <span className="text-[10px] text-zinc-300 font-black tracking-wider uppercase">
+              OPTICAL FLOW
             </span>
             <div className="flex items-center gap-1">
               {(
                 [
-                  { id: 'NONE', label: 'Off' },
-                  { id: 'FRAME_BLEND', label: 'Frame Blend' },
-                  { id: 'OPTICAL_FLOW', label: 'Optical Flow' }
+                  { id: 'NONE', label: 'OFF' },
+                  { id: 'FRAME_BLEND', label: 'BLEND' },
+                  { id: 'OPTICAL_FLOW', label: 'AI FLOW' }
                 ] as const
               ).map((m) => (
-                <button
+                <CinemaToolHUD
                   key={m.id}
-                  type="button"
-                  data-testid={`optical-flow-${m.id}`}
-                  onClick={() => {
-                    if (!guardPro('Optical Flow Slow-Motion')) return;
-                    onUpdateFrame({ ...currentFrame, opticalFlowMode: m.id });
-                  }}
-                  className={`px-2.5 py-1 rounded text-[9.5px] font-bold uppercase cursor-pointer border ${
-                    activeOpticalFlow === m.id
-                      ? 'bg-cyan-400 border-cyan-300 text-[#0B0B0D]'
-                      : 'bg-[#0B0B0D] border-white/[0.1] text-zinc-400 hover:text-white'
-                  }`}
+                  title={`SLOW-MO: ${m.label}`}
+                  en={`Use ${m.label} frame synthesis for smooth slow motion.`}
+                  bn={`স্লো-মোশন মসৃণ করতে ${m.label} মোড নির্বাচন করুন।`}
+                  accent="cyan"
                 >
-                  {m.label}
-                </button>
+                  <button
+                    type="button"
+                    data-testid={`optical-flow-${m.id}`}
+                    data-active={activeOpticalFlow === m.id ? 'true' : 'false'}
+                    onClick={() => {
+                      if (!guardPro('Optical Flow Slow-Motion')) return;
+                      onUpdateFrame({ ...currentFrame, opticalFlowMode: m.id });
+                    }}
+                    className="cinema-tile cinema-tile-cyan px-2.5 min-h-[34px] rounded text-[10px] font-black tracking-wider uppercase cursor-pointer"
+                  >
+                    {m.label}
+                  </button>
+                </CinemaToolHUD>
               ))}
             </div>
           </div>
         </div>
       )}
 
-      {/* TAB 4: LIFT / GAMMA / GAIN COLOR WHEELS + 3D MOTION BLUR & GRAIN */}
+      {/* TAB 4: 3D COLOR & OPTICS */}
       {activeTab === 'color-fx' && (
-        <div className="p-3 rounded bg-[#141417] border border-white/[0.08] space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-[#F59E0B] uppercase flex items-center gap-1.5">
-              <Palette className="w-3.5 h-3.5" />
-              <span>3-Way Color Wheels (Lift / Gamma / Gain)</span>
-            </span>
-            <button
-              type="button"
-              onClick={() =>
-                onUpdateFrame({ ...currentFrame, colorWheels: { ...DEFAULT_COLOR_WHEELS } })
-              }
-              className="px-2 py-1 rounded bg-white/[0.06] hover:bg-white/[0.12] text-[9.5px] text-zinc-300 flex items-center gap-1 cursor-pointer"
-            >
-              <RotateCcw className="w-3 h-3" />
-              <span>Reset</span>
-            </button>
-          </div>
+        <div className="p-3 rounded-lg bg-[#141417] border border-white/[0.08] space-y-3">
+          <CinemaBadgeHeader
+            icon={<Palette className="w-3.5 h-3.5" strokeWidth={2.3} />}
+            label="3D COLOR"
+            accent="emerald"
+            rightSlot={
+              <CinemaToolHUD
+                title="RESET WHEELS"
+                en="Reset Lift, Gamma, Gain, grain, and optical blur."
+                bn="সব কালার হুইল ও অপটিক্যাল ইফেক্ট রিসেট করতে চাপুন।"
+                accent="amber"
+              >
+                <button
+                  type="button"
+                  onClick={() =>
+                    onUpdateFrame({ ...currentFrame, colorWheels: { ...DEFAULT_COLOR_WHEELS } })
+                  }
+                  className="cinema-tile cinema-tile-amber px-2 py-1 rounded text-[9.5px] font-black uppercase flex items-center gap-1 cursor-pointer"
+                >
+                  <RotateCcw className="w-3 h-3 cinema-tile-icon" />
+                  <span>RESET</span>
+                </button>
+              </CinemaToolHUD>
+            }
+          />
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
             {(['lift', 'gamma', 'gain'] as const).map((zone) => (
               <div key={zone} className="p-2.5 rounded bg-[#0B0B0D] border border-white/[0.08] space-y-2">
                 <div className="text-[10px] font-black uppercase text-center text-zinc-200 tracking-wider">
-                  {zone === 'lift' ? 'LIFT (SHADOWS)' : zone === 'gamma' ? 'GAMMA (MIDS)' : 'GAIN (HIGHLIGHTS)'}
+                  {zone.toUpperCase()}
                 </div>
                 {(['r', 'g', 'b'] as const).map((ch) => (
                   <div key={ch} className="flex items-center gap-1.5 text-[9.5px]">
@@ -773,16 +885,16 @@ export const CapCutProSuitePanel: React.FC<CapCutProSuitePanelProps> = ({
           </div>
 
           {/* Film Grain, Halation & 3D Camera Motion Blur */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-white/[0.08] text-[10px]">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-white/[0.08] text-[10px] font-bold">
             {(
               [
-                { key: 'grain', label: '35mm Film Grain', val: wheels.grain },
-                { key: 'halation', label: 'Optical Halation', val: wheels.halation },
-                { key: 'motionBlur3d', label: '3D Motion Blur', val: wheels.motionBlur3d }
+                { key: 'grain', label: '35MM GRAIN', val: wheels.grain },
+                { key: 'halation', label: 'HALATION', val: wheels.halation },
+                { key: 'motionBlur3d', label: '3D BLUR', val: wheels.motionBlur3d }
               ] as const
             ).map((fx) => (
               <div key={fx.key}>
-                <div className="flex justify-between text-zinc-400 mb-1">
+                <div className="flex justify-between text-zinc-400 mb-1 uppercase">
                   <span>{fx.label}</span>
                   <span className="text-white tabular-nums">{fx.val}%</span>
                 </div>

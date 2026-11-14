@@ -32,6 +32,7 @@ import {
 import { AnthologyFrame } from '../../types/anthology';
 import { ComponentVisibility } from '../ComponentsMatrixPopover';
 import { eventBus } from '../../core/eventBus';
+import { CinemaBadgeHeader, CinemaToolHUD } from '../ui/CinemaToolHUD';
 
 export interface HandfilmHomeProps {
   frames?: AnthologyFrame[];
@@ -594,40 +595,47 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
                 </div>
 
                 <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => handleSelectSlide(activeIndex - 1)}
-                    aria-label="Previous manifesto slide"
-                    className="w-7 h-7 rounded-md border border-white/[0.1] bg-black/50 hover:border-[#F59E0B]/60 hover:text-[#F59E0B] text-[#D4D4D8] flex items-center justify-center transition-colors cursor-pointer"
-                  >
-                    <ChevronLeft className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsAutoCycling((prev) => !prev)}
-                    aria-label={isAutoCycling ? 'Pause slide auto-cycle' : 'Play slide auto-cycle'}
-                    className="h-7 px-2.5 rounded-md border border-white/[0.1] bg-black/50 hover:border-[#F59E0B]/60 text-[10px] font-mono tracking-[0.14em] uppercase text-[#E4E4E7] flex items-center gap-1.5 transition-colors cursor-pointer"
-                  >
-                    {isAutoCycling && !prefersReducedMotion ? (
-                      <>
-                        <Pause className="w-3 h-3 text-[#F59E0B]" />
-                        <span>AUTO</span>
-                      </>
-                    ) : (
-                      <>
-                        <Play className="w-3 h-3 text-[#F59E0B]" />
-                        <span>PAUSED</span>
-                      </>
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleSelectSlide(activeIndex + 1)}
-                    aria-label="Next manifesto slide"
-                    className="w-7 h-7 rounded-md border border-white/[0.1] bg-black/50 hover:border-[#F59E0B]/60 hover:text-[#F59E0B] text-[#D4D4D8] flex items-center justify-center transition-colors cursor-pointer"
-                  >
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
+                  <CinemaToolHUD title="PREV SLIDE" en="Previous manifesto slide." bn="আগের ম্যানিফেস্টো স্লাইডে যেতে চাপুন।" accent="amber" side="bottom">
+                    <button
+                      type="button"
+                      onClick={() => handleSelectSlide(activeIndex - 1)}
+                      aria-label="Previous manifesto slide"
+                      className="cinema-tile cinema-tile-amber w-7 h-7 rounded-md flex items-center justify-center cursor-pointer"
+                    >
+                      <ChevronLeft className="w-3.5 h-3.5 cinema-tile-icon" />
+                    </button>
+                  </CinemaToolHUD>
+                  <CinemaToolHUD title="AUTO CYCLE" en="Toggle automatic slide cycling." bn="স্লাইড অটো পরিবর্তন চালু বা বন্ধ করুন।" accent="amber" side="bottom">
+                    <button
+                      type="button"
+                      onClick={() => setIsAutoCycling((prev) => !prev)}
+                      aria-label={isAutoCycling ? 'Pause slide auto-cycle' : 'Play slide auto-cycle'}
+                      data-active={isAutoCycling && !prefersReducedMotion ? 'true' : 'false'}
+                      className="cinema-tile cinema-tile-amber h-7 px-2.5 rounded-md text-[10px] font-black tracking-wider uppercase flex items-center gap-1.5 cursor-pointer"
+                    >
+                      {isAutoCycling && !prefersReducedMotion ? (
+                        <>
+                          <Pause className="w-3 h-3 cinema-tile-icon" />
+                          <span>AUTO</span>
+                        </>
+                      ) : (
+                        <>
+                          <Play className="w-3 h-3 cinema-tile-icon" />
+                          <span>PAUSED</span>
+                        </>
+                      )}
+                    </button>
+                  </CinemaToolHUD>
+                  <CinemaToolHUD title="NEXT SLIDE" en="Next manifesto slide." bn="পরের ম্যানিফেস্টো স্লাইডে যেতে চাপুন।" accent="amber" side="bottom">
+                    <button
+                      type="button"
+                      onClick={() => handleSelectSlide(activeIndex + 1)}
+                      aria-label="Next manifesto slide"
+                      className="cinema-tile cinema-tile-amber w-7 h-7 rounded-md flex items-center justify-center cursor-pointer"
+                    >
+                      <ChevronRight className="w-3.5 h-3.5 cinema-tile-icon" />
+                    </button>
+                  </CinemaToolHUD>
                 </div>
               </div>
 
@@ -692,84 +700,82 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
               aria-label="Studio Workspace Showcase Deck"
               className="min-h-0 flex flex-col justify-between rounded-xl border border-white/[0.08] bg-[#0B0B0E] p-4 sm:p-5 gap-3"
             >
-              <div className="flex items-start justify-between gap-3 pb-2 border-b border-white/[0.07]">
-                <div>
-                  <div className="font-mono text-[10px] tracking-[0.22em] uppercase text-[#F59E0B]">
-                    WORKSPACE DECK
-                  </div>
-                  <h2 className="font-space-grotesk text-[16px] font-bold tracking-tight text-[#F4F4F5] mt-0.5">
-                    Direct Studio Modules
-                  </h2>
-                </div>
-                <span className="font-mono text-[10px] tracking-[0.14em] uppercase text-[#71717A] tabular-nums pt-1">
-                  4 NODES
-                </span>
-              </div>
+              <CinemaBadgeHeader
+                icon={<Monitor className="w-4 h-4" strokeWidth={2.2} />}
+                label="STUDIO DECK"
+                accent="amber"
+                rightSlot={<span className="font-mono text-[10px] font-black uppercase text-zinc-500">4 NODES</span>}
+              />
 
-              <div className="flex-1 min-h-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2 content-stretch">
+              <div className="flex-1 min-h-0 grid grid-cols-2 lg:grid-cols-1 gap-2 content-stretch">
                 {deckCards.map((card) => {
                   const Icon = card.icon;
+                  const accent = card.title === 'COCKPIT' ? 'crimson' : card.title === 'SCRUB' ? 'cyan' : 'amber';
                   return (
-                    <button
+                    <CinemaToolHUD
                       key={card.title}
-                      type="button"
-                      onClick={card.onClick}
-                      className="group w-full text-left rounded-lg border border-white/[0.08] bg-[#101014] hover:bg-[#15151B] hover:border-[#F59E0B]/60 px-3.5 py-2 flex items-center justify-between gap-3 transition-all cursor-pointer"
+                      title={card.title}
+                      en={card.subtitle}
+                      bn={`${card.title} ওয়ার্কস্পেস সরাসরি চালু করতে এখানে চাপুন।`}
+                      accent={accent}
+                      side="left"
+                      blockWrapper
                     >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-8 h-8 rounded-md border border-white/[0.08] bg-[#08080A] group-hover:border-[#F59E0B]/50 flex items-center justify-center shrink-0 transition-colors">
-                          <Icon className={`w-4 h-4 ${card.accent}`} />
+                      <button
+                        type="button"
+                        onClick={card.onClick}
+                        className={`cinema-tile cinema-tile-${accent} group w-full min-h-[52px] rounded-lg px-3.5 py-2 flex items-center justify-between gap-3 cursor-pointer`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <Icon className="w-5 h-5 cinema-tile-icon shrink-0" strokeWidth={2.2} />
+                          <span className="text-[12px] font-black tracking-wider uppercase truncate">
+                            {card.title}
+                          </span>
                         </div>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono text-[10px] text-[#71717A] tabular-nums">
-                              {card.index}
-                            </span>
-                            <span className="font-space-grotesk text-[13px] font-bold tracking-[0.08em] uppercase text-[#F4F4F5] group-hover:text-[#F59E0B] transition-colors">
-                              {card.title}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-[#A1A1AA] truncate mt-0.5">
-                            {card.subtitle}
-                          </p>
-                        </div>
-                      </div>
-                      <ArrowRight className="w-4 h-4 text-[#52525B] group-hover:text-[#F59E0B] group-hover:translate-x-0.5 transition-all shrink-0" />
-                    </button>
+                        <ArrowRight className="w-4 h-4 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all shrink-0" />
+                      </button>
+                    </CinemaToolHUD>
                   );
                 })}
               </div>
 
               <div className="flex flex-col gap-2 pt-2 border-t border-white/[0.07]">
-                <button
-                  type="button"
-                  onClick={enterWorkspace}
-                  className="w-full h-10 px-4 rounded-lg bg-[#F59E0B] hover:bg-[#FBBF24] text-[#08080A] font-space-grotesk font-extrabold text-[12px] tracking-[0.16em] uppercase flex items-center justify-between transition-colors shadow-[0_0_24px_rgba(245,158,11,0.22)] cursor-pointer"
-                >
-                  <span className="flex items-center gap-2">
-                    <Zap className="w-4 h-4 fill-current" />
-                    <span>ENTER STUDIO WORKSPACE</span>
-                  </span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
+                <CinemaToolHUD hudId="nav-stage" side="left" blockWrapper>
+                  <button
+                    type="button"
+                    onClick={enterWorkspace}
+                    data-active="true"
+                    className="cinema-tile cinema-tile-amber w-full min-h-[44px] px-4 rounded-lg font-black text-[11px] tracking-[0.14em] uppercase flex items-center justify-between cursor-pointer"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Zap className="w-4 h-4 cinema-tile-icon" />
+                      <span>ENTER STUDIO</span>
+                    </span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </CinemaToolHUD>
 
                 <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={onOpenExportXml}
-                    className="h-8 px-2.5 rounded-md border border-white/[0.08] bg-[#101014] hover:border-white/25 text-[10px] font-mono tracking-[0.1em] uppercase text-[#A1A1AA] hover:text-[#F4F4F5] flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                  >
-                    <FileCode2 className="w-3.5 h-3.5 text-[#F59E0B]" />
-                    <span>PREMIERE XML</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onOpenShortcuts?.()}
-                    className="h-8 px-2.5 rounded-md border border-white/[0.08] bg-[#101014] hover:border-white/25 text-[10px] font-mono tracking-[0.1em] uppercase text-[#A1A1AA] hover:text-[#F4F4F5] flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                  >
-                    <Keyboard className="w-3.5 h-3.5 text-[#A1A1AA]" />
-                    <span>SHORTCUTS</span>
-                  </button>
+                  <CinemaToolHUD title="PREMIERE XML" en="Open FCP7 XML & CapCut export dialog." bn="প্রিমিয়ার ও ক্যাপকাট XML এক্সপোর্ট ওপেন করতে চাপুন।" accent="cyan" side="top" blockWrapper>
+                    <button
+                      type="button"
+                      onClick={onOpenExportXml}
+                      className="cinema-tile cinema-tile-cyan w-full min-h-[44px] px-2.5 rounded-md text-[10px] font-black tracking-wider uppercase flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <FileCode2 className="w-4 h-4 cinema-tile-icon" />
+                      <span>PREMIERE XML</span>
+                    </button>
+                  </CinemaToolHUD>
+                  <CinemaToolHUD title="SHORTCUTS" en="Inspect studio keyboard shortcuts." bn="স্টুডিওর সব কি-বোর্ড শর্টকাট একনজরে দেখতে চাপুন।" accent="emerald" side="top" blockWrapper>
+                    <button
+                      type="button"
+                      onClick={() => onOpenShortcuts?.()}
+                      className="cinema-tile cinema-tile-emerald w-full min-h-[44px] px-2.5 rounded-md text-[10px] font-black tracking-wider uppercase flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Keyboard className="w-4 h-4 cinema-tile-icon" />
+                      <span>SHORTCUTS</span>
+                    </button>
+                  </CinemaToolHUD>
                 </div>
               </div>
             </aside>
@@ -977,150 +983,96 @@ export const HandfilmHome: React.FC<HandfilmHomeProps> = ({
         </div>
       </section>
 
-      {/* SECTION 3: HIGH-THROUGHPUT ENGINE SPECIFICATIONS — MORE REASONS TO CREATE ON HANDFILM */}
+      {/* SECTION 3: ENGINE DECK */}
       <section
         id="feature-matrix-section"
-        aria-label="More Reasons to Create on HANDFILM"
-        className="w-full py-14 md:py-16 border-b border-[#232330] bg-[#07070A]"
+        aria-label="Engine Modules"
+        className="w-full py-10 md:py-12 border-b border-[#232330] bg-[#07070A]"
       >
-        <div className="max-w-7xl mx-auto px-5 md:px-10">
-          <div className="max-w-4xl mx-auto text-center mb-12 space-y-3">
-            <span className="inline-block text-[#F5A623] text-xs font-mono font-bold uppercase tracking-[0.22em]">
-              HIGH-THROUGHPUT ENGINE SPECIFICATIONS
-            </span>
-            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white font-cinzel">
-              More Reasons to Create on HANDFILM
-            </h2>
-            <p className="text-zinc-400 text-sm sm:text-base max-w-2xl mx-auto leading-relaxed">
-              Engineered exclusively for autonomous directors, previz supervisors, and high-fashion
-              cinematographers who require zero-cloud latency.
-            </p>
-          </div>
+        <div className="max-w-7xl mx-auto px-5 md:px-10 space-y-6">
+          <CinemaBadgeHeader
+            icon={<Cpu className="w-4 h-4" strokeWidth={2.2} />}
+            label="ENGINE SPECS"
+            accent="amber"
+            rightSlot={<span className="text-[10px] font-black uppercase text-zinc-500">4 CORES</span>}
+          />
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="p-6 rounded-2xl bg-[#0f0f16] border border-[#232332] hover:border-[#E50914]/60 transition-all duration-300 space-y-4 group">
-              <div className="w-12 h-12 rounded-xl bg-[#E50914]/15 border border-[#E50914]/40 flex items-center justify-center text-[#E50914] group-hover:scale-110 transition-transform">
-                <Cpu className="w-6 h-6" />
-              </div>
-              <div className="space-y-1">
-                <span className="text-[10px] font-mono text-[#E50914] font-bold uppercase tracking-wider">
-                  SILICON CORE
-                </span>
-                <h3 className="text-lg font-bold text-white">Browser-Native Silicon</h3>
-              </div>
-              <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed">
-                Leverages W3C WebCodecs and client GPU hardware acceleration to composite and
-                render 2.39:1 widescreen video without cloud render bills.
-              </p>
-            </div>
-
-            <div className="p-6 rounded-2xl bg-[#0f0f16] border border-[#232332] hover:border-[#F5A623]/60 transition-all duration-300 space-y-4 group">
-              <div className="w-12 h-12 rounded-xl bg-[#F5A623]/15 border border-[#F5A623]/40 flex items-center justify-center text-[#F5A623] group-hover:scale-110 transition-transform">
-                <HardDrive className="w-6 h-6" />
-              </div>
-              <div className="space-y-1">
-                <span className="text-[10px] font-mono text-[#F5A623] font-bold uppercase tracking-wider">
-                  LOCAL DATA SOVEREIGNTY
-                </span>
-                <h3 className="text-lg font-bold text-white">100% Offline IndexedDB</h3>
-              </div>
-              <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed">
-                Every shot draft, typography layer, and camera telemetry parameter persists in
-                sovereign browser storage. Zero corporate telemetry or tracking.
-              </p>
-            </div>
-
-            <div className="p-6 rounded-2xl bg-[#0f0f16] border border-[#232332] hover:border-[#E50914]/60 transition-all duration-300 space-y-4 group">
-              <div className="w-12 h-12 rounded-xl bg-[#E50914]/15 border border-[#E50914]/40 flex items-center justify-center text-[#E50914] group-hover:scale-110 transition-transform">
-                <Clock className="w-6 h-6" />
-              </div>
-              <div className="space-y-1">
-                <span className="text-[10px] font-mono text-[#E50914] font-bold uppercase tracking-wider">
-                  TEMPORAL PRECISION
-                </span>
-                <h3 className="text-lg font-bold text-white">Sub-Frame Precision</h3>
-              </div>
-              <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed">
-                Strict 24fps frame stepping with professional J-K-L deck shuttling, audio transient
-                beat sync, and sub-frame accurate timecodes.
-              </p>
-            </div>
-
-            <div className="p-6 rounded-2xl bg-[#0f0f16] border border-[#232332] hover:border-[#F5A623]/60 transition-all duration-300 space-y-4 group">
-              <div className="w-12 h-12 rounded-xl bg-[#F5A623]/15 border border-[#F5A623]/40 flex items-center justify-center text-[#F5A623] group-hover:scale-110 transition-transform">
-                <Share2 className="w-6 h-6" />
-              </div>
-              <div className="space-y-1">
-                <span className="text-[10px] font-mono text-[#F5A623] font-bold uppercase tracking-wider">
-                  NLE PIPELINE
-                </span>
-                <h3 className="text-lg font-bold text-white">Instant NLE Portability</h3>
-              </div>
-              <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed">
-                Direct FCP 7 XML and FCPXML exports formatted for immediate drag-and-drop into
-                CapCut Desktop, Adobe Premiere Pro, and DaVinci Resolve.
-              </p>
-            </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {[
+              { icon: Cpu, tag: 'WEBCODECS GPU', accent: 'crimson' as const, en: 'Hardware-accelerated 2.39:1 browser video encoding with zero cloud bills.', bn: 'ব্রাউজারের GPU ব্যবহার করে কোনো ক্লাউড সার্ভার ছাড়াই 4K ভিডিও রেন্ডার করুন।' },
+              { icon: HardDrive, tag: 'LOCAL VAULT', accent: 'amber' as const, en: '100% offline IndexedDB & OPFS storage. Media never leaves your device.', bn: 'সব ভিডিও, ছবি ও প্রজেক্ট আপনার নিজের ডিভাইসে নিরাপদে সংরক্ষিত থাকে।' },
+              { icon: Clock, tag: '24FPS LOCK', accent: 'cyan' as const, en: 'Strict 24fps stepping, J-K-L shuttle, and audio beat transient snap.', bn: '২৪ FPS নির্ভুল টাইমকোড ও মিউজিক বিটের সাথে অটো কাট সিঙ্ক করুন।' },
+              { icon: Share2, tag: 'NLE BRIDGE', accent: 'emerald' as const, en: 'Instant Premiere Pro XML, CapCut Draft, and DaVinci FCPXML export.', bn: 'এক ক্লিকেই প্রিমিয়ার, ক্যাপকাট ও ডাভিঞ্চি রিজলভের জন্য টাইমলাইন নিন।' },
+            ].map((spec) => {
+              const SpecIcon = spec.icon;
+              return (
+                <CinemaToolHUD key={spec.tag} title={spec.tag} en={spec.en} bn={spec.bn} accent={spec.accent} side="top" blockWrapper>
+                  <button
+                    type="button"
+                    onClick={() => onEnterStudio(0)}
+                    className={`cinema-tile cinema-tile-${spec.accent} w-full min-h-[84px] p-4 rounded-xl flex flex-col items-center justify-center gap-2 cursor-pointer`}
+                  >
+                    <SpecIcon className="w-6 h-6 cinema-tile-icon" strokeWidth={2.2} />
+                    <span className="text-[11px] font-black tracking-wider uppercase">{spec.tag}</span>
+                  </button>
+                </CinemaToolHUD>
+              );
+            })}
           </div>
         </div>
       </section>
 
-      {/* SECTION 4: FREQUENTLY ASKED QUESTIONS + PRO STUDIO LAUNCH CTA */}
+      {/* SECTION 4: QUICK LAUNCH CTA */}
       <section
         id="director-faqs-section"
-        aria-label="Frequently Asked Questions"
-        className="w-full py-14 md:py-16 border-b border-[#232330] bg-[#070709]"
+        aria-label="Quick Guide"
+        className="w-full py-10 md:py-12 border-b border-[#232330] bg-[#070709]"
       >
-        <div className="max-w-4xl mx-auto px-5 md:px-10 space-y-8">
-          <div className="text-center space-y-2">
-            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white font-cinzel">
-              Frequently Asked Questions
-            </h2>
-            <p className="text-zinc-400 text-xs sm:text-sm">
-              Answers for autonomous directors, cinematographers, and post-production leads.
-            </p>
-          </div>
-
-          <div className="space-y-3">
+        <div className="max-w-4xl mx-auto px-5 md:px-10 space-y-6">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {DIRECTOR_FAQS.map((item, idx) => {
-              const isOpen = openFaqIndex === idx;
+              const shortLabels = ['12S TIMING', 'WEBCODECS', 'XML BRIDGE', 'OFFLINE VAULT'];
+              const bnFaq = [
+                '১২ সেকেন্ডের শট প্রতিটি দৃশ্যের সঠিক টেম্পো ও টাইপোগ্রাফি বিচার করার আদর্শ সময়।',
+                'WebCodecs API সরাসরি আপনার ডিভাইসের GPU দিয়ে রেন্ডার করে।',
+                'এক ক্লিকেই প্রিমিয়ার, ক্যাপকাট ও ডাভিঞ্চিতে XML এক্সপোর্ট করা যায়।',
+                'কোনো মিডিয়া সার্ভারে আপলোড হয় না; সব লোকাল ব্রাউজারেই থাকে।'
+              ];
               return (
-                <div
+                <CinemaToolHUD
                   key={item.q}
-                  className="border border-[#232330] rounded-xl bg-[#0d0d12] overflow-hidden transition-colors"
+                  title={shortLabels[idx] || 'FAQ'}
+                  en={item.a}
+                  bn={bnFaq[idx] || 'বিস্তারিত জানতে হোভার করুন।'}
+                  accent="cyan"
+                  side="top"
+                  blockWrapper
                 >
                   <button
                     type="button"
-                    aria-expanded={isOpen}
-                    onClick={() => setOpenFaqIndex(isOpen ? null : idx)}
-                    className="w-full px-5 py-4 flex items-center justify-between text-left text-sm sm:text-base font-semibold text-zinc-100 hover:text-white cursor-pointer"
+                    onClick={() => setOpenFaqIndex(openFaqIndex === idx ? null : idx)}
+                    data-active={openFaqIndex === idx ? 'true' : 'false'}
+                    className="cinema-tile cinema-tile-cyan w-full min-h-[48px] px-3 py-2 rounded-lg text-[10px] font-black tracking-wider uppercase flex items-center justify-center gap-1.5 cursor-pointer"
                   >
-                    <span>{item.q}</span>
-                    {isOpen ? (
-                      <ChevronUp className="w-4 h-4 text-[#E50914] shrink-0 ml-3" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4 text-zinc-500 shrink-0 ml-3" />
-                    )}
+                    <span>{shortLabels[idx] || `FAQ ${idx + 1}`}</span>
                   </button>
-                  {isOpen && (
-                    <div className="px-5 pb-5 pt-2 text-xs sm:text-sm text-zinc-400 leading-relaxed border-t border-[#1a1a24]">
-                      {item.a}
-                    </div>
-                  )}
-                </div>
+                </CinemaToolHUD>
               );
             })}
           </div>
 
-          <div className="pt-6 text-center">
-            <button
-              type="button"
-              onClick={() => onEnterStudio(0)}
-              className="px-8 py-3.5 rounded-full bg-[#E50914] hover:bg-[#ff1e2b] text-white font-bold text-sm sm:text-base inline-flex items-center gap-3 shadow-[0_0_30px_rgba(229,9,20,0.6)] hover:shadow-[0_0_40px_rgba(229,9,20,0.85)] transition-all cursor-pointer active:scale-95"
-            >
-              <Play className="w-4 h-4 fill-current" />
-              <span>OPEN HANDFILM PRO STUDIO NOW</span>
-            </button>
+          <div className="text-center">
+            <CinemaToolHUD hudId="nav-stage" side="top">
+              <button
+                type="button"
+                onClick={() => onEnterStudio(0)}
+                data-active="true"
+                className="cinema-tile cinema-tile-crimson min-h-[48px] px-8 py-3 rounded-full font-black text-xs sm:text-sm tracking-wider uppercase inline-flex items-center gap-2.5 cursor-pointer"
+              >
+                <Play className="w-4 h-4 cinema-tile-icon" />
+                <span>OPEN STUDIO</span>
+              </button>
+            </CinemaToolHUD>
           </div>
         </div>
       </section>

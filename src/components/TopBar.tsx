@@ -24,35 +24,34 @@ import {
   Film,
   Home,
   Play,
-  MoreVertical,
   FolderOpen,
   Layers,
-  Palette,
   Activity,
-  HelpCircle,
   HardDriveDownload,
-  SlidersHorizontal,
   Cloud,
   Video,
   Sparkles,
   Download,
   Scissors,
   FileText,
-  ExternalLink,
   Globe,
   Settings,
-  Sliders,
   ChevronDown,
   Keyboard,
   Type,
-  Maximize2,
   Circle,
   LogIn,
-  LogOut,
   Package,
   Zap,
-  BarChart2
+  BarChart2,
+  Compass,
+  FileCode
 } from 'lucide-react';
+import {
+  CinemaToolHUD,
+  CinemaGuideToggleButton,
+  CinemaBadgeHeader
+} from './ui/CinemaToolHUD';
 import { signInWithGoogle, signOutUser, onAuthChange, auth } from '../services/firebase';
 import { useLicenseStore } from '../services/licenseService';
 import { firestoreSync, CloudSyncStatus } from '../services/firestoreSync';
@@ -319,677 +318,725 @@ export const TopBar: React.FC<TopBarProps> = ({
 
   return (
     <header className="h-18 sm:h-20 w-full bg-gradient-to-b from-[#070709]/98 via-[#070709]/90 to-transparent backdrop-blur-md sticky top-0 z-50 border-b border-white/10 select-none font-sans">
-      <div className="max-w-7xl mx-auto px-6 md:px-12 w-full h-full flex items-center justify-between">
-        {/* Left: Brand HANDFILM + Minimal Nav Links */}
-        <div className="flex items-center gap-6 sm:gap-10 min-w-0">
-          {/* Brand Logo & Name with Obsidian Frosted Glass Hover Popover */}
-          <div className="relative group/brand shrink-0">
-            <div 
+      <div className="max-w-7xl mx-auto px-4 md:px-10 w-full h-full flex items-center justify-between gap-2">
+        {/* Left: Brand HANDFILM + Compact Icon Nav */}
+        <div className="flex items-center gap-4 sm:gap-7 min-w-0">
+          <CinemaToolHUD
+            title="HANDFILM SOVEREIGN ENGINE"
+            en="Zero-cloud local NLE locked at 24/60fps with bilingual kinetic titles."
+            bn="লোগোতে চাপ দিয়ে মূল হোম পেজ ও মাস্টার শট ডেকে ফিরে যান।"
+            accent="crimson"
+            side="bottom"
+          >
+            <div
               onClick={handleNavHome}
-              className="flex items-center gap-3.5 cursor-pointer py-1"
-              title="HANDFILM — Sovereign NLE"
+              className="flex items-center gap-2.5 cursor-pointer py-1 shrink-0"
             >
-              {/* Diamond Monogram in HANDFILM Cinema Red */}
-              <div className="w-7 h-7 sm:w-8 sm:h-8 rotate-45 border-2 border-[#E50914] bg-gradient-to-tr from-[#8B0000] via-[#E50914] to-[#ff4d4d] flex items-center justify-center shadow-[0_0_18px_rgba(229,9,20,0.7)] group-hover/brand:shadow-[0_0_28px_rgba(229,9,20,1)] group-hover/brand:scale-105 transition-all">
-                <Film className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white font-black -rotate-45" />
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rotate-45 border-2 border-[#E50914] bg-gradient-to-tr from-[#8B0000] via-[#E50914] to-[#ff4d4d] flex items-center justify-center shadow-[0_0_18px_rgba(229,9,20,0.6)]">
+                <Film className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white font-black -rotate-45" strokeWidth={2.3} />
               </div>
-
-              <div className="flex flex-col leading-tight select-none">
-                <div className="flex items-center tracking-wider text-xl sm:text-2xl md:text-3xl">
-                  <span className="font-cinzel text-red-600 drop-shadow-[0_2px_14px_rgba(220,38,38,0.9)] font-black tracking-wider">
-                    HAND
-                  </span>
-                  <span className="font-cinzel bg-gradient-to-b from-white via-slate-100 to-slate-300 bg-clip-text text-transparent font-black tracking-wider">
-                    FILM
-                  </span>
+              <div className="flex flex-col leading-none select-none">
+                <div className="flex items-center tracking-wider text-lg sm:text-2xl">
+                  <span className="font-cinzel text-red-600 font-black">HAND</span>
+                  <span className="font-cinzel text-white font-black">FILM</span>
                 </div>
-                <span className="font-mono text-[9px] sm:text-[10px] text-[#F5A623] tracking-[0.24em] uppercase font-extrabold">
-                  A T E L I E R &nbsp; C I N E M A T I C
+                <span className="font-mono text-[8px] text-amber-400 tracking-[0.22em] uppercase font-black">
+                  PRO NLE
                 </span>
               </div>
             </div>
+          </CinemaToolHUD>
 
-            {/* Brand Hover Popover: Obsidian frosted glass card */}
-            <div className="absolute left-0 top-full mt-2 w-72 p-3.5 bg-[#0a0a12]/95 border border-[#d4af37]/40 rounded-[4px] shadow-[0_8px_32px_rgba(0,0,0,0.9)] backdrop-blur-xl opacity-0 translate-y-1 pointer-events-none group-hover/brand:opacity-100 group-hover/brand:translate-y-0 transition-all duration-200 z-50">
-              <div className="flex items-center gap-2 mb-1.5 pb-1 border-b border-white/10">
-                <div className="w-2 h-2 rounded-full bg-red-600 shadow-[0_0_6px_#dc2626]" />
-                <span className="text-[10px] font-mono font-bold text-[#fbbf24] uppercase tracking-wider">
-                  HANDFILM // SOVEREIGN ENGINE
-                </span>
-              </div>
-              <p className="text-[11px] text-zinc-300 font-sans leading-relaxed">
-                Zero-cloud sovereign NLE designed for 12.0s cinematic rhythm, local browser GPU acceleration, and bilingual title design.
-              </p>
-              <div className="mt-2.5 pt-1.5 border-t border-white/5 flex items-center justify-between text-[8.5px] font-mono text-zinc-400">
-                <span>24.0 FPS LOCKED</span>
-                <span className="text-emerald-400 font-bold">LOCAL SILICON</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Minimal Nav Links: Home, Top 10 Reels, Manifesto (Clean typography with gold underline) */}
-          <nav className="flex items-center gap-5 sm:gap-7 text-xs sm:text-sm font-space-grotesk font-semibold tracking-wide">
-            {/* 1. Home */}
-            <div className="relative group/nav py-1">
+          <nav className="flex items-center gap-2 sm:gap-3">
+            <CinemaToolHUD hudId="nav-home" side="bottom">
               <button
                 type="button"
                 onClick={handleNavHome}
-                className={`transition-colors cursor-pointer py-0.5 ${
-                  currentView === 'HOME' ? 'text-white' : 'text-zinc-400 hover:text-white'
-                }`}
+                data-active={currentView === 'HOME' ? 'true' : 'false'}
+                className="cinema-tile cinema-tile-amber px-2.5 py-1.5 rounded-md flex items-center gap-1.5 font-black tracking-wider text-[10px] sm:text-[11px] uppercase cursor-pointer"
               >
-                <span>Home</span>
-                {/* Animated Gold Underline */}
-                <span className={`absolute bottom-0 left-0 h-[2px] bg-gradient-to-r from-[#d4af37] via-[#fbbf24] to-[#f5a623] transition-all duration-300 ${
-                  currentView === 'HOME' ? 'w-full' : 'w-0 group-hover/nav:w-full'
-                }`} />
+                <Home className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.3} />
+                <span>HOME</span>
               </button>
-              {/* Hover Summary Card */}
-              <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-48 p-2.5 bg-[#0a0a12]/95 border border-[#d4af37]/35 rounded-[3px] shadow-2xl backdrop-blur-xl opacity-0 translate-y-1 pointer-events-none group-hover/nav:opacity-100 group-hover/nav:translate-y-0 transition-all duration-200 z-50 text-left">
-                <div className="text-[9.5px] font-mono font-bold text-[#fbbf24] mb-0.5">DIRECTOR HOME</div>
-                <div className="text-[9.5px] text-zinc-300 font-sans leading-tight">10-Slide Cinema Hero Runner, Top 10 Master Shots & Anthology Specs.</div>
-              </div>
-            </div>
+            </CinemaToolHUD>
 
-            {/* 2. Top 10 Reels */}
-            <div className="relative group/nav py-1">
+            <CinemaToolHUD
+              title="TOP 10 MASTER REELS"
+              en="Jump directly to curated 24fps master reels with scope framing."
+              bn="সেরা ১০টি মাস্টার রিলস শট গ্যালারিতে যেতে TOP REELS চাপুন।"
+              accent="amber"
+              side="bottom"
+            >
               <button
                 type="button"
                 onClick={handleNavTop10}
-                className="transition-colors cursor-pointer text-zinc-400 hover:text-white py-0.5"
+                className="cinema-tile cinema-tile-amber px-2.5 py-1.5 rounded-md flex items-center gap-1.5 font-black tracking-wider text-[10px] sm:text-[11px] uppercase cursor-pointer"
               >
-                <span>Top 10 Reels</span>
-                {/* Animated Gold Underline */}
-                <span className="absolute bottom-0 left-0 w-0 h-[2px] bg-gradient-to-r from-[#d4af37] via-[#fbbf24] to-[#f5a623] transition-all duration-300 group-hover/nav:w-full" />
+                <Film className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.3} />
+                <span>TOP REELS</span>
               </button>
-              {/* Hover Summary Card */}
-              <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-52 p-2.5 bg-[#0a0a12]/95 border border-[#d4af37]/35 rounded-[3px] shadow-2xl backdrop-blur-xl opacity-0 translate-y-1 pointer-events-none group-hover/nav:opacity-100 group-hover/nav:translate-y-0 transition-all duration-200 z-50 text-left">
-                <div className="text-[9.5px] font-mono font-bold text-[#fbbf24] mb-0.5">TOP 10 MASTER REELS</div>
-                <div className="text-[9.5px] text-zinc-300 font-sans leading-tight">Curated 24fps master shots with 2.39:1 scope framing and audio telemetry.</div>
-              </div>
-            </div>
+            </CinemaToolHUD>
 
-            {/* 3. Manifesto */}
-            <div className="relative group/nav py-1">
+            <CinemaToolHUD
+              title="DIRECTOR MANIFESTO"
+              en="Interactive studio walkthrough and workflow guide."
+              bn="হ্যান্ডফিল্ম স্টুডিও ব্যবহারের পূর্ণ নির্দেশিকা দেখতে MANIFESTO চাপুন।"
+              accent="cyan"
+              side="bottom"
+            >
               <button
                 type="button"
                 onClick={handleNavManifesto}
-                className="transition-colors cursor-pointer text-zinc-400 hover:text-white py-0.5"
+                className="cinema-tile cinema-tile-cyan px-2.5 py-1.5 rounded-md flex items-center gap-1.5 font-black tracking-wider text-[10px] sm:text-[11px] uppercase cursor-pointer"
               >
-                <span>Manifesto</span>
-                {/* Animated Gold Underline */}
-                <span className="absolute bottom-0 left-0 w-0 h-[2px] bg-gradient-to-r from-[#d4af37] via-[#fbbf24] to-[#f5a623] transition-all duration-300 group-hover/nav:w-full" />
+                <Compass className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.3} />
+                <span>MANIFESTO</span>
               </button>
-              {/* Hover Summary Card */}
-              <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-52 p-2.5 bg-[#0a0a12]/95 border border-[#d4af37]/35 rounded-[3px] shadow-2xl backdrop-blur-xl opacity-0 translate-y-1 pointer-events-none group-hover/nav:opacity-100 group-hover/nav:translate-y-0 transition-all duration-200 z-50 text-left">
-                <div className="text-[9.5px] font-mono font-bold text-[#fbbf24] mb-0.5">SOVEREIGN MANIFESTO</div>
-                <div className="text-[9.5px] text-zinc-300 font-sans leading-tight">Guiding tenets of 12.0s timing, zero-cloud architecture, and hardware GPU render.</div>
-              </div>
-            </div>
+            </CinemaToolHUD>
           </nav>
         </div>
 
-        {/* Right: Tactical Action Cluster + Dynamic Master Telemetry HUD */}
-        <div className="flex items-center gap-2">
-          {/* Project Statistics Dashboard Trigger */}
+        {/* Right: Tactical Icon Action Cluster */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <CinemaGuideToggleButton />
+
           {onOpenProjectStats && (
-            <button
-              type="button"
-              onClick={onOpenProjectStats}
-              className="px-2.5 py-1.5 rounded-lg bg-[#14141E] hover:bg-[#1E1E2C] border border-[#2A2A3A] hover:border-[#F5A623] text-zinc-300 hover:text-[#FFE066] text-[10.5px] font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-95"
-              title="Open Project Statistics & Sequence Analytics Dashboard"
+            <CinemaToolHUD
+              title="PROJECT STATS"
+              en="Inspect runtime duration, shot count, and pacing telemetry."
+              bn="প্রজেক্টের মোট সময় ও শট সংখ্যা দেখতে STATS চাপুন।"
+              accent="amber"
+              side="bottom"
             >
-              <BarChart2 className="w-3.5 h-3.5 text-[#F5A623]" />
-              <span className="hidden sm:inline">STATS</span>
-            </button>
+              <button
+                type="button"
+                onClick={onOpenProjectStats}
+                className="cinema-tile cinema-tile-amber px-2.5 py-1.5 rounded-md font-black tracking-wider text-[10px] sm:text-[11px] uppercase flex items-center gap-1.5 cursor-pointer"
+              >
+                <BarChart2 className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+                <span className="hidden sm:inline">STATS</span>
+              </button>
+            </CinemaToolHUD>
           )}
 
-
-
-          {/* Cloud Sync & Google Auth Pill */}
           {authUser ? (
-            <div className="relative group/auth-user">
+            <CinemaToolHUD
+              title="CLOUD ACCOUNT SYNCED"
+              en={`Signed in as ${authUser.email || 'Director'}. Click to sign out.`}
+              bn="অ্যাকাউন্ট লগইন করা আছে; সাইন-আউট করতে এখানে চাপুন।"
+              accent="emerald"
+              side="bottom"
+            >
               <button
                 type="button"
                 onClick={signOutUser}
-                className="px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl bg-black/60 border border-emerald-500/40 text-emerald-300 font-mono text-xs flex items-center gap-2 hover:border-emerald-400 cursor-pointer shadow-sm active:scale-95"
-                title={`Signed in as ${authUser.email}. Click to Sign Out.`}
+                className="cinema-tile cinema-tile-emerald px-2.5 py-1.5 rounded-md font-black tracking-wider text-[10px] sm:text-[11px] uppercase flex items-center gap-1.5 cursor-pointer"
+                data-active="true"
               >
-                {authUser.photoURL ? (
-                  <img src={authUser.photoURL} alt="User" className="w-4 h-4 rounded-full border border-emerald-400" />
-                ) : (
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_#34d399]" />
-                )}
-                <span className="hidden md:inline font-bold text-[11px] max-w-[90px] truncate">{authUser.displayName?.split(' ')[0] || 'Director'}</span>
-                <span className="text-[9px] px-1 py-0.2 rounded bg-emerald-950/80 text-emerald-400 border border-emerald-500/30">SYNCED</span>
+                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                <span className="hidden md:inline max-w-[80px] truncate">{authUser.displayName?.split(' ')[0] || 'SYNCED'}</span>
               </button>
-            </div>
+            </CinemaToolHUD>
           ) : (
-            <button
-              type="button"
-              onClick={signInWithGoogle}
-              className="px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl bg-gradient-to-b from-[#222234] via-[#161624] to-[#0c0c14] hover:from-[#2a2a40] hover:to-[#161624] border border-[#d4af37]/60 hover:border-[#fbbf24] text-zinc-100 hover:text-[#fbbf24] font-mono text-xs flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
-              title="Sign in with Google to sync storyboards to Firestore"
+            <CinemaToolHUD
+              title="GOOGLE CLOUD SIGN IN"
+              en="Sign in with Google to sync projects to cloud vault."
+              bn="প্রজেক্ট ক্লাউডে সেভ ও সিঙ্ক করতে SIGN IN বাটনে চাপুন।"
+              accent="amber"
+              side="bottom"
             >
-              <LogIn className="w-3.5 h-3.5 text-[#fbbf24]" />
-              <span className="hidden sm:inline font-bold text-[11px]">Sign In</span>
-            </button>
+              <button
+                type="button"
+                onClick={signInWithGoogle}
+                className="cinema-tile cinema-tile-amber px-2.5 py-1.5 rounded-md font-black tracking-wider text-[10px] sm:text-[11px] uppercase flex items-center gap-1.5 cursor-pointer"
+              >
+                <LogIn className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+                <span className="hidden sm:inline">SIGN IN</span>
+              </button>
+            </CinemaToolHUD>
           )}
 
-          {/* ⚡ AUTO-COMPILE MUSIC VIDEO / DOCU Master Action */}
           {onOpenCompilationWizard && (
-            <button
-              type="button"
-              onClick={onOpenCompilationWizard}
-              className="px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl bg-gradient-to-b from-[#2d2008] via-[#1a1406] to-[#0c0a03] hover:from-[#3d2c0b] hover:to-[#241a08] border-2 border-[#f5a623] text-[#ffe066] hover:text-white font-mono font-extrabold text-xs sm:text-sm flex items-center gap-2 cursor-pointer transition-all duration-150 shadow-[0_0_16px_rgba(245,166,35,0.4)] active:scale-[0.98]"
-              title="1-Click Auto-Compile Multi-Clip Music Video & Documentary Suite"
+            <CinemaToolHUD
+              title="AUTO-COMPILE ENGINE"
+              en="1-click multi-clip music video & documentary auto assembler."
+              bn="সব ক্লিপ দিয়ে এক ক্লিকেই অটো ভিডিও বানাতে AUTO COMPILE চাপুন।"
+              accent="amber"
+              side="bottom"
             >
-              <Zap className="w-3.5 h-3.5 fill-[#f5a623] text-[#f5a623]" />
-              <span className="tracking-wide hidden lg:inline">⚡ AUTO-COMPILE MUSIC VIDEO / DOCU</span>
-              <span className="tracking-wide lg:hidden">⚡ AUTO-COMPILE</span>
-            </button>
+              <button
+                type="button"
+                onClick={onOpenCompilationWizard}
+                className="cinema-tile cinema-tile-amber px-3 py-1.5 rounded-md font-black tracking-wider text-[10px] sm:text-[11px] uppercase flex items-center gap-1.5 cursor-pointer"
+              >
+                <Zap className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.3} />
+                <span>AUTO COMPILE</span>
+              </button>
+            </CinemaToolHUD>
           )}
 
-          {/* Tactical Screen Recorder Trigger [ REC. ] (NO HOTKEY on face, shown in hover card) */}
           {onOpenScreenRecorder && (
-            <div className="relative group/rec-btn">
+            <CinemaToolHUD
+              title="4K SCREEN RECORDER"
+              en="Record display and studio microphone audio directly into Media Vault."
+              bn="স্ক্রিন ও মাইক অডিও সরাসরি রেকর্ড করতে REC বাটনে চাপুন।"
+              shortcut="Alt+R"
+              accent="crimson"
+              side="bottom"
+            >
               <button
                 type="button"
                 onClick={onOpenScreenRecorder}
-                className="px-4 py-2 sm:px-4.5 sm:py-2.5 rounded-xl bg-gradient-to-b from-rose-900/90 to-rose-950/90 hover:from-rose-800 hover:to-rose-900 border-2 border-rose-500/80 hover:border-rose-400 text-rose-200 hover:text-white font-mono font-extrabold text-xs sm:text-sm flex items-center gap-2 cursor-pointer transition-all duration-150 shadow-[0_0_16px_rgba(244,63,94,0.35)] active:scale-[0.98]"
-                title="Screen & Audio Recorder (Alt+R)"
+                className="cinema-tile cinema-tile-crimson px-3 py-1.5 rounded-md font-black tracking-wider text-[10px] sm:text-[11px] uppercase flex items-center gap-1.5 cursor-pointer"
               >
-                <Circle className="w-3 h-3 fill-rose-500 text-rose-500 animate-pulse" />
-                <span className="tracking-wide">REC.</span>
+                <Circle className="w-3 h-3 fill-red-500 text-red-500 animate-pulse" />
+                <span>REC</span>
               </button>
-
-              {/* Details Hover Card */}
-              <div className="absolute right-0 top-full mt-2 w-64 p-3 bg-[#0a0a12]/98 border border-rose-500/40 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.95)] backdrop-blur-2xl opacity-0 translate-y-1 pointer-events-none group-hover/rec-btn:opacity-100 group-hover/rec-btn:translate-y-0 transition-all duration-200 z-50 text-left font-mono">
-                <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-white/10 text-[9.5px] text-rose-400 font-bold uppercase tracking-wider">
-                  <span className="flex items-center gap-1.5">
-                    <Circle className="w-2.5 h-2.5 fill-rose-500 text-rose-500" />
-                    4K SCREEN RECORDER
-                  </span>
-                  <kbd className="px-1.5 py-0.5 rounded bg-rose-500/20 border border-rose-500/40 text-rose-300 text-[8.5px] font-bold">Alt+R</kbd>
-                </div>
-                <p className="text-[10px] text-zinc-300 font-sans leading-relaxed">
-                  Record system display and studio audio at 4K/60fps directly into the persistent Media Vault.
-                </p>
-              </div>
-            </div>
+            </CinemaToolHUD>
           )}
 
-          {/* Unified EXPORT ▾ Dropdown with Chiseled Tactical Border */}
+          {/* Unified EXPORT Dropdown */}
           <div className="relative">
-            <button
-              type="button"
-              onClick={() => {
-                setIsExportMenuOpen(prev => !prev);
-                setIsEcosystemMenuOpen(false);
-              }}
-              className="px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl bg-gradient-to-b from-[#222234] via-[#161624] to-[#0c0c14] hover:from-[#2a2a40] hover:to-[#161624] border-2 border-[#d4af37]/80 hover:border-[#fbbf24] text-zinc-100 hover:text-[#fbbf24] font-mono font-extrabold text-xs sm:text-sm flex items-center gap-2 cursor-pointer transition-all duration-150 shadow-[0_0_16px_rgba(245,166,35,0.25)] active:scale-[0.98]"
-              title="Hollywood NLE Timelines, Video Master & Backup Exporters"
-            >
-              <Download className="w-4 h-4 text-[#fbbf24]" />
-              <span className="tracking-wide">EXPORT ▾</span>
-            </button>
+            <CinemaToolHUD hudId="export-4k" side="bottom">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsExportMenuOpen((prev) => !prev);
+                  setIsEcosystemMenuOpen(false);
+                }}
+                data-active={isExportMenuOpen ? 'true' : 'false'}
+                className="cinema-tile cinema-tile-emerald px-3 py-1.5 rounded-md font-black tracking-wider text-[10px] sm:text-[11px] uppercase flex items-center gap-1.5 cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.3} />
+                <span>EXPORT</span>
+                <ChevronDown className="w-3 h-3" />
+              </button>
+            </CinemaToolHUD>
 
             {isExportMenuOpen && (
               <div
-                className="absolute right-0 top-full mt-2 w-64 bg-[#0a0a10]/98 border border-[#d4af37]/50 rounded-[3px] shadow-2xl p-1.5 z-50 font-mono text-[11px] space-y-1 backdrop-blur-2xl animate-in fade-in duration-150"
+                className="absolute right-0 top-full mt-2 w-60 bg-[#0B0C0F]/98 border border-[#26282E] rounded-xl shadow-2xl p-2 z-50 space-y-1.5 backdrop-blur-2xl animate-in fade-in duration-150"
                 onMouseLeave={() => setIsExportMenuOpen(false)}
               >
-                <div className="px-2.5 py-1 text-[8.5px] font-bold text-[#d4af37] border-b border-[#272732] uppercase tracking-wider flex items-center justify-between">
-                  <span>UNIFIED TIMELINE EXPORTER</span>
-                  <span className="text-zinc-500">24 FPS</span>
+                <CinemaBadgeHeader
+                  icon={<Download className="w-3 h-3" />}
+                  label="EXPORT"
+                  accent="emerald"
+                />
+                <div className="grid grid-cols-1 gap-1">
+                  <CinemaToolHUD
+                    title="PREMIERE PRO XML"
+                    en="Export Final Cut Pro 7 XML sequence for Adobe Premiere Pro."
+                    bn="প্রিমিয়ার প্রোতে এডিট করতে PREMIERE XML ডাউনলোড করুন।"
+                    accent="amber"
+                    side="left"
+                    blockWrapper
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (onOpenExportStudio) onOpenExportStudio('premiere');
+                        else if (onOpenExportTimeline) onOpenExportTimeline();
+                        setIsExportMenuOpen(false);
+                      }}
+                      className="cinema-tile cinema-tile-amber w-full px-2.5 py-2 rounded-lg flex items-center justify-between text-[10px] font-black tracking-wider uppercase cursor-pointer"
+                    >
+                      <span className="flex items-center gap-2">
+                        <FileCode className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                        <span>PREMIERE XML</span>
+                      </span>
+                      <span className="text-[8.5px] text-zinc-400">XML</span>
+                    </button>
+                  </CinemaToolHUD>
+
+                  <CinemaToolHUD
+                    title="CAPCUT / DAVINCI FCPXML"
+                    en="Export timeline interchange for CapCut Desktop & DaVinci Resolve."
+                    bn="ক্যাপকাট বা ডাভিঞ্চি রিজলভে নিতে FCPXML এক্সপোর্ট করুন।"
+                    accent="cyan"
+                    side="left"
+                    blockWrapper
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (onOpenExportStudio) onOpenExportStudio('fcpxml');
+                        else if (onOpenExportTimeline) onOpenExportTimeline();
+                        setIsExportMenuOpen(false);
+                      }}
+                      className="cinema-tile cinema-tile-cyan w-full px-2.5 py-2 rounded-lg flex items-center justify-between text-[10px] font-black tracking-wider uppercase cursor-pointer"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Scissors className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                        <span>CAPCUT FCPXML</span>
+                      </span>
+                      <span className="text-[8.5px] text-zinc-400">FCP</span>
+                    </button>
+                  </CinemaToolHUD>
+
+                  <CinemaToolHUD hudId="export-4k" side="left" blockWrapper>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (onOpenExportStudio) onOpenExportStudio('mp4');
+                        else if (onOpenExportRange) onOpenExportRange();
+                        setIsExportMenuOpen(false);
+                      }}
+                      className="cinema-tile cinema-tile-emerald w-full px-2.5 py-2 rounded-lg flex items-center justify-between text-[10px] font-black tracking-wider uppercase cursor-pointer"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Video className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                        <span>MP4 RENDER</span>
+                      </span>
+                      <span className="text-[8.5px] text-emerald-300">H.264</span>
+                    </button>
+                  </CinemaToolHUD>
+
+                  <CinemaToolHUD
+                    title="NLE PRODUCTION ZIP"
+                    en="Bundle media assets, LUTs, and timeline XML into one zip archive."
+                    bn="সব মিডিয়া ও টাইমলাইন একসাথে জিপ প্যাকেজে সেভ করতে চাপুন।"
+                    accent="amber"
+                    side="left"
+                    blockWrapper
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (onOpenExportStudio) onOpenExportStudio('package');
+                        setIsExportMenuOpen(false);
+                      }}
+                      className="cinema-tile cinema-tile-amber w-full px-2.5 py-2 rounded-lg flex items-center justify-between text-[10px] font-black tracking-wider uppercase cursor-pointer"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Package className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                        <span>PROJECT ZIP</span>
+                      </span>
+                      <span className="text-[8.5px] text-zinc-400">ZIP</span>
+                    </button>
+                  </CinemaToolHUD>
+
+                  <CinemaToolHUD
+                    title="CONTACT SHEET PDF"
+                    en="Generate printable storyboard bible PDF with shot telemetry."
+                    bn="স্টোরিবোর্ড পিডিএফ প্রিন্ট ও ডাউনলোড করতে PDF BIBLE চাপুন।"
+                    accent="amber"
+                    side="left"
+                    blockWrapper
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (onOpenExportStudio) onOpenExportStudio('pdf');
+                        else handleExportContactSheet();
+                        setIsExportMenuOpen(false);
+                      }}
+                      className="cinema-tile cinema-tile-amber w-full px-2.5 py-2 rounded-lg flex items-center justify-between text-[10px] font-black tracking-wider uppercase cursor-pointer"
+                    >
+                      <span className="flex items-center gap-2">
+                        <FileText className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                        <span>PDF BIBLE</span>
+                      </span>
+                      <span className="text-[8.5px] text-zinc-400">PDF</span>
+                    </button>
+                  </CinemaToolHUD>
+
+                  <CinemaToolHUD
+                    title="FULL RAWX BACKUP"
+                    en="Download complete encrypted IndexedDB snapshot (.rawx)."
+                    bn="পুরো প্রজেক্টের ফুল ব্যাকআপ ফাইল (.rawx) সেভ করতে চাপুন।"
+                    accent="cyan"
+                    side="left"
+                    blockWrapper
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (onOpenExportStudio) onOpenExportStudio('backup');
+                        else exportFullIdbBackup();
+                        setIsExportMenuOpen(false);
+                      }}
+                      className="cinema-tile cinema-tile-cyan w-full px-2.5 py-2 rounded-lg flex items-center justify-between text-[10px] font-black tracking-wider uppercase cursor-pointer"
+                    >
+                      <span className="flex items-center gap-2">
+                        <HardDriveDownload className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                        <span>RAWX BACKUP</span>
+                      </span>
+                      <span className="text-[8.5px] text-zinc-400">RAWX</span>
+                    </button>
+                  </CinemaToolHUD>
                 </div>
-
-                {/* 1. FCP 7 XML (Premiere Pro) */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (onOpenExportStudio) onOpenExportStudio('premiere');
-                    else if (onOpenExportTimeline) onOpenExportTimeline();
-                    setIsExportMenuOpen(false);
-                  }}
-                  className="w-full px-2.5 py-2 rounded-[2px] text-left hover:bg-white/10 text-zinc-200 hover:text-[#fbbf24] flex items-center justify-between cursor-pointer transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <Film className="w-3.5 h-3.5 text-[#d4af37]" />
-                    <span>FCP 7 XML (Premiere Pro)</span>
-                  </div>
-                  <span className="text-[8px] bg-white/10 px-1.5 py-0.5 rounded text-zinc-300 font-bold">XML</span>
-                </button>
-
-                {/* 2. FCPXML (CapCut / DaVinci) */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (onOpenExportStudio) onOpenExportStudio('fcpxml');
-                    else if (onOpenExportTimeline) onOpenExportTimeline();
-                    setIsExportMenuOpen(false);
-                  }}
-                  className="w-full px-2.5 py-2 rounded-[2px] text-left hover:bg-white/10 text-zinc-200 hover:text-[#fbbf24] flex items-center justify-between cursor-pointer transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <Scissors className="w-3.5 h-3.5 text-[#38bdf8]" />
-                    <span>FCPXML (CapCut / DaVinci)</span>
-                  </div>
-                  <span className="text-[8px] bg-[#38bdf8]/20 border border-[#38bdf8]/40 text-[#38bdf8] px-1.5 py-0.5 rounded font-bold">FCPXML</span>
-                </button>
-
-                {/* 3. MP4 Master (Hardware WebCodecs Render) */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (onOpenExportStudio) onOpenExportStudio('mp4');
-                    else if (onOpenExportRange) onOpenExportRange();
-                    setIsExportMenuOpen(false);
-                  }}
-                  className="w-full px-2.5 py-2 rounded-[2px] text-left hover:bg-emerald-950/40 border border-emerald-500/20 text-emerald-200 hover:text-emerald-300 flex items-center justify-between cursor-pointer transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <Video className="w-3.5 h-3.5 text-emerald-400" />
-                    <span className="font-bold">MP4 Master (WebCodecs Render)</span>
-                  </div>
-                  <span className="text-[8px] bg-emerald-950/90 border border-emerald-400/50 text-emerald-300 px-1.5 py-0.5 rounded font-bold">H.264</span>
-                </button>
-
-                {/* 3b. Production Package (.zip) */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (onOpenExportStudio) onOpenExportStudio('package');
-                    setIsExportMenuOpen(false);
-                  }}
-                  className="w-full px-2.5 py-2 rounded-[2px] text-left hover:bg-amber-950/40 border border-amber-500/20 text-amber-200 hover:text-amber-300 flex items-center justify-between cursor-pointer transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <Package className="w-3.5 h-3.5 text-amber-400" />
-                    <span className="font-bold">Production Package (.zip)</span>
-                  </div>
-                  <span className="text-[8px] bg-amber-950/90 border border-amber-400/50 text-amber-300 px-1.5 py-0.5 rounded font-bold">NLE ZIP</span>
-                </button>
-
-                {/* 4. Storyboard Document (.pdf) */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (onOpenExportStudio) onOpenExportStudio('pdf');
-                    else handleExportContactSheet();
-                    setIsExportMenuOpen(false);
-                  }}
-                  className="w-full px-2.5 py-2 rounded-[2px] text-left hover:bg-amber-950/30 text-zinc-200 hover:text-[#fbbf24] flex items-center justify-between cursor-pointer transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <FileText className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Storyboard Document (.pdf)</span>
-                  </div>
-                  <span className="text-[8px] bg-amber-950/80 border border-amber-500/40 text-amber-300 px-1.5 py-0.5 rounded font-bold">PDF BIBLE</span>
-                </button>
-
-                {/* 5. Full Project Backup (.rawx) */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (onOpenExportStudio) onOpenExportStudio('backup');
-                    else exportFullIdbBackup();
-                    setIsExportMenuOpen(false);
-                  }}
-                  className="w-full px-2.5 py-2 rounded-[2px] text-left hover:bg-white/10 text-[#fbbf24] flex items-center justify-between cursor-pointer transition-colors border-t border-[#272732] mt-1 pt-2"
-                >
-                  <div className="flex items-center gap-2">
-                    <HardDriveDownload className="w-3.5 h-3.5 text-[#fbbf24]" />
-                    <span>Full Project Backup (.rawx)</span>
-                  </div>
-                  <span className="text-[8px] bg-[#d4af37]/20 border border-[#d4af37]/40 text-[#fbbf24] px-1.5 py-0.5 rounded font-bold">RAWX</span>
-                </button>
               </div>
             )}
           </div>
 
-          {/* STUDIO or HOME toggle (Tactile 3D button) */}
+          {/* STUDIO / HOME toggle */}
           {currentView === 'HOME' ? (
-            <button
-              type="button"
-              onClick={() => onSelectView?.('STUDIO')}
-              className="px-5 py-2 sm:px-6 sm:py-2.5 rounded-xl bg-gradient-to-r from-red-600 via-rose-600 to-amber-600 hover:from-red-500 hover:to-amber-500 border-2 border-red-400 text-white font-mono font-black text-xs sm:text-sm flex items-center gap-2 cursor-pointer transition-all duration-150 shadow-[0_0_22px_rgba(220,38,38,0.7)] hover:shadow-[0_0_28px_rgba(220,38,38,0.95)] active:scale-[0.98]"
-              title="Launch Active 12.0s 24fps Previs & Cut Studio"
+            <CinemaToolHUD
+              title="LAUNCH CINEMA STUDIO"
+              en="Open the full 24fps multi-track NLE studio workspace."
+              bn="মূল ভিডিও এডিটিং স্টুডিও চালু করতে STUDIO বাটনে চাপুন।"
+              accent="crimson"
+              side="bottom"
             >
-              <Play className="w-3.5 h-3.5 fill-current" />
-              <span className="tracking-wider">STUDIO</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => onSelectView?.('STUDIO')}
+                className="cinema-tile cinema-tile-crimson px-3.5 py-1.5 rounded-md font-black tracking-wider text-[10px] sm:text-[11px] uppercase flex items-center gap-1.5 cursor-pointer"
+                data-active="true"
+              >
+                <Play className="w-3.5 h-3.5 fill-current cinema-tile-icon" />
+                <span>STUDIO</span>
+              </button>
+            </CinemaToolHUD>
           ) : (
-            <button
-              type="button"
-              onClick={() => onSelectView?.('HOME')}
-              className="px-5 py-2 sm:px-6 sm:py-2.5 rounded-xl bg-gradient-to-r from-[#202030] to-[#12121c] hover:from-[#28283c] hover:to-[#181824] border-2 border-[#E50914]/80 hover:border-[#E50914] text-white font-mono font-extrabold text-xs sm:text-sm flex items-center gap-2 cursor-pointer transition-all duration-150 shadow-[0_0_16px_rgba(229,9,20,0.35)] active:scale-[0.98]"
-              title="Return to HANDFILM Home Page"
-            >
-              <Home className="w-3.5 h-3.5 text-[#E50914]" />
-              <span className="tracking-wider">HOME</span>
-            </button>
+            <CinemaToolHUD hudId="nav-home" side="bottom">
+              <button
+                type="button"
+                onClick={() => onSelectView?.('HOME')}
+                className="cinema-tile cinema-tile-amber px-3.5 py-1.5 rounded-md font-black tracking-wider text-[10px] sm:text-[11px] uppercase flex items-center gap-1.5 cursor-pointer"
+              >
+                <Home className="w-3.5 h-3.5 cinema-tile-icon" />
+                <span>HOME</span>
+              </button>
+            </CinemaToolHUD>
           )}
 
-          {/* Unified CapCut-Style Primary CTA: TRY FREE / DOWNLOAD */}
-          <button
-            type="button"
-            data-testid="topbar-try-download-btn"
-            onClick={() => openOnboardingFlow()}
-            title={
+          {/* TRY FREE */}
+          <CinemaToolHUD
+            title="HANDFILM STUDIO DOWNLOAD"
+            en={
               license?.authenticated
-                ? `Signed in: ${license.email} (${license.tier === 'pro' ? (license.proTier || 'pro').toUpperCase() : license.tier === 'trial' ? `TRIAL · ${license.daysRemaining}D LEFT` : 'FREE'}) — Manage Plan or Download Apps`
-                : 'Create Free Account, Choose Plan & Download Windows / Android / Web Studio'
+                ? `Account active (${(license.proTier || license.tier).toUpperCase()}). Manage plan or installers.`
+                : 'Start 30-day free trial or download Windows, Android & Web app.'
             }
-            className="px-4 py-2 sm:px-5 sm:py-2.5 rounded-full bg-gradient-to-r from-[#22D3EE] via-[#38BDF8] to-[#F59E0B] hover:brightness-110 text-[#0B0B0D] font-space-grotesk font-black text-xs sm:text-sm tracking-wide uppercase flex items-center gap-2 whitespace-nowrap shrink-0 cursor-pointer transition-all shadow-[0_0_22px_rgba(34,211,238,0.3)] active:scale-[0.98]"
+            bn="৩০ দিনের ফ্রি ট্রায়াল নিতে বা উইন্ডোজ/অ্যান্ড্রয়েড অ্যাপ ডাউনলোড করতে চাপুন।"
+            accent="cyan"
+            side="bottom"
           >
-            <Download className="w-4 h-4 shrink-0 stroke-[2.5]" />
-            <span>TRY FREE / DOWNLOAD</span>
-          </button>
+            <button
+              type="button"
+              data-testid="topbar-try-download-btn"
+              onClick={() => openOnboardingFlow()}
+              className="px-3.5 py-1.5 rounded-md bg-gradient-to-r from-[#22D3EE] via-[#38BDF8] to-[#F59E0B] hover:brightness-110 text-[#0B0B0D] font-black text-[10px] sm:text-[11px] tracking-wider uppercase flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer transition-all"
+            >
+              <Download className="w-3.5 h-3.5 shrink-0 stroke-[2.5]" />
+              <span>TRY FREE</span>
+            </button>
+          </CinemaToolHUD>
 
-          {/* Kinetic Hero Titles Toggle: Symbol "T" ONLY */}
+          {/* Title Toggle */}
           {(onToggleTitles || onChangeComponentsVisibility) && (
-            <div className="relative group/title-toggle">
+            <CinemaToolHUD
+              title="TOGGLE KINETIC TITLES"
+              en={`Show or hide all cinema typography overlays (currently ${effectiveShowTitles ? 'ON' : 'OFF'}).`}
+              bn="স্ক্রিনের ওপর টাইটেল লেখাগুলো দেখাতে বা লুকাতে T বাটনে চাপুন।"
+              shortcut="T"
+              accent="amber"
+              side="bottom"
+            >
               <button
                 type="button"
                 onClick={handleTitleToggleClick}
                 aria-pressed={effectiveShowTitles}
-                className={`w-10 h-10 sm:w-11 sm:h-11 rounded-xl font-serif text-base sm:text-lg font-black flex items-center justify-center cursor-pointer transition-all border-2 shadow-sm active:scale-95 ${
-                  effectiveShowTitles
-                    ? 'bg-[#d4af37]/25 border-[#d4af37] text-[#ffe066] shadow-[0_0_16px_rgba(212,175,55,0.45)]'
-                    : 'bg-[#12131d] hover:bg-[#1c1d2c] border-[#2f3246] text-zinc-400 hover:text-white'
-                }`}
-                title="Toggle Kinetic Hero Typography (T)"
+                data-active={effectiveShowTitles ? 'true' : 'false'}
                 aria-label="Toggle Kinetic Hero Typography"
+                className="cinema-tile cinema-tile-amber w-9 h-9 rounded-md flex items-center justify-center cursor-pointer"
               >
-                <span>T</span>
+                <Type className="w-4 h-4 cinema-tile-icon" strokeWidth={2.3} />
               </button>
-
-              {/* Details Hover Card */}
-              <div className="absolute right-0 top-full mt-2 w-56 p-2.5 bg-[#0a0a12]/98 border border-[#d4af37]/40 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.95)] backdrop-blur-2xl opacity-0 translate-y-1 pointer-events-none group-hover/title-toggle:opacity-100 group-hover/title-toggle:translate-y-0 transition-all duration-200 z-50 text-left font-mono">
-                <div className="flex items-center justify-between pb-1 mb-1.5 border-b border-white/10 text-[9px] text-[#fbbf24] font-bold uppercase tracking-wider">
-                  <span>KINETIC TITLES</span>
-                  <kbd className="px-1.5 py-0.5 rounded bg-black/80 border border-zinc-700 text-[#fbbf24] text-[8.5px]">T</kbd>
-                </div>
-                <div className="text-[9.5px] text-zinc-300 font-sans leading-tight">
-                  Status: <span className={effectiveShowTitles ? 'text-amber-400 font-bold' : 'text-zinc-500 font-bold'}>{effectiveShowTitles ? 'ON' : 'OFF'}</span>. Bilingual Bangla-English typography overlays.
-                </div>
-              </div>
-            </div>
+            </CinemaToolHUD>
           )}
 
-          {/* Components Visibility Matrix Trigger (V) */}
+          {/* Matrix Toggle */}
           {onToggleComponentsPopover && (
-            <div className="relative group/matrix-toggle">
+            <CinemaToolHUD
+              title="COMPONENTS VISIBILITY MATRIX"
+              en={`Layer controls active: ${componentsBadgeText}. Toggle titles, HUD & optical FX.`}
+              bn="টাইটেল, গ্রিড ও ফিল্ম ইফেক্টের আলাদা আলাদা সুইচ খুলতে চাপুন।"
+              shortcut="V"
+              accent="amber"
+              side="bottom"
+            >
               <button
                 type="button"
                 onClick={onToggleComponentsPopover}
-                className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-[#12131d] hover:bg-[#1c1d2c] border-2 border-[#2f3246] hover:border-[#d4af37] text-[#fbbf24] flex items-center justify-center cursor-pointer transition-all shadow-sm active:scale-95"
-                title="Components Visibility Matrix & Title Opacity (V)"
                 aria-label="Open Components Visibility Matrix"
+                className="cinema-tile cinema-tile-amber w-9 h-9 rounded-md flex items-center justify-center cursor-pointer"
               >
-                <Layers className="w-4 h-4 text-[#fbbf24]" />
+                <Layers className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
               </button>
-
-              <div className="absolute right-0 top-full mt-2 w-56 p-2.5 bg-[#0a0a12]/98 border border-[#d4af37]/40 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.95)] backdrop-blur-2xl opacity-0 translate-y-1 pointer-events-none group-hover/matrix-toggle:opacity-100 group-hover/matrix-toggle:translate-y-0 transition-all duration-200 z-50 text-left font-mono">
-                <div className="flex items-center justify-between pb-1 mb-1.5 border-b border-white/10 text-[9px] text-[#fbbf24] font-bold uppercase tracking-wider">
-                  <span>COMPONENTS MATRIX</span>
-                  <kbd className="px-1.5 py-0.5 rounded bg-black/80 border border-zinc-700 text-[#fbbf24] text-[8.5px]">V</kbd>
-                </div>
-                <div className="text-[9.5px] text-zinc-300 font-sans leading-tight">
-                  Layers: <span className="text-amber-400 font-bold tabular-nums">{componentsBadgeText}</span>. Toggle Titles, Telemetry HUD, Post FX & Title Opacity.
-                </div>
-              </div>
-            </div>
+            </CinemaToolHUD>
           )}
 
-          {/* Shortcuts: Stylized icon-only button (⌘/⌨) displaying a floating hotkey cheat sheet on hover */}
-          <div className="relative group/shortcuts">
+          {/* Shortcuts */}
+          <CinemaToolHUD
+            title="HOTKEY CHEATSHEET"
+            en="Open complete keyboard transport, cut, and grading shortcuts."
+            bn="দ্রুত কাজের সব কিবোর্ড শর্টকাট তালিকা দেখতে এখানে চাপুন।"
+            shortcut="⇧?"
+            accent="amber"
+            side="bottom"
+          >
             <button
               type="button"
               onClick={onOpenShortcuts}
-              className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-[#12131d] hover:bg-[#1c1d2c] border-2 border-[#2f3246] hover:border-[#F5A623] text-[#F5A623] font-mono text-sm sm:text-base flex items-center justify-center cursor-pointer transition-all shadow-md active:scale-95"
-              title="Keyboard Shortcuts Cheat Sheet (Press '?' to toggle)"
+              aria-label="Keyboard Shortcuts"
+              className="cinema-tile cinema-tile-amber w-9 h-9 rounded-md flex items-center justify-center cursor-pointer"
             >
-              <span className="font-bold text-xs sm:text-sm leading-none select-none flex items-center gap-0.5">
-                <span>⌘</span>
-                <span className="text-[10px] text-zinc-400 font-mono hidden sm:inline">?</span>
-              </span>
+              <Keyboard className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
             </button>
+          </CinemaToolHUD>
 
-            {/* Floating Hotkey Cheat Sheet Popover on Hover */}
-            <div className="absolute right-0 top-full mt-2 w-64 p-3 bg-[#0a0a12]/98 border border-[#F5A623]/40 rounded-[4px] shadow-[0_8px_32px_rgba(0,0,0,0.95)] backdrop-blur-2xl opacity-0 translate-y-1 pointer-events-none group-hover/shortcuts:opacity-100 group-hover/shortcuts:translate-y-0 transition-all duration-200 z-50 text-left font-mono">
-              <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-white/10 text-[9px] text-[#F5A623] font-bold uppercase tracking-wider">
-                <span className="flex items-center gap-1">
-                  <Keyboard className="w-3 h-3" />
-                  HOTKEY CHEAT SHEET
-                </span>
-                <span className="text-zinc-500">PRESS ?</span>
-              </div>
-              <div className="space-y-1.5 text-[9.5px]">
-                <div className="flex items-center justify-between">
-                  <span className="text-zinc-400">Play / Pause</span>
-                  <kbd className="px-1.5 py-0.5 rounded bg-black/80 border border-zinc-700 text-[#fbbf24] text-[8.5px]">SPACE</kbd>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-zinc-400">Prev / Next Shot</span>
-                  <kbd className="px-1.5 py-0.5 rounded bg-black/80 border border-zinc-700 text-[#fbbf24] text-[8.5px]">← / →</kbd>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-zinc-400">NLE Transport Scrub</span>
-                  <kbd className="px-1.5 py-0.5 rounded bg-black/80 border border-zinc-700 text-[#fbbf24] text-[8.5px]">J • K • L</kbd>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-zinc-400">Export Studio</span>
-                  <kbd className="px-1.5 py-0.5 rounded bg-black/80 border border-zinc-700 text-[#fbbf24] text-[8.5px]">⌘ + E</kbd>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-zinc-400">Multi-Cam Angle Grid</span>
-                  <kbd className="px-1.5 py-0.5 rounded bg-black/80 border border-zinc-700 text-[#fbbf24] text-[8.5px]">Shift + M</kbd>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-zinc-400">Command Palette</span>
-                  <kbd className="px-1.5 py-0.5 rounded bg-black/80 border border-zinc-700 text-[#fbbf24] text-[8.5px]">⌘ + K</kbd>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Right APPS Menu (Replaces ECOSYSTEM): HUB, VAULT, R2 / STREAM, BLOOM-APP, DEEPER, LAB, SETTINGS */}
+          {/* Right APPS Menu */}
           <div className="relative">
-            <button
-              onClick={() => {
-                setIsEcosystemMenuOpen(prev => !prev);
-                setIsExportMenuOpen(false);
-              }}
-              className="px-4 py-2 sm:px-4.5 sm:py-2.5 rounded-xl bg-[#12131d] hover:bg-[#1c1d2c] border-2 border-[#2f3246] hover:border-zinc-300 text-zinc-200 hover:text-white font-mono text-xs sm:text-sm font-bold flex items-center gap-2 cursor-pointer transition-all active:scale-[0.98]"
-              title="Creative Suite Applications & Master Hub"
+            <CinemaToolHUD
+              title="ECOSYSTEM APPS"
+              en="Launch Hub, Vault, R2 Stream, Bloom, Video Scopes, AI Lab & JSON backup."
+              bn="সবগুলো স্টুডিও অ্যাপ এবং প্রজেক্ট সেভ/লোড মেনু খুলতে APPS চাপুন।"
+              accent="cyan"
+              side="bottom"
             >
-              <Globe className="w-4 h-4 text-[#fbbf24]" />
-              <span className="hidden sm:inline tracking-wider">APPS</span>
-              <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
-            </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsEcosystemMenuOpen((prev) => !prev);
+                  setIsExportMenuOpen(false);
+                }}
+                data-active={isEcosystemMenuOpen ? 'true' : 'false'}
+                className="cinema-tile cinema-tile-cyan px-3 py-1.5 rounded-md font-black tracking-wider text-[10px] sm:text-[11px] uppercase flex items-center gap-1.5 cursor-pointer"
+              >
+                <Globe className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+                <span className="hidden sm:inline">APPS</span>
+                <ChevronDown className="w-3 h-3" />
+              </button>
+            </CinemaToolHUD>
 
             {isEcosystemMenuOpen && (
-              <div 
-                className="absolute right-0 top-full mt-2 w-64 bg-[#0a0a10]/98 border border-[#272732] rounded shadow-2xl p-1.5 z-50 font-mono text-[11px] space-y-1 backdrop-blur-2xl animate-in fade-in duration-150"
+              <div
+                className="absolute right-0 top-full mt-2 w-64 bg-[#0B0C0F]/98 border border-[#26282E] rounded-xl shadow-2xl p-2 z-50 space-y-2 backdrop-blur-2xl animate-in fade-in duration-150"
                 onMouseLeave={() => setIsEcosystemMenuOpen(false)}
               >
-                <div className="px-2.5 py-1 text-[8.5px] font-bold text-[#fbbf24] border-b border-[#272732] uppercase tracking-wider flex items-center justify-between">
-                  <span>CREATIVE SUITE APPS</span>
-                  <span className="text-zinc-500">LIVE</span>
+                <CinemaBadgeHeader
+                  icon={<Globe className="w-3 h-3" />}
+                  label="SUITE APPS"
+                  accent="cyan"
+                />
+
+                <div className="grid grid-cols-2 gap-1.5">
+                  <CinemaToolHUD
+                    title="HUB CENTER"
+                    en="Open main HandFilm web command hub."
+                    bn="মূল ওয়েব কমান্ড হাব খুলতে HUB চাপুন।"
+                    accent="amber"
+                    side="left"
+                    blockWrapper
+                  >
+                    <a
+                      href="https://hub.handsandhead.com"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="cinema-tile cinema-tile-amber w-full px-2 py-2 rounded-lg flex flex-col items-center gap-1 text-[10px] font-black tracking-wider uppercase"
+                    >
+                      <Globe className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                      <span>HUB</span>
+                    </a>
+                  </CinemaToolHUD>
+
+                  <CinemaToolHUD
+                    title="PROJECT VAULT"
+                    en="Switch, duplicate, or manage saved projects."
+                    bn="সেভ করা প্রজেক্ট ম্যানেজ করতে VAULT চাপুন।"
+                    accent="amber"
+                    side="left"
+                    blockWrapper
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onOpenProjectManager?.();
+                        setIsEcosystemMenuOpen(false);
+                      }}
+                      className="cinema-tile cinema-tile-amber w-full px-2 py-2 rounded-lg flex flex-col items-center gap-1 text-[10px] font-black tracking-wider uppercase cursor-pointer"
+                    >
+                      <FolderOpen className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                      <span>VAULT</span>
+                    </button>
+                  </CinemaToolHUD>
+
+                  <CinemaToolHUD
+                    title="R2 EDGE STREAM"
+                    en="Cloudflare R2 asset streaming & upload sync."
+                    bn="ক্লাউডফ্লেয়ার R2 দিয়ে মিডিয়া সিঙ্ক করতে চাপুন।"
+                    accent="crimson"
+                    side="left"
+                    blockWrapper
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onOpenR2Automation?.();
+                        setIsEcosystemMenuOpen(false);
+                      }}
+                      className="cinema-tile cinema-tile-crimson w-full px-2 py-2 rounded-lg flex flex-col items-center gap-1 text-[10px] font-black tracking-wider uppercase cursor-pointer"
+                    >
+                      <Cloud className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                      <span>R2 STREAM</span>
+                    </button>
+                  </CinemaToolHUD>
+
+                  <CinemaToolHUD
+                    title="BLOOM SEQUENCER"
+                    en="Launch interactive optical Bloom sequencer node."
+                    bn="গ্লো এবং ব্লুম সিকোয়েন্সার নোড খুলতে BLOOM চাপুন।"
+                    accent="crimson"
+                    side="left"
+                    blockWrapper
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (onOpenBloomSequencer) onOpenBloomSequencer();
+                        else if (onSelectMode) onSelectMode('BLOOM');
+                        setIsEcosystemMenuOpen(false);
+                      }}
+                      className="cinema-tile cinema-tile-crimson w-full px-2 py-2 rounded-lg flex flex-col items-center gap-1 text-[10px] font-black tracking-wider uppercase cursor-pointer"
+                    >
+                      <Sparkles className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                      <span>BLOOM</span>
+                    </button>
+                  </CinemaToolHUD>
+
+                  <CinemaToolHUD
+                    title="VIDEO SCOPES"
+                    en="RGB parade, waveform & luminance analysis monitor."
+                    bn="ভিডিওর কালার ও এক্সপোজার স্কোপ দেখতে SCOPES চাপুন।"
+                    accent="emerald"
+                    side="left"
+                    blockWrapper
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onOpenVideoScopes?.();
+                        setIsEcosystemMenuOpen(false);
+                      }}
+                      className="cinema-tile cinema-tile-emerald w-full px-2 py-2 rounded-lg flex flex-col items-center gap-1 text-[10px] font-black tracking-wider uppercase cursor-pointer"
+                    >
+                      <Activity className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                      <span>SCOPES</span>
+                    </button>
+                  </CinemaToolHUD>
+
+                  <CinemaToolHUD
+                    title="AI DIRECTOR LAB"
+                    en="Generate prompts, shot beats, and visual ideas."
+                    bn="এআই দিয়ে শট ও দৃশ্যের আইডিয়া পেতে AI LAB চাপুন।"
+                    accent="amber"
+                    side="left"
+                    blockWrapper
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onOpenAiStudio?.();
+                        setIsEcosystemMenuOpen(false);
+                      }}
+                      className="cinema-tile cinema-tile-amber w-full px-2 py-2 rounded-lg flex flex-col items-center gap-1 text-[10px] font-black tracking-wider uppercase cursor-pointer"
+                    >
+                      <Sparkles className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                      <span>AI LAB</span>
+                    </button>
+                  </CinemaToolHUD>
+
+                  <CinemaToolHUD
+                    title="SAVE SESSION JSON"
+                    en="Download project state snapshot as local .json file."
+                    bn="প্রজেক্টের বর্তমান অবস্থা কম্পিউটারে সেভ করতে SAVE JSON চাপুন।"
+                    accent="cyan"
+                    side="left"
+                    blockWrapper
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onSaveProjectJson?.();
+                        setIsEcosystemMenuOpen(false);
+                      }}
+                      className="cinema-tile cinema-tile-cyan w-full px-2 py-2 rounded-lg flex flex-col items-center gap-1 text-[10px] font-black tracking-wider uppercase cursor-pointer"
+                    >
+                      <Download className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                      <span>SAVE JSON</span>
+                    </button>
+                  </CinemaToolHUD>
+
+                  <CinemaToolHUD
+                    title="LOAD SESSION JSON"
+                    en="Restore project session from a saved .json file."
+                    bn="আগে সেভ করা JSON প্রজেক্ট ফাইল লোড করতে LOAD JSON চাপুন।"
+                    accent="amber"
+                    side="left"
+                    blockWrapper
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onRestoreProjectJson?.();
+                        setIsEcosystemMenuOpen(false);
+                      }}
+                      className="cinema-tile cinema-tile-amber w-full px-2 py-2 rounded-lg flex flex-col items-center gap-1 text-[10px] font-black tracking-wider uppercase cursor-pointer"
+                    >
+                      <FolderOpen className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                      <span>LOAD JSON</span>
+                    </button>
+                  </CinemaToolHUD>
                 </div>
 
-
-                {/* 1. HUB */}
-                <a
-                  href="https://hub.handsandhead.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full px-2.5 py-1.5 rounded text-left hover:bg-white/10 text-zinc-200 hover:text-[#fbbf24] flex items-center justify-between cursor-pointer transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <Globe className="w-3.5 h-3.5 text-[#fbbf24]" />
-                    <span className="font-bold">HUB</span>
-                  </div>
-                  <span className="text-[8.5px] text-zinc-500 flex items-center gap-0.5">
-                    Command Center <ExternalLink className="w-2.5 h-2.5" />
-                  </span>
-                </a>
-
-                {/* 2. VAULT */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (onOpenProjectManager) onOpenProjectManager();
-                    setIsEcosystemMenuOpen(false);
-                  }}
-                  className="w-full px-2.5 py-1.5 rounded text-left hover:bg-white/10 text-zinc-200 hover:text-[#fbbf24] flex items-center justify-between cursor-pointer transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <FolderOpen className="w-3.5 h-3.5 text-amber-400" />
-                    <span className="font-bold">VAULT</span>
-                  </div>
-                  <span className="text-[8.5px] text-zinc-500">Project Manager</span>
-                </button>
-
-                {/* 3. R2 / STREAM */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (onOpenR2Automation) onOpenR2Automation();
-                    setIsEcosystemMenuOpen(false);
-                  }}
-                  className="w-full px-2.5 py-1.5 rounded text-left hover:bg-white/10 text-rose-300 hover:text-rose-200 flex items-center justify-between cursor-pointer transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <Cloud className="w-3.5 h-3.5 text-rose-400" />
-                    <span className="font-bold">R2 / STREAM</span>
-                  </div>
-                  <span className="text-[8.5px] text-rose-500/80">Cloudflare R2</span>
-                </button>
-
-                {/* 4. BLOOM-APP */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (onOpenBloomSequencer) onOpenBloomSequencer();
-                    else if (onSelectMode) onSelectMode('BLOOM');
-                    setIsEcosystemMenuOpen(false);
-                  }}
-                  className="w-full px-2.5 py-1.5 rounded text-left hover:bg-white/10 text-rose-300 hover:text-white flex items-center justify-between cursor-pointer transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="w-3.5 h-3.5 text-rose-400" />
-                    <span className="font-bold">BLOOM-APP</span>
-                  </div>
-                  <span className="text-[8.5px] text-zinc-500">Sequencer Node</span>
-                </button>
-
-                {/* 5. DEEPER */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (onOpenVideoScopes) onOpenVideoScopes();
-                    setIsEcosystemMenuOpen(false);
-                  }}
-                  className="w-full px-2.5 py-1.5 rounded text-left hover:bg-white/10 text-emerald-300 hover:text-emerald-200 flex items-center justify-between cursor-pointer transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <Activity className="w-3.5 h-3.5 text-emerald-400" />
-                    <span className="font-bold">DEEPER</span>
-                  </div>
-                  <span className="text-[8.5px] text-zinc-500">Video Scopes</span>
-                </button>
-
-                {/* 6. LAB */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (onOpenAiStudio) onOpenAiStudio();
-                    setIsEcosystemMenuOpen(false);
-                  }}
-                  className="w-full px-2.5 py-1.5 rounded text-left hover:bg-white/10 text-amber-300 hover:text-amber-200 flex items-center justify-between cursor-pointer transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                    <span className="font-bold">LAB</span>
-                  </div>
-                  <span className="text-[8.5px] text-zinc-500">Flow AI Director</span>
-                </button>
-
-                {/* 7. SETTINGS */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (onOpenSettingsModal) onOpenSettingsModal();
-                    else if (onOpenThemeSettings) onOpenThemeSettings();
-                    setIsEcosystemMenuOpen(false);
-                  }}
-                  className="w-full px-2.5 py-1.5 rounded text-left hover:bg-white/10 text-zinc-200 hover:text-[#fbbf24] flex items-center justify-between cursor-pointer transition-colors border-t border-[#272732] mt-1 pt-1.5"
-                >
-                  <div className="flex items-center gap-2">
-                    <Settings className="w-3.5 h-3.5 text-[#fbbf24]" />
-                    <span className="font-bold">SETTINGS</span>
-                  </div>
-                  <span className="text-[8.5px] text-zinc-500">Quotas & Diagnostics</span>
-                </button>
-
-                {/* SOVEREIGN SESSION PERSISTENCE & BACKUP */}
-                <div className="pt-1.5 mt-1 border-t border-[#272732] flex flex-col gap-1">
-                  <div className="px-2 py-0.5 text-[8.5px] font-bold text-cyan-400 uppercase tracking-wider flex items-center justify-between">
-                    <span>SOVEREIGN SESSION</span>
-                    <span className="text-[7.5px] bg-cyan-950/80 text-cyan-300 border border-cyan-800/60 px-1 rounded">AUTOSAVED</span>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onSaveProjectJson?.();
-                      setIsEcosystemMenuOpen(false);
-                    }}
-                    className="w-full px-2.5 py-1.5 rounded text-left hover:bg-cyan-500/15 text-cyan-300 hover:text-white flex items-center justify-between cursor-pointer transition-colors border border-cyan-500/30"
-                    title="Export full project session state to JSON file"
+                <div className="grid grid-cols-2 gap-1.5 pt-1 border-t border-white/10">
+                  <CinemaToolHUD
+                    title="STUDIO SETTINGS"
+                    en="Preferences, quotas, and hardware diagnostics."
+                    bn="স্টুডিওর মূল সেটিংস খুলতে SETTINGS চাপুন।"
+                    accent="cyan"
+                    side="left"
+                    blockWrapper
                   >
-                    <div className="flex items-center gap-2">
-                      <Download className="w-3.5 h-3.5 text-cyan-400" />
-                      <span className="font-bold">💾 Save Project State (.JSON)</span>
-                    </div>
-                    <span className="text-[8px] text-cyan-400/80 font-mono">.JSON</span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (onOpenSettingsModal) onOpenSettingsModal();
+                        else if (onOpenThemeSettings) onOpenThemeSettings();
+                        setIsEcosystemMenuOpen(false);
+                      }}
+                      className="cinema-tile cinema-tile-cyan w-full px-2 py-1.5 rounded-lg flex items-center justify-center gap-1.5 text-[10px] font-black tracking-wider uppercase cursor-pointer"
+                    >
+                      <Settings className="w-3.5 h-3.5 cinema-tile-icon" />
+                      <span>SETTINGS</span>
+                    </button>
+                  </CinemaToolHUD>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onRestoreProjectJson?.();
-                      setIsEcosystemMenuOpen(false);
-                    }}
-                    className="w-full px-2.5 py-1.5 rounded text-left hover:bg-amber-500/15 text-amber-300 hover:text-white flex items-center justify-between cursor-pointer transition-colors border border-amber-500/30"
-                    title="Restore project session from JSON file"
+                  <CinemaToolHUD
+                    title="KEYBOARD SHORTCUTS"
+                    en="View editorial transport & grading hotkeys."
+                    bn="সব শর্টকাট কী দেখতে HOTKEYS চাপুন।"
+                    shortcut="?"
+                    accent="amber"
+                    side="left"
+                    blockWrapper
                   >
-                    <div className="flex items-center gap-2">
-                      <FolderOpen className="w-3.5 h-3.5 text-amber-400" />
-                      <span className="font-bold">📁 Restore JSON</span>
-                    </div>
-                    <span className="text-[8px] text-amber-400/80 font-mono">IMPORT</span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onOpenShortcuts?.();
+                        setIsEcosystemMenuOpen(false);
+                      }}
+                      className="cinema-tile cinema-tile-amber w-full px-2 py-1.5 rounded-lg flex items-center justify-center gap-1.5 text-[10px] font-black tracking-wider uppercase cursor-pointer"
+                    >
+                      <Keyboard className="w-3.5 h-3.5 cinema-tile-icon" />
+                      <span>HOTKEYS</span>
+                    </button>
+                  </CinemaToolHUD>
                 </div>
-
-                {/* 8. KEYBOARD SHORTCUTS (?) */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (onOpenShortcuts) onOpenShortcuts();
-                    setIsEcosystemMenuOpen(false);
-                  }}
-                  className="w-full px-2.5 py-1.5 rounded text-left hover:bg-white/10 text-[#F5A623] hover:text-[#FFE066] flex items-center justify-between cursor-pointer transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <Keyboard className="w-3.5 h-3.5 text-[#F5A623]" />
-                    <span className="font-bold">SHORTCUTS CHEAT SHEET</span>
-                  </div>
-                  <span className="text-[8.5px] bg-[#F5A623]/20 border border-[#F5A623]/40 px-1 rounded text-[#F5A623] font-bold">?</span>
-                </button>
               </div>
             )}
           </div>

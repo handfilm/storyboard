@@ -8,6 +8,7 @@ import React, { useState } from 'react';
 import { HardDrive, Sparkles } from 'lucide-react';
 import { MediaBinDrawer } from '../../components/MediaBinDrawer';
 import { GeminiFlowStudio } from '../../components/media/GeminiFlowStudio';
+import { CinemaToolHUD } from '../../components/ui/CinemaToolHUD';
 import { useStudioStore } from '../../core/store';
 import { storyboardSyncService } from '../../services/storyboardSyncService';
 import { AnthologyFrame } from '../../types/anthology';
@@ -76,31 +77,44 @@ export const MediaStudio: React.FC<MediaStudioProps> = ({
     <div className="w-full h-full flex flex-col overflow-hidden bg-[#07070A]">
       {/* Prominent Top Segmented Mode Switcher */}
       <div className="px-3 py-2 bg-[#0B0B0D] border-b border-white/[0.08] shrink-0">
-        <div className="grid grid-cols-2 gap-1 p-0.5 rounded-lg bg-[#141417] border border-white/[0.08]">
-          <button
-            type="button"
-            onClick={() => setPanelMode('VAULT')}
-            className={`h-7 px-2 rounded-md text-[9.5px] font-black tracking-wider uppercase flex items-center justify-center gap-1.5 cursor-pointer transition-all ${
-              panelMode === 'VAULT'
-                ? 'bg-[#F59E0B] text-[#0B0B0D]'
-                : 'text-[#8E8E93] hover:text-[#F4F4F5]'
-            }`}
+        <div className="grid grid-cols-2 gap-1.5">
+          <CinemaToolHUD
+            title="LOCAL PROJECT MEDIA VAULT"
+            en="Manage imported clips, stills, and audio stored locally."
+            bn="কীভাবে ব্যবহার করবেন: ডিভাইস থেকে আপলোড করা ভিডিও, ছবি ও অডিও দেখতে VAULT চাপুন।"
+            accent="amber"
+            side="bottom"
+            blockWrapper
           >
-            <HardDrive className="w-3 h-3" />
-            <span>PROJECT VAULT</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setPanelMode('AI_STUDIO')}
-            className={`h-7 px-2 rounded-md text-[9.5px] font-black tracking-wider uppercase flex items-center justify-center gap-1.5 cursor-pointer transition-all ${
-              panelMode === 'AI_STUDIO'
-                ? 'bg-gradient-to-r from-[#F59E0B] to-[#38BDF8] text-[#0B0B0D]'
-                : 'text-[#8E8E93] hover:text-[#F4F4F5]'
-            }`}
+            <button
+              type="button"
+              onClick={() => setPanelMode('VAULT')}
+              data-active={panelMode === 'VAULT' ? 'true' : 'false'}
+              className="cinema-tile cinema-tile-amber w-full min-h-[40px] px-2 flex items-center justify-center gap-1.5 text-[10.5px] font-black tracking-wider uppercase"
+            >
+              <HardDrive className="w-3.5 h-3.5" strokeWidth={2.2} />
+              <span>VAULT</span>
+            </button>
+          </CinemaToolHUD>
+
+          <CinemaToolHUD
+            title="GEMINI & GOOGLE FLOW AI STUDIO"
+            en="Generate images, video frames, and AI cinema plates."
+            bn="কীভাবে ব্যবহার করবেন: Gemini ও Google Flow দিয়ে শটের জন্য AI ভিজ্যুয়াল তৈরি করতে চাপুন।"
+            accent="cyan"
+            side="bottom"
+            blockWrapper
           >
-            <Sparkles className="w-3 h-3" />
-            <span>✨ GEMINI &amp; GOOGLE FLOW AI</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setPanelMode('AI_STUDIO')}
+              data-active={panelMode === 'AI_STUDIO' ? 'true' : 'false'}
+              className="cinema-tile cinema-tile-cyan w-full min-h-[40px] px-2 flex items-center justify-center gap-1.5 text-[10.5px] font-black tracking-wider uppercase"
+            >
+              <Sparkles className="w-3.5 h-3.5" strokeWidth={2.2} />
+              <span>FLOW AI</span>
+            </button>
+          </CinemaToolHUD>
         </div>
       </div>
 

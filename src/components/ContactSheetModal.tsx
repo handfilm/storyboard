@@ -53,6 +53,7 @@ import { isSvgPlaceholderUrl, isVideoSourceUrl, thumbnailMemoryCache } from '../
 import { useStudioStore } from '../core/store';
 import { resolveShotMediaEntry } from '../services/handfilmMediaVault';
 import { ShotMediaThumbnail } from './ShotMediaThumbnail';
+import { CinemaToolHUD, CinemaBadgeHeader } from './ui/CinemaToolHUD';
 
 function formatCompactShotRange(oneBasedNumbers: number[]): string {
   if (oneBasedNumbers.length === 0) return '';
@@ -880,270 +881,267 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
         onClick={e => e.stopPropagation()}
       >
         {/* MODAL 1 HEADER */}
-        <div className="px-5 py-3 border-b border-white/10 bg-[#0B0C11] flex flex-col md:flex-row md:items-center justify-between gap-3 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="p-1.5 rounded-[2px] bg-amber-500/10 border border-amber-500/30 text-amber-400">
-              <Layers className="w-4 h-4" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold text-amber-400/80 tracking-widest uppercase">
-                  MODAL 1:
-                </span>
-                <h2 className="font-cinzel text-sm sm:text-base font-bold tracking-[0.15em] text-white uppercase">
-                  100-Frame Contact Sheet Grid
-                </h2>
-                <span className="font-bengali text-xs text-amber-300 font-medium hidden sm:inline">
-                  (১০০ পর্বের মাস্টার স্টোরিবোর্ড কন্ট্যাক্ট শিট)
-                </span>
-              </div>
-              <p className="text-[9px] text-white/50 tracking-wider mt-0.5">
-                VISUAL RESEQUENCING • DUAL-FRAME COLOR & FRAMING COMPARE • BATCH ACTIONS
-              </p>
-            </div>
-          </div>
-
-          {/* Header Action Badges & Buttons */}
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* Populated Badge */}
-            <span className="px-2.5 py-1 rounded-[2px] bg-amber-500/10 border border-amber-500/30 text-[9.5px] text-amber-300 font-bold flex items-center gap-1.5">
+        <div className="px-4 py-2.5 border-b border-[#26282E] bg-[#111215] flex flex-col md:flex-row md:items-center justify-between gap-2.5 shrink-0">
+          <div className="flex items-center gap-2.5">
+            <CinemaBadgeHeader
+              icon={<Layers className="w-4 h-4" strokeWidth={2.2} />}
+              label="CONTACT SHEET"
+              accent="amber"
+            />
+            <span className="px-2 py-0.5 rounded bg-[#0B0C10] border border-[#26282E] text-[10px] font-black text-amber-300 flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              {populatedCount} / {frames.length || 100} ACTIVE
+              {populatedCount}/{frames.length || 100}
             </span>
-
-            {/* Reorder feedback badge */}
             {lastReorderMsg && (
-              <span className="px-2.5 py-1 rounded-[2px] bg-emerald-950/80 border border-emerald-500/40 text-[9px] text-emerald-300 animate-in fade-in">
-                ✓ {lastReorderMsg}
+              <span className="px-2 py-0.5 rounded bg-emerald-950/80 border border-emerald-500/40 text-[9.5px] font-bold text-emerald-300">
+                {lastReorderMsg}
               </span>
             )}
+          </div>
 
-            {/* COMPARE MODE TOGGLE */}
-            <button
-              onClick={() => {
-                setIsCompareMode(prev => !prev);
-                if (!isCompareMode) {
-                  setIsMultiSelectMode(false);
-                }
-              }}
-              className={`px-3 py-1 rounded-[2px] border text-[9.5px] font-bold tracking-wider flex items-center gap-1.5 transition-all cursor-pointer ${
-                isCompareMode
-                  ? 'bg-cyan-500 text-black border-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.4)]'
-                  : 'bg-white/5 hover:bg-white/10 text-zinc-300 border-white/15 hover:border-cyan-400/50'
-              }`}
-              title="Toggle Compare Mode: Side-by-side color grading and framing inspection"
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <CinemaToolHUD
+              title="COMPARE MODE"
+              en="Side-by-side & wipe comparator for color LUT and framing consistency."
+              bn="কীভাবে ব্যবহার করবেন: দুটি ফ্রেম পাশাপাশি রেখে কালার ও ফ্রেমিং মেলাতে COMPARE চাপুন।"
+              accent="cyan"
+              side="bottom"
             >
-              <SplitSquareVertical className="w-3.5 h-3.5" />
-              <span>COMPARE MODE</span>
-            </button>
-
-            {/* MULTI-SELECT MODE TOGGLE */}
-            <button
-              onClick={() => {
-                setIsMultiSelectMode(prev => !prev);
-                if (isMultiSelectMode) {
-                  clearSelection();
-                } else {
-                  setIsCompareMode(false);
-                }
-              }}
-              className={`px-3 py-1 rounded-[2px] border text-[9.5px] font-bold tracking-wider flex items-center gap-1.5 transition-all cursor-pointer ${
-                isMultiSelectMode || selectedFrameIds.size > 0
-                  ? 'bg-amber-400 text-black border-amber-300 shadow-[0_0_15px_rgba(245,166,35,0.4)]'
-                  : 'bg-white/5 hover:bg-white/10 text-zinc-300 border-white/15 hover:border-amber-400/50'
-              }`}
-              title="Toggle Multi-Select: Shift+Click to select range or Batch Delete"
-            >
-              <CheckSquare className="w-3.5 h-3.5" />
-              <span>MULTI-SELECT {selectedFrameIds.size > 0 && `(${selectedFrameIds.size})`}</span>
-            </button>
-
-            {/* Quick Header Delete Selected Button when frames are highlighted */}
-            {selectedFrameIds.size > 0 && (
               <button
                 type="button"
-                data-testid="contact-sheet-delete-selected-header"
-                onClick={() => setConfirmDeleteBatch(true)}
-                className="px-3 py-1 px-3! py-1! rounded-[2px] bg-rose-600/20 hover:bg-rose-600/35 border border-rose-500/55 text-rose-200 hover:text-white text-[9.5px] font-bold tracking-wider flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap"
-                title="Permanently delete selected frames with confirmation dialog"
+                data-active={isCompareMode ? 'true' : 'false'}
+                onClick={() => {
+                  setIsCompareMode(prev => !prev);
+                  if (!isCompareMode) {
+                    setIsMultiSelectMode(false);
+                  }
+                }}
+                className="cinema-tile cinema-tile-cyan px-2.5 py-2 min-h-[40px] rounded flex items-center gap-1.5 cursor-pointer"
               >
-                <Trash2 className="w-3.5 h-3.5 text-rose-400" />
-                <span>Delete Selected</span>
-                <span className="tabular-nums text-rose-300/90">({selectedFrameIds.size})</span>
+                <SplitSquareVertical className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+                <span className="font-black tracking-wider text-[10px] uppercase">COMPARE</span>
               </button>
+            </CinemaToolHUD>
+
+            <CinemaToolHUD
+              title="MULTI-SELECT MODE"
+              en="Select multiple frames (or Shift+Click range) for batch LUT, export, or delete."
+              bn="কীভাবে ব্যবহার করবেন: একাধিক ফ্রেম একসাথে সিলেক্ট করতে MULTI চাপুন।"
+              accent="amber"
+              side="bottom"
+            >
+              <button
+                type="button"
+                data-active={isMultiSelectMode || selectedFrameIds.size > 0 ? 'true' : 'false'}
+                onClick={() => {
+                  setIsMultiSelectMode(prev => !prev);
+                  if (isMultiSelectMode) {
+                    clearSelection();
+                  } else {
+                    setIsCompareMode(false);
+                  }
+                }}
+                className="cinema-tile cinema-tile-amber px-2.5 py-2 min-h-[40px] rounded flex items-center gap-1.5 cursor-pointer"
+              >
+                <CheckSquare className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+                <span className="font-black tracking-wider text-[10px] uppercase">
+                  SELECT {selectedFrameIds.size > 0 && `(${selectedFrameIds.size})`}
+                </span>
+              </button>
+            </CinemaToolHUD>
+
+            {selectedFrameIds.size > 0 && (
+              <CinemaToolHUD
+                title="DELETE SELECTED FRAMES"
+                en="Permanently delete all highlighted storyboard frames."
+                bn="কীভাবে ব্যবহার করবেন: সিলেক্ট করা ফ্রেম মুছে ফেলতে DELETE চাপুন।"
+                accent="crimson"
+                side="bottom"
+              >
+                <button
+                  type="button"
+                  data-testid="contact-sheet-delete-selected-header"
+                  onClick={() => setConfirmDeleteBatch(true)}
+                  className="cinema-tile cinema-tile-crimson px-2.5 py-2 min-h-[40px] rounded flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                >
+                  <Trash2 className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+                  <span className="font-black tracking-wider text-[10px] uppercase">
+                    DELETE ({selectedFrameIds.size})
+                  </span>
+                </button>
+              </CinemaToolHUD>
             )}
 
-            {/* Populate Sample Pack Button */}
-            <button
-              onClick={onPopulateSamplePack}
-              className="px-2.5 py-1 bg-white/5 hover:bg-white/10 border border-white/15 rounded-[2px] text-[9.5px] text-zinc-300 hover:text-white flex items-center gap-1.5 transition-colors cursor-pointer"
-              title="Populate All Frames with Cinema Pack"
+            <CinemaToolHUD
+              title="POPULATE SAMPLE PACK"
+              en="Fill storyboard slots with curated cinema reference plates."
+              bn="কীভাবে ব্যবহার করবেন: ডেমো সিনেমার ছবি দিয়ে সব ফ্রেম ভরতে SAMPLE চাপুন।"
+              accent="amber"
+              side="bottom"
             >
-              <Sparkles className="w-3 h-3 text-amber-400" />
-              <span className="hidden sm:inline">Populate Pack</span>
-            </button>
-
-            {/* EXPORT TO PDF STORYBOARD BUTTON */}
-            <div className="relative">
               <button
-                onClick={() => setShowPdfOptions(prev => !prev)}
-                className="px-3 py-1 bg-gradient-to-r from-amber-500/25 to-amber-600/20 hover:from-amber-500/35 hover:to-amber-600/30 border border-amber-400/60 rounded-[2px] text-[10px] text-amber-300 font-bold tracking-wider flex items-center gap-1.5 transition-all shadow-[0_0_12px_rgba(212,175,55,0.2)] cursor-pointer"
-                title="Export Storyboard as Printable Multi-Frame PDF"
+                type="button"
+                onClick={onPopulateSamplePack}
+                className="cinema-tile cinema-tile-amber px-2.5 py-2 min-h-[40px] rounded flex items-center gap-1.5 cursor-pointer"
               >
-                <FileText className="w-3.5 h-3.5 text-amber-400" />
-                <span>EXPORT TO PDF</span>
-                <span className="text-[8px] bg-amber-400/20 px-1 rounded text-amber-200">A4</span>
+                <Sparkles className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+                <span className="hidden sm:inline font-black tracking-wider text-[10px] uppercase">SAMPLE</span>
               </button>
+            </CinemaToolHUD>
 
-                  {/* PDF & High-Res JPEG Configuration Flyout */}
-                  {showPdfOptions && (
-                    <div className="absolute right-0 top-full mt-2 w-80 bg-[#0e0f16] border border-amber-500/40 rounded-[2px] shadow-2xl p-3.5 z-50 text-[10px] space-y-2.5 backdrop-blur-xl animate-in fade-in duration-150">
-                      <div className="flex items-center justify-between border-b border-white/10 pb-1.5 text-amber-400 font-bold">
-                        <span className="flex items-center gap-1.5">
-                          <Printer className="w-3.5 h-3.5" />
-                          EXPORT TO PDF STORYBOARD
-                        </span>
-                        <button onClick={() => setShowPdfOptions(false)} className="text-zinc-400 hover:text-white cursor-pointer">
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
+            <div className="relative">
+              <CinemaToolHUD
+                title="PDF & HI-RES JPEG EXPORT"
+                en="Export multi-frame printable A4 PDF sheets or 1080p still JPEGs."
+                bn="কীভাবে ব্যবহার করবেন: স্টোরিবোর্ড PDF বা হাই-রেজ JPEG ডাউনলোড করতে PDF/JPG চাপুন।"
+                accent="amber"
+                side="bottom"
+              >
+                <button
+                  type="button"
+                  data-active={showPdfOptions ? 'true' : 'false'}
+                  onClick={() => setShowPdfOptions(prev => !prev)}
+                  className="cinema-tile cinema-tile-amber px-2.5 py-2 min-h-[40px] rounded flex items-center gap-1.5 cursor-pointer"
+                >
+                  <FileText className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+                  <span className="font-black tracking-wider text-[10px] uppercase">PDF / JPG</span>
+                </button>
+              </CinemaToolHUD>
 
-                      <div>
-                        <label className="text-zinc-400 block mb-1">Layout Format</label>
-                        <div className="grid grid-cols-2 gap-1.5">
-                          <button
-                            onClick={() => setPdfLayout(6)}
-                            className={`p-1.5 rounded-[2px] border text-center transition-colors cursor-pointer ${
-                              pdfLayout === 6
-                                ? 'bg-amber-500/20 border-amber-400 text-amber-300 font-bold'
-                                : 'bg-white/5 border-white/10 text-zinc-400'
-                            }`}
-                          >
-                            6 Shots / Sheet (3x2)
-                          </button>
-                          <button
-                            onClick={() => setPdfLayout(4)}
-                            className={`p-1.5 rounded-[2px] border text-center transition-colors cursor-pointer ${
-                              pdfLayout === 4
-                                ? 'bg-amber-500/20 border-amber-400 text-amber-300 font-bold'
-                                : 'bg-white/5 border-white/10 text-zinc-400'
-                            }`}
-                          >
-                            4 Shots / Sheet (2x2)
-                          </button>
-                        </div>
-                      </div>
+              {showPdfOptions && (
+                <div className="absolute right-0 top-full mt-2 w-80 bg-[#0B0C10] border border-amber-500/50 rounded-lg shadow-2xl p-3.5 z-50 text-[10px] space-y-2.5 backdrop-blur-xl animate-in fade-in duration-150">
+                  <div className="flex items-center justify-between border-b border-[#26282E] pb-2">
+                    <CinemaBadgeHeader
+                      icon={<Printer className="w-3.5 h-3.5" strokeWidth={2.2} />}
+                      label="PDF & JPEG"
+                      accent="amber"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPdfOptions(false)}
+                      aria-label="Close export menu"
+                      className="text-zinc-400 hover:text-white cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
 
-                      <div>
-                        <label className="text-zinc-400 block mb-1">Color Style</label>
-                        <div className="grid grid-cols-2 gap-1.5">
-                          <button
-                            onClick={() => setPdfTheme('print')}
-                            className={`p-1.5 rounded-[2px] border text-center transition-colors cursor-pointer ${
-                              pdfTheme === 'print'
-                                ? 'bg-amber-500/20 border-amber-400 text-amber-300 font-bold'
-                                : 'bg-white/5 border-white/10 text-zinc-400'
-                            }`}
-                          >
-                            Print White Paper
-                          </button>
-                          <button
-                            onClick={() => setPdfTheme('dark')}
-                            className={`p-1.5 rounded-[2px] border text-center transition-colors cursor-pointer ${
-                              pdfTheme === 'dark'
-                                ? 'bg-amber-500/20 border-amber-400 text-amber-300 font-bold'
-                                : 'bg-white/5 border-white/10 text-zinc-400'
-                            }`}
-                          >
-                            Obsidian Cinema
-                          </button>
-                        </div>
-                      </div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <button
+                      type="button"
+                      data-active={pdfLayout === 6 ? 'true' : 'false'}
+                      onClick={() => setPdfLayout(6)}
+                      className="cinema-tile cinema-tile-amber p-2 rounded font-black text-[10px] uppercase cursor-pointer"
+                    >
+                      6 / PAGE
+                    </button>
+                    <button
+                      type="button"
+                      data-active={pdfLayout === 4 ? 'true' : 'false'}
+                      onClick={() => setPdfLayout(4)}
+                      className="cinema-tile cinema-tile-amber p-2 rounded font-black text-[10px] uppercase cursor-pointer"
+                    >
+                      4 / PAGE
+                    </button>
+                  </div>
 
-                      <button
-                        disabled={isExportingPdf}
-                        onClick={handleExportPdf}
-                        className="w-full py-2 bg-amber-400 hover:bg-amber-300 text-black font-bold tracking-wider rounded-[2px] flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                        <span>DOWNLOAD PDF STORYBOARD</span>
-                      </button>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <button
+                      type="button"
+                      data-active={pdfTheme === 'print' ? 'true' : 'false'}
+                      onClick={() => setPdfTheme('print')}
+                      className="cinema-tile cinema-tile-amber p-2 rounded font-black text-[10px] uppercase cursor-pointer"
+                    >
+                      WHITE PAPER
+                    </button>
+                    <button
+                      type="button"
+                      data-active={pdfTheme === 'dark' ? 'true' : 'false'}
+                      onClick={() => setPdfTheme('dark')}
+                      className="cinema-tile cinema-tile-amber p-2 rounded font-black text-[10px] uppercase cursor-pointer"
+                    >
+                      DARK PRINT
+                    </button>
+                  </div>
 
-                      {/* HIGH-RESOLUTION INDIVIDUAL JPEG EXPORT SECTION */}
-                      <div className="pt-2.5 mt-1 border-t border-white/15 space-y-2">
-                        <div className="flex items-center justify-between text-cyan-300 font-bold text-[9.5px] uppercase tracking-wider">
-                          <span className="flex items-center gap-1.5">
-                            <Camera className="w-3.5 h-3.5 text-cyan-400" />
-                            INDIVIDUAL HI-RES JPEG (1080P)
-                          </span>
-                          <span className="text-[8px] px-1.5 py-0.5 rounded bg-cyan-500/15 border border-cyan-400/30 text-cyan-200">
-                            1920×1080
-                          </span>
-                        </div>
+                  <button
+                    type="button"
+                    disabled={isExportingPdf}
+                    onClick={handleExportPdf}
+                    data-active="true"
+                    className="cinema-tile cinema-tile-amber w-full py-2 min-h-[40px] font-black tracking-wider rounded flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <Download className="w-3.5 h-3.5 cinema-tile-icon" />
+                    <span>EXPORT PDF</span>
+                  </button>
 
-                        <div>
-                          <label className="text-zinc-400 block mb-1 text-[9px]">Target Storyboard Frame</label>
-                          <select
-                            value={jpegTargetIndex}
-                            onChange={(e) => setJpegTargetIndex(Number(e.target.value))}
-                            className="w-full bg-[#07080d] border border-white/15 focus:border-cyan-400 rounded-[2px] px-2 py-1.5 text-[9.5px] text-zinc-200 outline-none cursor-pointer"
-                          >
-                            {frames.map((f, idx) => (
-                              <option key={`cs-opt-${idx}-${f?.id ?? 'none'}`} value={idx}>
-                                {f.epNumber || `#${String(idx + 1).padStart(3, '0')}`} — {f.title || `Frame ${idx + 1}`}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
+                  <div className="pt-2.5 mt-1 border-t border-[#26282E] space-y-2">
+                    <select
+                      value={jpegTargetIndex}
+                      onChange={(e) => setJpegTargetIndex(Number(e.target.value))}
+                      className="w-full bg-[#111215] border border-[#26282E] focus:border-cyan-400 rounded px-2 py-2 text-[10px] text-zinc-200 outline-none cursor-pointer"
+                    >
+                      {frames.map((f, idx) => (
+                        <option key={`cs-opt-${idx}-${f?.id ?? 'none'}`} value={idx}>
+                          {f.epNumber || `#${String(idx + 1).padStart(3, '0')}`} — {f.title || `Frame ${idx + 1}`}
+                        </option>
+                      ))}
+                    </select>
 
-                        <label className="flex items-center justify-between text-[9.5px] text-zinc-300 cursor-pointer select-none">
-                          <span>Burn-in Camera Slate & Bilingual Titles</span>
-                          <input
-                            type="checkbox"
-                            checked={jpegIncludeSlate}
-                            onChange={(e) => setJpegIncludeSlate(e.target.checked)}
-                            className="accent-cyan-400 w-3.5 h-3.5 cursor-pointer"
-                          />
-                        </label>
+                    <label className="flex items-center justify-between text-[10px] font-black uppercase text-zinc-300 cursor-pointer select-none">
+                      <span>BURN SLATE</span>
+                      <input
+                        type="checkbox"
+                        checked={jpegIncludeSlate}
+                        onChange={(e) => setJpegIncludeSlate(e.target.checked)}
+                        className="accent-cyan-400 w-4 h-4 cursor-pointer"
+                      />
+                    </label>
 
-                        <button
-                          type="button"
-                          disabled={isExportingPdf || exportingJpegId !== null}
-                          onClick={() => handleExportSingleJpeg(frames[jpegTargetIndex], jpegIncludeSlate)}
-                          className="w-full py-2 bg-cyan-500/20 hover:bg-cyan-500/35 border border-cyan-400/60 text-cyan-200 hover:text-white font-bold tracking-wider rounded-[2px] flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
-                        >
-                          <ImageIcon className="w-3.5 h-3.5 text-cyan-300" />
-                          <span>
-                            {exportingJpegId !== null ? 'RENDERING HI-RES JPEG...' : 'EXPORT INDIVIDUAL JPEG (.JPG)'}
-                          </span>
-                        </button>
+                    <button
+                      type="button"
+                      disabled={isExportingPdf || exportingJpegId !== null}
+                      onClick={() => handleExportSingleJpeg(frames[jpegTargetIndex], jpegIncludeSlate)}
+                      data-active="true"
+                      className="cinema-tile cinema-tile-cyan w-full py-2 min-h-[40px] font-black tracking-wider rounded flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      <ImageIcon className="w-3.5 h-3.5 cinema-tile-icon" />
+                      <span>{exportingJpegId !== null ? 'RENDERING...' : 'EXPORT JPG'}</span>
+                    </button>
 
-                        <button
-                          type="button"
-                          disabled={isExportingPdf}
-                          onClick={handleExportBatchJpegs}
-                          className="w-full py-1.5 bg-white/5 hover:bg-white/10 border border-white/15 text-zinc-300 hover:text-amber-300 font-bold tracking-wider rounded-[2px] flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 text-[9px]"
-                        >
-                          <Download className="w-3 h-3 text-amber-400" />
-                          <span>
-                            {selectedFrameIds.size > 0
-                              ? `EXPORT ${selectedFrameIds.size} SELECTED JPEGs (.ZIP)`
-                              : 'BATCH EXPORT ALL HI-RES JPEGs (.ZIP)'}
-                          </span>
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                    <button
+                      type="button"
+                      disabled={isExportingPdf}
+                      onClick={handleExportBatchJpegs}
+                      className="cinema-tile cinema-tile-amber w-full py-2 min-h-[40px] font-black tracking-wider rounded flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      <Download className="w-3.5 h-3.5 cinema-tile-icon" />
+                      <span>
+                        {selectedFrameIds.size > 0 ? `ZIP (${selectedFrameIds.size})` : 'BATCH ZIP'}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Close Button */}
-            <button
-              onClick={onClose}
-              className="p-1.5 rounded-[2px] bg-white/5 hover:bg-white/15 border border-white/10 text-zinc-300 hover:text-white transition-colors cursor-pointer"
-              title="Close [Esc]"
+            <CinemaToolHUD
+              title="CLOSE CONTACT SHEET"
+              en="Return to the main storyboard stage."
+              bn="কীভাবে ব্যবহার করবেন: কন্ট্যাক্ট শিট গ্রিড বন্ধ করতে X বাটনে চাপুন।"
+              shortcut="ESC"
+              accent="crimson"
+              side="bottom"
             >
-              <X className="w-4 h-4" />
-            </button>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close"
+                className="cinema-tile cinema-tile-crimson min-h-[40px] min-w-[40px] px-2.5 rounded flex items-center justify-center cursor-pointer"
+              >
+                <X className="w-4 h-4 cinema-tile-icon" strokeWidth={2.3} />
+              </button>
+            </CinemaToolHUD>
           </div>
         </div>
 
@@ -1354,81 +1352,101 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
         {isCompareMode && (
           <div className="bg-[#090A10] border-b border-cyan-500/40 p-4 shrink-0 overflow-y-auto max-h-[46vh] animate-in fade-in duration-200">
             {/* Compare Bar Sub-header */}
-            <div className="flex items-center justify-between pb-3 mb-3 border-b border-white/10 text-xs">
-              <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded bg-cyan-500/20 border border-cyan-400/50 text-cyan-300 font-bold text-[9px] tracking-wider uppercase">
-                  COLOR & FRAMING COMPARATOR
-                </span>
-                <span className="text-zinc-400 text-[10px]">
-                  Inspecting Shot Consistency across cut transitions
-                </span>
-              </div>
+            <div className="flex flex-wrap items-center justify-between pb-3 mb-3 border-b border-[#26282E] gap-2 text-xs">
+              <CinemaBadgeHeader
+                icon={<Columns2 className="w-3.5 h-3.5" strokeWidth={2.2} />}
+                label="COMPARATOR"
+                accent="cyan"
+              />
 
-              {/* View Type Controls & Guide Toggles */}
-              <div className="flex items-center gap-2">
-                {/* Framing guides toggle */}
-                <button
-                  onClick={() => setCompareShowGuides(g => !g)}
-                  className={`px-2 py-1 rounded-[2px] border text-[9px] font-bold flex items-center gap-1 cursor-pointer transition-colors ${
-                    compareShowGuides
-                      ? 'bg-amber-400/20 border-amber-400 text-amber-300'
-                      : 'bg-white/5 border-white/10 text-zinc-400'
-                  }`}
-                  title="Toggle Framing Crosshairs & Thirds Guides"
+              <div className="flex flex-wrap items-center gap-1.5">
+                <CinemaToolHUD
+                  title="GRID GUIDES"
+                  en="Toggle rule-of-thirds and center crosshairs."
+                  bn="কীভাবে ব্যবহার করবেন: গ্রিড গাইড দেখতে বা বন্ধ করতে GUIDES চাপুন।"
+                  accent="amber"
                 >
-                  <Grid className="w-3 h-3" />
-                  <span>GRID GUIDES</span>
-                </button>
-
-                {/* View Mode Toggle: Side-by-Side vs Wipe */}
-                <div className="flex items-center bg-black/60 p-0.5 rounded border border-white/10 text-[9px]">
                   <button
-                    onClick={() => setCompareViewType('side-by-side')}
-                    className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${
-                      compareViewType === 'side-by-side' ? 'bg-cyan-500 text-black font-bold' : 'text-zinc-400'
-                    }`}
+                    type="button"
+                    data-active={compareShowGuides ? 'true' : 'false'}
+                    onClick={() => setCompareShowGuides(g => !g)}
+                    className="cinema-tile cinema-tile-amber px-2.5 py-1.5 min-h-[36px] rounded flex items-center gap-1 cursor-pointer"
                   >
-                    Side-by-Side
+                    <Grid className="w-3.5 h-3.5 cinema-tile-icon" />
+                    <span className="font-black text-[10px] uppercase">GUIDES</span>
                   </button>
+                </CinemaToolHUD>
+
+                <button
+                  type="button"
+                  data-active={compareViewType === 'side-by-side' ? 'true' : 'false'}
+                  onClick={() => setCompareViewType('side-by-side')}
+                  className="cinema-tile cinema-tile-cyan px-2.5 py-1.5 min-h-[36px] rounded font-black text-[10px] uppercase cursor-pointer"
+                >
+                  SPLIT
+                </button>
+                <button
+                  type="button"
+                  data-active={compareViewType === 'wipe' ? 'true' : 'false'}
+                  onClick={() => setCompareViewType('wipe')}
+                  className="cinema-tile cinema-tile-cyan px-2.5 py-1.5 min-h-[36px] rounded font-black text-[10px] uppercase cursor-pointer"
+                >
+                  WIPE
+                </button>
+
+                <CinemaToolHUD
+                  title="SYNC LUT A TO B"
+                  en="Copy color LUT and grading settings from Slot A to Slot B."
+                  bn="কীভাবে ব্যবহার করবেন: ফ্রেম A এর কালার ফ্রেম B তে দিতে A → B চাপুন।"
+                  accent="cyan"
+                >
                   <button
-                    onClick={() => setCompareViewType('wipe')}
-                    className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${
-                      compareViewType === 'wipe' ? 'bg-cyan-500 text-black font-bold' : 'text-zinc-400'
-                    }`}
+                    type="button"
+                    onClick={handleSyncLutAtoB}
+                    className="cinema-tile cinema-tile-cyan px-2.5 py-1.5 min-h-[36px] rounded font-black text-[10px] uppercase cursor-pointer"
                   >
-                    Wipe Slider
+                    A → B
                   </button>
-                </div>
+                </CinemaToolHUD>
 
-                {/* Match LUT Quick Actions */}
-                <button
-                  onClick={handleSyncLutAtoB}
-                  className="px-2 py-1 bg-white/5 hover:bg-white/10 border border-white/15 text-zinc-200 hover:text-cyan-300 text-[9px] rounded-[2px] cursor-pointer transition-colors"
-                  title="Apply Frame A's LUT to Frame B"
+                <CinemaToolHUD
+                  title="SYNC LUT B TO A"
+                  en="Copy color LUT and grading settings from Slot B to Slot A."
+                  bn="কীভাবে ব্যবহার করবেন: ফ্রেম B এর কালার ফ্রেম A তে দিতে B → A চাপুন।"
+                  accent="cyan"
                 >
-                  Sync Grade A → B
-                </button>
-                <button
-                  onClick={handleSyncLutBtoA}
-                  className="px-2 py-1 bg-white/5 hover:bg-white/10 border border-white/15 text-zinc-200 hover:text-cyan-300 text-[9px] rounded-[2px] cursor-pointer transition-colors"
-                  title="Apply Frame B's LUT to Frame A"
+                  <button
+                    type="button"
+                    onClick={handleSyncLutBtoA}
+                    className="cinema-tile cinema-tile-cyan px-2.5 py-1.5 min-h-[36px] rounded font-black text-[10px] uppercase cursor-pointer"
+                  >
+                    B → A
+                  </button>
+                </CinemaToolHUD>
+
+                <CinemaToolHUD
+                  title="SWAP SLOTS"
+                  en="Swap Slot A and Slot B comparison frames."
+                  bn="কীভাবে ব্যবহার করবেন: দুটি ফ্রেমের স্থান অদলবদল করতে SWAP আইকনে চাপুন।"
+                  accent="cyan"
                 >
-                  Sync Grade B → A
-                </button>
-                <button
-                  onClick={handleSwapSlots}
-                  className="p-1 bg-white/5 hover:bg-white/10 border border-white/15 text-zinc-300 hover:text-white rounded-[2px] cursor-pointer"
-                  title="Swap Slot A and Slot B"
-                >
-                  <ArrowLeftRight className="w-3 h-3" />
-                </button>
+                  <button
+                    type="button"
+                    onClick={handleSwapSlots}
+                    aria-label="Swap slots"
+                    className="cinema-tile cinema-tile-cyan p-2 min-h-[36px] rounded cursor-pointer"
+                  >
+                    <ArrowLeftRight className="w-3.5 h-3.5 cinema-tile-icon" />
+                  </button>
+                </CinemaToolHUD>
 
                 <button
+                  type="button"
                   onClick={() => setIsCompareMode(false)}
-                  className="p-1 hover:bg-white/10 text-zinc-400 hover:text-white rounded cursor-pointer"
-                  title="Close Compare Mode"
+                  aria-label="Close compare"
+                  className="cinema-tile cinema-tile-crimson p-2 min-h-[36px] rounded cursor-pointer"
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <X className="w-3.5 h-3.5 cinema-tile-icon" />
                 </button>
               </div>
             </div>
@@ -1654,57 +1672,36 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
           </div>
         )}
 
-        {/* SEARCH, FILTERS & DRAG-AND-DROP INSTRUCTION BAR */}
-        <div className="px-5 py-2.5 border-b border-white/10 bg-[#07070A] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shrink-0">
+        {/* SEARCH & TAG FILTER BAR */}
+        <div className="px-4 py-2 border-b border-[#26282E] bg-[#0B0C10] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 shrink-0">
           <div className="relative flex-1 max-w-md">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
+            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
             <input
               type="text"
-              placeholder="Search frames by title, Bengali keyword, focal length, or tag..."
+              placeholder="SEARCH SHOTS / LENS / TAG..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-1.5 bg-white/5 border border-white/10 rounded-[2px] text-xs font-mono text-white placeholder-white/40 focus:outline-none focus:border-amber-400 transition-colors"
+              className="w-full pl-9 pr-4 py-2 min-h-[38px] bg-[#111215] border border-[#26282E] rounded text-xs font-mono text-white placeholder-zinc-500 focus:outline-none focus:border-amber-400 transition-colors"
             />
           </div>
 
-          <div className="flex items-center gap-2 overflow-x-auto pb-0.5 no-scrollbar">
-            {isCompareMode ? (
-              <span className="text-[8.5px] text-cyan-300 font-bold uppercase tracking-wider flex items-center gap-1 mr-1">
-                <Columns2 className="w-3 h-3" />
-                CLICK ANY CARD TO ASSIGN TO COMPARE SLOTS
-              </span>
-            ) : isMultiSelectMode || selectedFrameIds.size > 0 ? (
-              <span className="text-[8.5px] text-amber-300 font-bold uppercase tracking-wider flex items-center gap-1 mr-1">
-                <CheckSquare className="w-3 h-3" />
-                SHIFT+CLICK TO SELECT RANGE • DOUBLE-CLICK TO OPEN ON STAGE
-              </span>
-            ) : (
-              <span className="text-[8.5px] text-amber-400/80 font-bold uppercase tracking-wider flex items-center gap-1 mr-1">
-                <ArrowUpDown className="w-3 h-3" />
-                CLICK TO SELECT • SHIFT+CLICK RANGE • DRAG TO RESEQUENCE
-              </span>
-            )}
-
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar">
             <button
+              type="button"
+              data-active={selectedTag === undefined ? 'true' : 'false'}
               onClick={() => setSelectedTag(undefined)}
-              className={`px-2 py-0.5 rounded-[2px] text-[9px] font-mono tracking-wider uppercase transition-colors cursor-pointer ${
-                selectedTag === undefined
-                  ? 'bg-amber-400 text-black font-bold'
-                  : 'bg-white/5 hover:bg-white/10 text-white/60 border border-white/10'
-              }`}
+              className="cinema-tile cinema-tile-amber px-2.5 py-1.5 rounded text-[10px] font-black tracking-wider uppercase cursor-pointer"
             >
-              All ({frames.length})
+              ALL ({frames.length})
             </button>
 
             {allTags.map(tag => (
               <button
                 key={tag}
+                type="button"
+                data-active={selectedTag === tag ? 'true' : 'false'}
                 onClick={() => setSelectedTag(selectedTag === tag ? undefined : tag)}
-                className={`px-2 py-0.5 rounded-[2px] text-[9px] font-mono tracking-wider uppercase whitespace-nowrap transition-colors cursor-pointer ${
-                  selectedTag === tag
-                    ? 'bg-amber-400 text-black font-bold'
-                    : 'bg-white/5 hover:bg-white/10 text-white/60 border border-white/10'
-                }`}
+                className="cinema-tile cinema-tile-amber px-2.5 py-1.5 rounded text-[10px] font-black tracking-wider uppercase whitespace-nowrap cursor-pointer"
               >
                 #{tag}
               </button>
@@ -2158,37 +2155,49 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
         </div>
 
         {/* FOOTER BAR */}
-        <div className="px-5 py-2.5 border-t border-white/10 bg-[#0B0C11] flex items-center justify-between text-[10px] text-zinc-400 shrink-0">
+        <div className="min-h-[48px] px-4 py-2 border-t border-[#26282E] bg-[#111215] flex flex-wrap items-center justify-between gap-2 text-[10px] font-black uppercase tracking-wider text-zinc-400 shrink-0">
           <div className="flex items-center gap-3">
-            <span className="text-zinc-500">FORMAT: <strong className="text-zinc-300">{aspectRatio}</strong></span>
-            <span className="hidden sm:inline text-zinc-500">•</span>
-            <span className="hidden sm:inline text-zinc-500">HOLD: <strong className="text-zinc-300">12.0s (288F @ 24fps)</strong></span>
-            <span className="hidden sm:inline text-zinc-500">•</span>
-            {isCompareMode ? (
-              <span className="text-cyan-300 font-bold">COMPARE MODE ACTIVE • SIDE-BY-SIDE COLOR & FRAMING</span>
-            ) : selectedFrameIds.size > 0 ? (
-              <span className="text-amber-300 font-bold tabular-nums">
-                {selectedFrameIds.size} {selectedFrameIds.size === 1 ? 'FRAME' : 'FRAMES'} SELECTED • SHIFT+CLICK FOR RANGE • DOUBLE-CLICK TO OPEN ON STAGE
-              </span>
-            ) : (
-              <span className="text-amber-400">CLICK TO SELECT • SHIFT+CLICK RANGE • DOUBLE-CLICK TO OPEN ON STAGE</span>
+            <span>{aspectRatio}</span>
+            <span className="hidden sm:inline">24FPS</span>
+            {isCompareMode && <span className="text-cyan-300">COMPARE ACTIVE</span>}
+            {!isCompareMode && selectedFrameIds.size > 0 && (
+              <span className="text-amber-300 tabular-nums">{selectedFrameIds.size} SELECTED</span>
             )}
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowPdfOptions(true)}
-              className="px-2.5 py-1 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-300 rounded-[2px] flex items-center gap-1.5 cursor-pointer"
+            <CinemaToolHUD
+              title="PRINT STORYBOARD PDF"
+              en="Configure 4-up or 6-up printable PDF contact sheet export."
+              bn="কীভাবে ব্যবহার করবেন: প্রিন্টযোগ্য PDF বের করতে PRINT PDF চাপুন।"
+              accent="amber"
             >
-              <Printer className="w-3 h-3" />
-              <span>PRINT STORYBOARD (PDF)</span>
-            </button>
-            <button
-              onClick={onClose}
-              className="px-3 py-1 bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-[2px] cursor-pointer"
+              <button
+                type="button"
+                onClick={() => setShowPdfOptions(true)}
+                className="cinema-tile cinema-tile-amber px-3 py-2 min-h-[38px] rounded flex items-center gap-1.5 cursor-pointer"
+              >
+                <Printer className="w-3.5 h-3.5 cinema-tile-icon" />
+                <span className="font-black text-[10px] uppercase">PRINT PDF</span>
+              </button>
+            </CinemaToolHUD>
+
+            <CinemaToolHUD
+              title="CLOSE CONTACT SHEET"
+              en="Close the contact sheet modal."
+              bn="কীভাবে ব্যবহার করবেন: কন্ট্যাক্ট শিট বন্ধ করতে CLOSE বাটনে চাপুন।"
+              shortcut="ESC"
+              accent="crimson"
             >
-              CLOSE [ESC]
-            </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="cinema-tile cinema-tile-crimson px-3 py-2 min-h-[38px] rounded flex items-center gap-1 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5 cinema-tile-icon" />
+                <span className="font-black text-[10px] uppercase">CLOSE</span>
+              </button>
+            </CinemaToolHUD>
           </div>
         </div>
       </div>
@@ -2200,18 +2209,17 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
           aria-modal="true"
           data-testid="batch-delete-confirm-dialog"
           aria-labelledby="batch-delete-dialog-title"
-          className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 p-4!"
+          className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
           onClick={(e) => {
             e.stopPropagation();
             setConfirmDeleteBatch(false);
           }}
         >
           <div
-            className="w-full max-w-md bg-[#0B0C12] border border-rose-500/40 rounded-md shadow-[0_24px_64px_rgba(0,0,0,0.95)] p-5 p-5! flex flex-col gap-4 font-mono text-white"
+            className="w-full max-w-md bg-[#0B0C10] border border-rose-500/50 rounded-lg shadow-[0_24px_64px_rgba(0,0,0,0.95)] p-5 flex flex-col gap-4 font-mono text-white"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Dialog Header */}
-            <div className="flex items-start justify-between gap-3 pb-3 pb-3! border-b border-white/10">
+            <div className="flex items-start justify-between gap-3 pb-3 border-b border-[#26282E]">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded bg-rose-500/15 border border-rose-500/40 flex items-center justify-center text-rose-400 shrink-0">
                   <AlertTriangle className="w-4 h-4" />
@@ -2219,33 +2227,32 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
                 <div>
                   <h3
                     id="batch-delete-dialog-title"
-                    className="text-sm font-bold text-white tracking-wide"
+                    className="text-xs font-black uppercase text-white tracking-wider"
                   >
-                    Permanently Delete {selectedFrameIds.size} Selected {selectedFrameIds.size === 1 ? 'Frame' : 'Frames'}?
+                    DELETE {selectedFrameIds.size} {selectedFrameIds.size === 1 ? 'FRAME' : 'FRAMES'}
                   </h3>
-                  <p className="text-[11px] text-zinc-400 mt-0.5 mt-0.5! tabular-nums">
-                    Shots {selectedRangeSummary.rangeText}
-                  </p>
+                  <div className="text-[10px] text-zinc-400 mt-0.5 tabular-nums">
+                    SHOTS {selectedRangeSummary.rangeText}
+                  </div>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setConfirmDeleteBatch(false)}
-                className="p-1 p-1! rounded text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                className="cinema-tile cinema-tile-crimson p-1.5 rounded cursor-pointer"
                 aria-label="Cancel deletion"
               >
-                <X className="w-4 h-4" />
+                <X className="w-4 h-4 cinema-tile-icon" />
               </button>
             </div>
 
-            {/* Selected Frames Visual Preview Strip */}
             <div className="grid grid-cols-3 gap-2">
               {selectedRangeSummary.previewItems.slice(0, 6).map(({ frame: pFrame, shotNumber }) => {
                 const thumbSrc = pFrame.thumbnailUrl || pFrame.thumbnail || pFrame.imageUrl || '';
                 return (
                   <div
                     key={`cs-preview-${shotNumber}-${pFrame?.id ?? 'none'}`}
-                    className="relative aspect-[16/10] rounded-[2px] overflow-hidden border border-white/15 bg-[#08090E]"
+                    className="relative aspect-[16/10] rounded overflow-hidden border border-[#26282E] bg-[#08090E]"
                   >
                     {thumbSrc ? (
                       <div
@@ -2257,7 +2264,7 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
                       />
                     ) : (
                       <div className="absolute inset-0 flex items-center justify-center text-[8px] text-zinc-500">
-                        RAW PLATE
+                        RAW
                       </div>
                     )}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
@@ -2274,44 +2281,46 @@ export const ContactSheetModal: React.FC<ContactSheetModalProps> = ({
               })}
             </div>
 
-            {selectedRangeSummary.previewItems.length > 6 && (
-              <div className="text-[11px] text-zinc-400 tabular-nums">
-                +{selectedRangeSummary.previewItems.length - 6} additional selected frames included in batch
+            {selectedFrameIds.size >= frames.length && (
+              <div className="p-2.5 rounded bg-amber-950/60 border border-amber-500/40 text-[10px] font-black uppercase text-amber-200">
+                MIN 1 FRAME REQUIRED
               </div>
             )}
 
-            {/* Warning / Safeguard Copy */}
-            {selectedFrameIds.size >= frames.length ? (
-              <div className="p-3 p-3! rounded bg-amber-950/60 border border-amber-500/40 text-xs text-amber-200 leading-relaxed">
-                At least 1 frame must remain in the storyboard. Deselect at least one frame before deleting.
-              </div>
-            ) : (
-              <p className="text-xs text-zinc-300 leading-relaxed tabular-nums">
-                This action will permanently remove {selectedFrameIds.size} selected {selectedFrameIds.size === 1 ? 'frame' : 'frames'} (Shots {selectedRangeSummary.rangeText}) from your storyboard and re-index the remaining {frames.length - selectedFrameIds.size} frames. This action cannot be undone.
-              </p>
-            )}
+            <div className="pt-3 border-t border-[#26282E] flex items-center justify-end gap-2">
+              <CinemaToolHUD
+                title="CANCEL DELETION"
+                en="Keep all selected storyboard frames."
+                bn="কীভাবে ব্যবহার করবেন: বাতিল করতে CANCEL চাপুন।"
+                accent="cyan"
+              >
+                <button
+                  type="button"
+                  onClick={() => setConfirmDeleteBatch(false)}
+                  className="cinema-tile cinema-tile-cyan px-4 py-2 min-h-[44px] rounded font-black text-[10px] uppercase cursor-pointer"
+                >
+                  CANCEL
+                </button>
+              </CinemaToolHUD>
 
-            {/* Dialog Actions */}
-            <div className="pt-3 pt-3! border-t border-white/10 flex items-center justify-end gap-2.5">
-              <button
-                type="button"
-                onClick={() => setConfirmDeleteBatch(false)}
-                className="px-4 py-2 px-4! py-2! rounded bg-white/5 hover:bg-white/15 border border-white/15 text-xs font-semibold text-zinc-300 hover:text-white transition-colors cursor-pointer whitespace-nowrap"
+              <CinemaToolHUD
+                title="CONFIRM PERMANENT DELETE"
+                en={`Delete ${selectedFrameIds.size} selected frames permanently.`}
+                bn="কীভাবে ব্যবহার করবেন: স্থায়ীভাবে মুছতে DELETE বাটনে চাপুন।"
+                accent="crimson"
               >
-                Cancel
-              </button>
-              <button
-                type="button"
-                data-testid="confirm-permanent-delete-btn"
-                disabled={selectedFrameIds.size >= frames.length}
-                onClick={handleBatchDelete}
-                className="px-4 py-2 px-4! py-2! rounded bg-rose-600 hover:bg-rose-500 border border-rose-400/50 text-xs font-bold text-white flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
-              >
-                <Trash2 className="w-3.5 h-3.5 shrink-0" />
-                <span>
-                  Permanently Delete ({selectedFrameIds.size})
-                </span>
-              </button>
+                <button
+                  type="button"
+                  data-testid="confirm-permanent-delete-btn"
+                  disabled={selectedFrameIds.size >= frames.length}
+                  onClick={handleBatchDelete}
+                  data-active="true"
+                  className="cinema-tile cinema-tile-crimson px-4 py-2 min-h-[44px] rounded font-black text-[10px] uppercase flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <Trash2 className="w-3.5 h-3.5 cinema-tile-icon shrink-0" />
+                  <span>DELETE ({selectedFrameIds.size})</span>
+                </button>
+              </CinemaToolHUD>
             </div>
           </div>
         </div>

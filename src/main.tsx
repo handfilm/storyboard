@@ -1,6 +1,7 @@
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import { StudioErrorBoundary } from './components/StudioErrorBoundary';
+import { CinemaHudRootOverlay } from './components/ui/CinemaToolHUD';
 import { serviceWorkerManager } from './services/serviceWorkerManager';
 import './index.css';
 
@@ -10,6 +11,7 @@ serviceWorkerManager.init();
 createRoot(document.getElementById('root')!).render(
   <StudioErrorBoundary>
     <App />
+    <CinemaHudRootOverlay />
   </StudioErrorBoundary>
 );
 

@@ -43,6 +43,7 @@ import {
 import { LightingRelightingWorkbench } from './lighting/LightingRelightingWorkbench';
 import type { ShotLightConfig } from '../types/anthology';
 import { useStudioStore } from '../core/store';
+import { CinemaBadgeHeader, CinemaToolHUD } from './ui/CinemaToolHUD';
 
 export interface PhotoLiquifySuiteProps {
   isOpen: boolean;
@@ -646,68 +647,56 @@ export const PhotoLiquifySuite: React.FC<PhotoLiquifySuiteProps> = ({
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-4 py-2.5 border-b border-[#272732] flex items-center justify-between bg-[#0C0C14]">
+        <div className="px-4 py-2.5 border-b border-[#272732] flex flex-wrap items-center justify-between gap-2 bg-[#0C0C14]">
           <div className="flex items-center gap-2 min-w-0">
-            <Sparkles className="w-4 h-4 text-[#fbbf24] shrink-0" />
-            <h2 className="font-cinzel text-xs sm:text-sm font-bold tracking-[0.16em] text-white uppercase truncate">
-              09 PHOTO EDIT & BULK RESIZER SUITE
-            </h2>
-            <span className="px-2 py-0.5 rounded-[1px] bg-[#fbbf24]/20 border border-[#fbbf24]/40 text-[8.5px] text-[#fbbf24] shrink-0 font-bold">
+            <CinemaBadgeHeader
+              icon={<Sparkles className="w-4 h-4" strokeWidth={2.2} />}
+              label="PHOTO LAB"
+              accent="amber"
+            />
+            <span className="px-2 py-0.5 rounded bg-[#fbbf24]/20 border border-[#fbbf24]/40 text-[9px] text-[#fbbf24] shrink-0 font-black">
               EP {frame.epNumber} // {frame.title}
             </span>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            {/* Top Tabs */}
-            <div className="flex bg-black/60 p-0.5 rounded border border-[#272732] text-[9.5px]">
-              <button
-                onClick={() => setActiveTab('liquify')}
-                className={`px-3 py-1 rounded-[1px] uppercase transition-colors cursor-pointer ${
-                  activeTab === 'liquify' ? 'bg-[#fbbf24] text-black font-bold' : 'text-zinc-400 hover:text-white'
-                }`}
-              >
-                LIQUIFY WARP
-              </button>
-              <button
-                onClick={() => setActiveTab('adjust')}
-                className={`px-3 py-1 rounded-[1px] uppercase transition-colors cursor-pointer ${
-                  activeTab === 'adjust' ? 'bg-[#fbbf24] text-black font-bold' : 'text-zinc-400 hover:text-white'
-                }`}
-              >
-                PRO SHADERS
-              </button>
-              <button
-                onClick={() => setActiveTab('bulk_resizer')}
-                className={`px-3 py-1 rounded-[1px] uppercase transition-colors cursor-pointer flex items-center gap-1 ${
-                  activeTab === 'bulk_resizer' ? 'bg-[#fbbf24] text-black font-bold' : 'text-zinc-400 hover:text-white'
-                }`}
-              >
-                <Layers className="w-3 h-3" />
-                <span>BULK RESIZER ({bulkPhotos.length})</span>
-              </button>
-              <button
-                onClick={() => setActiveTab('lighting')}
-                className={`px-3 py-1 rounded-[1px] uppercase transition-colors cursor-pointer flex items-center gap-1.5 ${
-                  activeTab === 'lighting' ? 'bg-[#fbbf24] text-black font-bold shadow-sm' : 'text-zinc-400 hover:text-white'
-                }`}
-              >
-                <span>💡 LIGHT RIG (34)</span>
-              </button>
-            </div>
+          <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+            {[
+              { id: 'liquify' as const, label: 'LIQUIFY', accent: 'crimson' as const, en: 'Sculpt and warp portrait proportions smoothly.', bn: 'ছবির যেকোনো অংশ টেনে বা চাপ দিয়ে আকার পরিবর্তন করুন।' },
+              { id: 'adjust' as const, label: 'SHADERS', accent: 'cyan' as const, en: 'Adjust clarity, dehaze, shadows, highlights & vignette.', bn: 'ছবির স্পষ্টতা, শ্যাডো, হাইলাইট ও ভিনেট কন্ট্রোল করুন।' },
+              { id: 'bulk_resizer' as const, label: `BULK (${bulkPhotos.length})`, accent: 'emerald' as const, en: 'Batch resize up to 50 photos to Reels, Scope, or 4K.', bn: 'একসাথে অনেকগুলো ছবি ৯:১৬, স্কোপ বা ৪কে সাইজে কনভার্ট করুন।' },
+              { id: 'lighting' as const, label: 'LIGHT RIG', accent: 'amber' as const, en: 'Apply 3D studio key/rim/fill lighting presets.', bn: '৩৪টি স্টুডিও লাইটিং প্রিসেট দিয়ে ছবির আলো বদলান।' },
+            ].map((t) => (
+              <CinemaToolHUD key={t.id} title={t.label} en={t.en} bn={t.bn} accent={t.accent} side="bottom">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab(t.id)}
+                  data-active={activeTab === t.id ? 'true' : 'false'}
+                  className={`cinema-tile cinema-tile-${t.accent} min-h-[38px] px-2.5 py-1 rounded text-[10px] font-black tracking-wider uppercase cursor-pointer`}
+                >
+                  <span>{t.label}</span>
+                </button>
+              </CinemaToolHUD>
+            ))}
 
             {activeTab !== 'bulk_resizer' && (
-              <button
-                onClick={handleApplyToFrame}
-                className="px-3 py-1 bg-[#fbbf24] hover:bg-[#f59e0b] text-black font-bold text-[10px] rounded-[1px] flex items-center gap-1 cursor-pointer shadow-sm"
-              >
-                <Check className="w-3.5 h-3.5" />
-                <span>APPLY TO SHOT</span>
-              </button>
+              <CinemaToolHUD title="APPLY SHOT" en="Save photo edits directly onto the active shot." bn="সম্পাদিত ছবি বা আলো বর্তমান শটে সেভ করতে চাপুন।" accent="emerald" side="bottom">
+                <button
+                  type="button"
+                  onClick={handleApplyToFrame}
+                  data-active="true"
+                  className="cinema-tile cinema-tile-emerald min-h-[38px] px-3 py-1 font-black text-[10px] rounded flex items-center gap-1 cursor-pointer uppercase"
+                >
+                  <Check className="w-3.5 h-3.5 cinema-tile-icon" />
+                  <span>APPLY SHOT</span>
+                </button>
+              </CinemaToolHUD>
             )}
 
-            <button onClick={onClose} className="p-1 text-zinc-400 hover:text-white cursor-pointer">
-              <X className="w-4 h-4" />
-            </button>
+            <CinemaToolHUD title="CLOSE" en="Close Photo & Resize Suite." bn="ফটো এডিটর উইন্ডোটি বন্ধ করুন।" accent="crimson" side="bottom">
+              <button type="button" onClick={onClose} className="cinema-tile cinema-tile-crimson p-1.5 rounded cursor-pointer">
+                <X className="w-4 h-4 cinema-tile-icon" />
+              </button>
+            </CinemaToolHUD>
           </div>
         </div>
 
@@ -740,32 +729,33 @@ export const PhotoLiquifySuite: React.FC<PhotoLiquifySuiteProps> = ({
               <div className="w-full md:w-64 bg-[#09090D] border-b md:border-b-0 md:border-r border-[#272732] p-3 flex flex-col gap-3 font-mono-tech shrink-0 overflow-hidden">
                 {activeTab === 'liquify' ? (
                   <>
-                    <div>
-                      <span className="text-[8px] text-zinc-400 uppercase tracking-wider font-bold">Warp Mode</span>
-                      <div className="grid grid-cols-2 gap-1.5 mt-1.5">
-                        {(['push', 'bloat', 'pinch', 'restore'] as WarpTool[]).map((tool) => (
-                          <button
-                            key={tool}
-                            onClick={() => setActiveTool(tool)}
-                            className={`px-2 py-1.5 text-[9px] uppercase tracking-wider rounded-[1px] border cursor-pointer transition-all ${
-                              activeTool === tool
-                                ? 'bg-[#fbbf24]/20 border-[#fbbf24] text-[#fbbf24] font-bold'
-                                : 'bg-black/40 border-[#272732] text-zinc-400 hover:text-white'
-                            }`}
-                          >
-                            {tool === 'push' && '🖐️ PUSH'}
-                            {tool === 'bloat' && '⭕ BLOAT'}
-                            {tool === 'pinch' && '🤏 PINCH'}
-                            {tool === 'restore' && '🔄 RESTORE'}
-                          </button>
+                    <div className="space-y-2">
+                      <CinemaBadgeHeader icon={<Sparkles className="w-3.5 h-3.5" />} label="WARP MODE" accent="crimson" />
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {([
+                          { tool: 'push' as const, label: 'PUSH', en: 'Drag pixels freely along cursor motion.', bn: 'ছবির অংশ হাত দিয়ে ঠেলে বা টেনে সরাতে ব্যবহার করুন।' },
+                          { tool: 'bloat' as const, label: 'BLOAT', en: 'Expand pixels outward from brush center.', bn: 'ক্লিক করে নির্দিষ্ট অংশ ফোলাতে বা বড় করতে চাপুন।' },
+                          { tool: 'pinch' as const, label: 'PINCH', en: 'Pull pixels inward toward brush center.', bn: 'নির্দিষ্ট অংশ সংকুচিত বা সরু করতে ব্যবহার করুন।' },
+                          { tool: 'restore' as const, label: 'RESTORE', en: 'Brush back original unwarped pixels.', bn: 'আগের আসল অবস্থায় ফিরিয়ে আনতে ব্রাশ করুন।' },
+                        ]).map((w) => (
+                          <CinemaToolHUD key={w.tool} title={w.label} en={w.en} bn={w.bn} accent="crimson" side="right" blockWrapper>
+                            <button
+                              type="button"
+                              onClick={() => setActiveTool(w.tool)}
+                              data-active={activeTool === w.tool ? 'true' : 'false'}
+                              className="cinema-tile cinema-tile-crimson w-full min-h-[44px] px-2 py-1.5 text-[10px] font-black uppercase tracking-wider rounded cursor-pointer"
+                            >
+                              <span>{w.label}</span>
+                            </button>
+                          </CinemaToolHUD>
                         ))}
                       </div>
                     </div>
 
                     <div>
-                      <div className="flex items-center justify-between text-[8px] text-zinc-400 uppercase">
-                        <span>Brush Radius</span>
-                        <span className="text-[#fbbf24] font-bold">{brushRadius}px</span>
+                      <div className="flex items-center justify-between text-[9px] font-black text-zinc-400 uppercase">
+                        <span>RADIUS</span>
+                        <span className="text-[#fbbf24]">{brushRadius}px</span>
                       </div>
                       <input
                         type="range"
@@ -778,9 +768,9 @@ export const PhotoLiquifySuite: React.FC<PhotoLiquifySuiteProps> = ({
                     </div>
 
                     <div>
-                      <div className="flex items-center justify-between text-[8px] text-zinc-400 uppercase">
-                        <span>Warp Pressure</span>
-                        <span className="text-[#fbbf24] font-bold">{brushStrength}%</span>
+                      <div className="flex items-center justify-between text-[9px] font-black text-zinc-400 uppercase">
+                        <span>STRENGTH</span>
+                        <span className="text-[#fbbf24]">{brushStrength}%</span>
                       </div>
                       <input
                         type="range"
@@ -792,117 +782,86 @@ export const PhotoLiquifySuite: React.FC<PhotoLiquifySuiteProps> = ({
                       />
                     </div>
 
-                    <button
-                      onClick={() => setShowMesh(!showMesh)}
-                      className={`px-2 py-1.5 text-[9px] uppercase tracking-wider rounded-[1px] border flex items-center justify-center gap-1.5 cursor-pointer transition-colors ${
-                        showMesh
-                          ? 'bg-[#fbbf24]/20 border-[#fbbf24] text-[#fbbf24] font-bold'
-                          : 'bg-black/40 border-[#272732] text-zinc-400 hover:text-white'
-                      }`}
-                    >
-                      <Grid className="w-3 h-3" />
-                      <span>{showMesh ? 'HIDE GRID MESH' : 'SHOW GRID MESH'}</span>
-                    </button>
+                    <CinemaToolHUD title="WARP MESH" en="Toggle reference deformation grid overlay." bn="ওয়ার্প গ্রিড লাইন দেখতে বা লুকাতে চাপুন।" accent="amber" side="right" blockWrapper>
+                      <button
+                        type="button"
+                        onClick={() => setShowMesh(!showMesh)}
+                        data-active={showMesh ? 'true' : 'false'}
+                        className="cinema-tile cinema-tile-amber w-full min-h-[44px] px-2 py-1.5 text-[10px] font-black uppercase tracking-wider rounded flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <Grid className="w-3.5 h-3.5 cinema-tile-icon" />
+                        <span>{showMesh ? 'HIDE MESH' : 'SHOW MESH'}</span>
+                      </button>
+                    </CinemaToolHUD>
                   </>
                 ) : (
                   /* Pro Image Adjustments Tab */
                   <div className="space-y-3">
-                    <span className="text-[8px] text-[#fbbf24] uppercase tracking-wider font-bold">
-                      PRO IMAGE ENHANCEMENT
-                    </span>
+                    <CinemaBadgeHeader icon={<Sliders className="w-3.5 h-3.5" />} label="PRO SHADERS" accent="cyan" />
 
                     <div>
-                      <div className="flex justify-between text-[8px] text-zinc-400">
-                        <span>Clarity / Micro-Texture</span>
-                        <span className="text-[#fbbf24] font-bold">{clarity > 0 ? `+${clarity}` : clarity}</span>
+                      <div className="flex justify-between text-[9px] font-black text-zinc-400 uppercase">
+                        <span>CLARITY</span>
+                        <span className="text-[#fbbf24]">{clarity > 0 ? `+${clarity}` : clarity}</span>
                       </div>
-                      <input
-                        type="range"
-                        min="-50"
-                        max="50"
-                        value={clarity}
-                        onChange={e => setClarity(Number(e.target.value))}
-                        className="w-full accent-[#fbbf24] cursor-pointer"
-                      />
+                      <input type="range" min="-50" max="50" value={clarity} onChange={e => setClarity(Number(e.target.value))} className="w-full accent-[#fbbf24] cursor-pointer" />
                     </div>
 
                     <div>
-                      <div className="flex justify-between text-[8px] text-zinc-400">
-                        <span>Atmospheric Dehaze</span>
-                        <span className="text-[#fbbf24] font-bold">{dehaze > 0 ? `+${dehaze}` : dehaze}</span>
+                      <div className="flex justify-between text-[9px] font-black text-zinc-400 uppercase">
+                        <span>DEHAZE</span>
+                        <span className="text-[#fbbf24]">{dehaze > 0 ? `+${dehaze}` : dehaze}</span>
                       </div>
-                      <input
-                        type="range"
-                        min="-50"
-                        max="50"
-                        value={dehaze}
-                        onChange={e => setDehaze(Number(e.target.value))}
-                        className="w-full accent-[#fbbf24] cursor-pointer"
-                      />
+                      <input type="range" min="-50" max="50" value={dehaze} onChange={e => setDehaze(Number(e.target.value))} className="w-full accent-[#fbbf24] cursor-pointer" />
                     </div>
 
                     <div>
-                      <div className="flex justify-between text-[8px] text-zinc-400">
-                        <span>Shadow Recovery</span>
-                        <span className="text-[#fbbf24] font-bold">{shadows > 0 ? `+${shadows}` : shadows}</span>
+                      <div className="flex justify-between text-[9px] font-black text-zinc-400 uppercase">
+                        <span>SHADOWS</span>
+                        <span className="text-[#fbbf24]">{shadows > 0 ? `+${shadows}` : shadows}</span>
                       </div>
-                      <input
-                        type="range"
-                        min="-50"
-                        max="50"
-                        value={shadows}
-                        onChange={e => setShadows(Number(e.target.value))}
-                        className="w-full accent-[#fbbf24] cursor-pointer"
-                      />
+                      <input type="range" min="-50" max="50" value={shadows} onChange={e => setShadows(Number(e.target.value))} className="w-full accent-[#fbbf24] cursor-pointer" />
                     </div>
 
                     <div>
-                      <div className="flex justify-between text-[8px] text-zinc-400">
-                        <span>Highlight Roll-off</span>
-                        <span className="text-[#fbbf24] font-bold">{highlights > 0 ? `+${highlights}` : highlights}</span>
+                      <div className="flex justify-between text-[9px] font-black text-zinc-400 uppercase">
+                        <span>HIGHLIGHT</span>
+                        <span className="text-[#fbbf24]">{highlights > 0 ? `+${highlights}` : highlights}</span>
                       </div>
-                      <input
-                        type="range"
-                        min="-50"
-                        max="50"
-                        value={highlights}
-                        onChange={e => setHighlights(Number(e.target.value))}
-                        className="w-full accent-[#fbbf24] cursor-pointer"
-                      />
+                      <input type="range" min="-50" max="50" value={highlights} onChange={e => setHighlights(Number(e.target.value))} className="w-full accent-[#fbbf24] cursor-pointer" />
                     </div>
 
                     <div>
-                      <div className="flex justify-between text-[8px] text-zinc-400">
-                        <span>Vignette Falloff</span>
-                        <span className="text-[#fbbf24] font-bold">{vignette}%</span>
+                      <div className="flex justify-between text-[9px] font-black text-zinc-400 uppercase">
+                        <span>VIGNETTE</span>
+                        <span className="text-[#fbbf24]">{vignette}%</span>
                       </div>
-                      <input
-                        type="range"
-                        min="0"
-                        max="100"
-                        value={vignette}
-                        onChange={e => setVignette(Number(e.target.value))}
-                        className="w-full accent-[#fbbf24] cursor-pointer"
-                      />
+                      <input type="range" min="0" max="100" value={vignette} onChange={e => setVignette(Number(e.target.value))} className="w-full accent-[#fbbf24] cursor-pointer" />
                     </div>
                   </div>
                 )}
 
                 <div className="mt-auto flex flex-col gap-1.5 pt-3 border-t border-[#272732]">
-                  <button
-                    onClick={handleUndo}
-                    className="px-2 py-1.5 bg-white/5 hover:bg-white/10 border border-[#272732] text-zinc-300 text-[9px] rounded-[1px] flex items-center justify-center gap-1.5 cursor-pointer"
-                  >
-                    <Undo2 className="w-3 h-3 text-[#fbbf24]" />
-                    <span>UNDO STROKE [Ctrl+Z]</span>
-                  </button>
-                  <button
-                    onClick={handleReset}
-                    className="px-2 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 text-[9px] rounded-[1px] flex items-center justify-center gap-1.5 cursor-pointer"
-                  >
-                    <RotateCcw className="w-3 h-3" />
-                    <span>REVERT ALL</span>
-                  </button>
+                  <CinemaToolHUD title="UNDO STROKE" en="Revert last brush stroke." bn="শেষের ব্রাশ স্ট্রোক বাতিল করতে চাপুন।" accent="amber" side="right" blockWrapper>
+                    <button
+                      type="button"
+                      onClick={handleUndo}
+                      className="cinema-tile cinema-tile-amber w-full min-h-[44px] px-2 py-1.5 text-[10px] font-black uppercase rounded flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Undo2 className="w-3.5 h-3.5 cinema-tile-icon" />
+                      <span>UNDO</span>
+                    </button>
+                  </CinemaToolHUD>
+                  <CinemaToolHUD title="REVERT ALL" en="Reset image back to original frame." bn="সব পরিবর্তন মুছে ছবিটি আগের অবস্থায় ফিরিয়ে আনুন।" accent="crimson" side="right" blockWrapper>
+                    <button
+                      type="button"
+                      onClick={handleReset}
+                      className="cinema-tile cinema-tile-crimson w-full min-h-[44px] px-2 py-1.5 text-[10px] font-black uppercase rounded flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5 cinema-tile-icon" />
+                      <span>REVERT</span>
+                    </button>
+                  </CinemaToolHUD>
                 </div>
               </div>
 
@@ -941,101 +900,91 @@ export const PhotoLiquifySuite: React.FC<PhotoLiquifySuiteProps> = ({
             /* ========================================================= */
             <div className="flex-1 p-4 flex flex-col gap-4 overflow-y-auto no-scrollbar">
               {/* Batch Settings Bar */}
-              <div className="p-3 bg-[#0C0C14] border border-[#272732] rounded-[2px] flex flex-wrap items-center justify-between gap-3">
-                {/* Preset Selector */}
-                <div className="flex items-center gap-2">
-                  <span className="text-[9.5px] font-bold text-zinc-400 uppercase">ASPECT PRESET:</span>
-                  <div className="flex bg-black/60 p-0.5 rounded border border-[#272732] text-[9.5px]">
-                    {[
-                      { id: '2.39:1', label: '2.39:1 Scope (1920x804)' },
-                      { id: '9:16', label: '9:16 Reel (1080x1920)' },
-                      { id: '4K', label: '4K UHD (3840x2160)' },
-                      { id: '1:1', label: '1:1 Square (1080x1080)' }
-                    ].map(p => (
+              <div className="p-3 bg-[#0C0C14] border border-[#272732] rounded-[2px] flex flex-wrap items-center justify-between gap-2.5">
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { id: '2.39:1' as const, label: '2.39:1', en: 'Resize photos to 1920×804 Cinema Scope.', bn: 'সব ছবি ২.৩৯:১ সিনেমা স্কোপ সাইজে রিসাইজ করুন।' },
+                    { id: '9:16' as const, label: '9:16', en: 'Resize photos to 1080×1920 Reels portrait.', bn: 'রিলস ও শর্টসের জন্য ৯:১৬ সাইজে রিসাইজ করুন।' },
+                    { id: '4K' as const, label: '4K UHD', en: 'Upscale/resize photos to 3840×2160 UHD.', bn: 'ছবিগুলোকে ৪কে আল্ট্রা-এইচডি রেজোলিউশনে সেট করুন।' },
+                    { id: '1:1' as const, label: '1:1 SQ', en: 'Resize photos to 1080×1080 square frame.', bn: 'ইন্সটাগ্রাম পোস্টের জন্য ১:১ স্কয়ার ফ্রেম বাছুন।' }
+                  ].map((p) => (
+                    <CinemaToolHUD key={p.id} title={p.label} en={p.en} bn={p.bn} accent="amber" side="bottom">
                       <button
-                        key={p.id}
-                        onClick={() => setTargetPreset(p.id as any)}
-                        className={`px-2.5 py-1 rounded-[1px] cursor-pointer transition-colors ${
-                          targetPreset === p.id ? 'bg-[#fbbf24] text-black font-bold' : 'text-zinc-400 hover:text-white'
-                        }`}
+                        type="button"
+                        onClick={() => setTargetPreset(p.id)}
+                        data-active={targetPreset === p.id ? 'true' : 'false'}
+                        className="cinema-tile cinema-tile-amber min-h-[40px] px-2.5 py-1 rounded text-[10px] font-black uppercase cursor-pointer"
                       >
-                        {p.label}
+                        <span>{p.label}</span>
                       </button>
-                    ))}
-                  </div>
+                    </CinemaToolHUD>
+                  ))}
                 </div>
 
-                {/* Framing Fit Mode */}
-                <div className="flex items-center gap-2">
-                  <span className="text-[9.5px] font-bold text-zinc-400 uppercase">FRAMING:</span>
-                  <div className="flex bg-black/60 p-0.5 rounded border border-[#272732] text-[9.5px]">
+                <div className="flex gap-1.5">
+                  <CinemaToolHUD title="CROP" en="Fill frame cleanly via center crop." bn="ফ্রেম পুরোটা ভরে রাখতে সেন্টার ক্রপ ব্যবহার করুন।" accent="cyan" side="bottom">
                     <button
+                      type="button"
                       onClick={() => setFitMode('crop')}
-                      className={`px-2.5 py-1 rounded-[1px] cursor-pointer ${
-                        fitMode === 'crop' ? 'bg-[#fbbf24] text-black font-bold' : 'text-zinc-400'
-                      }`}
+                      data-active={fitMode === 'crop' ? 'true' : 'false'}
+                      className="cinema-tile cinema-tile-cyan min-h-[40px] px-2.5 py-1 rounded text-[10px] font-black uppercase cursor-pointer"
                     >
-                      Center Crop
+                      <span>CROP</span>
                     </button>
+                  </CinemaToolHUD>
+                  <CinemaToolHUD title="LETTERBOX" en="Preserve full image over blurred backdrop." bn="ছবি না কেটে পেছনে ব্লার লেটারবক্স রাখতে এটি চাপুন।" accent="cyan" side="bottom">
                     <button
+                      type="button"
                       onClick={() => setFitMode('letterbox')}
-                      className={`px-2.5 py-1 rounded-[1px] cursor-pointer ${
-                        fitMode === 'letterbox' ? 'bg-[#fbbf24] text-black font-bold' : 'text-zinc-400'
-                      }`}
+                      data-active={fitMode === 'letterbox' ? 'true' : 'false'}
+                      className="cinema-tile cinema-tile-cyan min-h-[40px] px-2.5 py-1 rounded text-[10px] font-black uppercase cursor-pointer"
                     >
-                      Obsidian Letterbox
+                      <span>LETTERBOX</span>
                     </button>
-                  </div>
+                  </CinemaToolHUD>
                 </div>
 
-                {/* Output Format */}
-                <div className="flex items-center gap-2">
-                  <span className="text-[9.5px] font-bold text-zinc-400 uppercase">FORMAT:</span>
-                  <select
-                    value={exportFormat}
-                    onChange={e => setExportFormat(e.target.value as any)}
-                    className="bg-black/60 border border-[#272732] text-zinc-200 text-[9.5px] px-2 py-1 rounded outline-none"
-                  >
-                    <option value="image/webp">WebP (Optimized)</option>
-                    <option value="image/jpeg">JPEG (High Quality)</option>
-                    <option value="image/png">PNG (Lossless)</option>
-                  </select>
-                </div>
+                <select
+                  value={exportFormat}
+                  onChange={e => setExportFormat(e.target.value as any)}
+                  className="bg-[#111215] border border-[#26282E] text-zinc-200 text-[10px] font-black uppercase px-2.5 py-2 rounded outline-none"
+                >
+                  <option value="image/webp">WEBP</option>
+                  <option value="image/jpeg">JPEG</option>
+                  <option value="image/png">PNG</option>
+                </select>
               </div>
 
-              {/* Feedback Alert */}
               {bulkFeedback && (
                 <div className="px-3 py-1.5 bg-[#fbbf24]/15 border border-[#fbbf24]/40 text-[#fbbf24] text-[10px] rounded-[2px] flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 font-bold">
+                  <div className="flex items-center gap-1.5 font-black uppercase">
                     <CheckCircle2 className="w-3.5 h-3.5" />
                     <span>{bulkFeedback}</span>
                   </div>
-                  <button onClick={() => setBulkFeedback(null)} className="text-zinc-400 hover:text-white">
+                  <button type="button" onClick={() => setBulkFeedback(null)} className="text-zinc-400 hover:text-white cursor-pointer">
                     <X className="w-3 h-3" />
                   </button>
                 </div>
               )}
 
               {/* Upload Dropzone & Grid */}
-              <div className="flex-1 flex flex-col gap-3 min-h-[300px]">
-                <label className="border-2 border-dashed border-[#272732] hover:border-[#fbbf24]/60 bg-[#0C0C14]/60 rounded-[2px] p-6 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors group">
-                  <Upload className="w-8 h-8 text-zinc-500 group-hover:text-[#fbbf24] transition-colors" />
-                  <div className="text-xs font-bold text-zinc-300 group-hover:text-white">
-                    DRAG & DROP 10–50 PHOTOS HERE OR CLICK TO BROWSE
-                  </div>
-                  <div className="text-[8.5px] text-zinc-500">
-                    Supports JPG, PNG, WebP, AVIF, TIFF • Batch conversion to {targetPreset}
-                  </div>
-                  <input
-                    type="file"
-                    multiple
-                    accept="image/*"
-                    onChange={handleBulkFilesSelect}
-                    className="hidden"
-                  />
-                </label>
+              <div className="flex-1 flex flex-col gap-3 min-h-[280px]">
+                <CinemaToolHUD title="ADD PHOTOS" en="Drop 10–50 images or browse from disk." bn="একসাথে অনেকগুলো ছবি আপলোড করতে এখানে ক্লিক বা ড্রপ করুন।" accent="amber" side="top" blockWrapper>
+                  <label className="w-full border-2 border-dashed border-[#272732] hover:border-[#fbbf24]/60 bg-[#0C0C14]/60 rounded-[2px] p-6 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors group">
+                    <Upload className="w-7 h-7 text-zinc-500 group-hover:text-[#fbbf24] transition-colors" />
+                    <span className="text-xs font-black uppercase tracking-wider text-zinc-200 group-hover:text-white">
+                      DROP PHOTOS ({bulkPhotos.length})
+                    </span>
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/*"
+                      onChange={handleBulkFilesSelect}
+                      className="hidden"
+                    />
+                  </label>
+                </CinemaToolHUD>
 
-                {/* Queue Cards */}
                 {bulkPhotos.length > 0 && (
                   <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2.5 max-h-72 overflow-y-auto no-scrollbar">
                     {bulkPhotos.map(item => (
@@ -1054,8 +1003,9 @@ export const PhotoLiquifySuite: React.FC<PhotoLiquifySuiteProps> = ({
                             {item.status.toUpperCase()}
                           </span>
                           <button
+                            type="button"
                             onClick={() => setBulkPhotos(prev => prev.filter(p => p.id !== item.id))}
-                            className="text-zinc-600 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="text-zinc-600 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                           >
                             <X className="w-3 h-3" />
                           </button>
@@ -1068,39 +1018,47 @@ export const PhotoLiquifySuite: React.FC<PhotoLiquifySuiteProps> = ({
 
               {/* Bottom Batch Actions */}
               <div className="p-3 bg-[#0C0C14] border border-[#272732] rounded-[2px] flex flex-wrap items-center justify-between gap-3">
-                <div className="text-[9.5px] text-zinc-400">
-                  <span className="text-[#fbbf24] font-bold">{bulkPhotos.length}</span> images loaded • Ready for batch conversion
-                </div>
+                <span className="text-[10px] font-black uppercase text-[#fbbf24]">
+                  {bulkPhotos.length} READY
+                </span>
 
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={processBulkImages}
-                    disabled={isBatchProcessing || bulkPhotos.length === 0}
-                    className="px-4 py-1.5 rounded-[2px] bg-[#fbbf24] hover:bg-[#f59e0b] disabled:opacity-40 text-black font-bold text-[10px] cursor-pointer shadow-[0_0_12px_rgba(251,191,36,0.25)] flex items-center gap-1.5"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>{isBatchProcessing ? 'RESIZING BATCH...' : 'START BULK CONVERT'}</span>
-                  </button>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <CinemaToolHUD title="BULK CONVERT" en="Process and resize all queued photos now." bn="কিউতে থাকা সব ছবি একসাথে কনভার্ট শুরু করতে চাপুন।" accent="amber" side="top">
+                    <button
+                      type="button"
+                      onClick={processBulkImages}
+                      disabled={isBatchProcessing || bulkPhotos.length === 0}
+                      data-active="true"
+                      className="cinema-tile cinema-tile-amber min-h-[44px] px-4 py-1.5 rounded font-black text-[10px] uppercase cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 cinema-tile-icon" />
+                      <span>{isBatchProcessing ? 'CONVERTING...' : 'BULK START'}</span>
+                    </button>
+                  </CinemaToolHUD>
 
-                  <button
-                    onClick={handleSaveAllToVault}
-                    disabled={!bulkPhotos.some(p => p.processedBlob)}
-                    className="px-3.5 py-1.5 rounded-[2px] bg-white/10 hover:bg-white/20 disabled:opacity-30 text-white font-bold text-[10px] cursor-pointer flex items-center gap-1.5 border border-white/10"
-                    title="Save all resized photos into resilient IndexedDB Media Vault"
-                  >
-                    <FolderDown className="w-3.5 h-3.5 text-[#fbbf24]" />
-                    <span>SAVE TO MEDIA VAULT</span>
-                  </button>
+                  <CinemaToolHUD title="SAVE VAULT" en="Store all resized photos in local Media Vault." bn="রিসাইজ করা সব ছবি লোকাল মিডিয়া ভল্টে সেভ করুন।" accent="cyan" side="top">
+                    <button
+                      type="button"
+                      onClick={handleSaveAllToVault}
+                      disabled={!bulkPhotos.some(p => p.processedBlob)}
+                      className="cinema-tile cinema-tile-cyan min-h-[44px] px-3.5 py-1.5 rounded font-black text-[10px] uppercase cursor-pointer flex items-center gap-1.5"
+                    >
+                      <FolderDown className="w-3.5 h-3.5 cinema-tile-icon" />
+                      <span>SAVE VAULT</span>
+                    </button>
+                  </CinemaToolHUD>
 
-                  <button
-                    onClick={handleDownloadZip}
-                    disabled={!bulkPhotos.some(p => p.processedBlob)}
-                    className="px-3.5 py-1.5 rounded-[2px] bg-white/10 hover:bg-white/20 disabled:opacity-30 text-white font-bold text-[10px] cursor-pointer flex items-center gap-1.5 border border-white/10"
-                    title="Download complete batch as a single .zip file"
-                  >
-                    <FileArchive className="w-3.5 h-3.5 text-[#fbbf24]" />
-                    <span>DOWNLOAD ZIP</span>
-                  </button>
+                  <CinemaToolHUD title="SAVE ZIP" en="Download converted batch as a ZIP file." bn="সব ছবি একসাথে ZIP ফাইল হিসেবে ডাউনলোড করুন।" accent="emerald" side="top">
+                    <button
+                      type="button"
+                      onClick={handleDownloadZip}
+                      disabled={!bulkPhotos.some(p => p.processedBlob)}
+                      className="cinema-tile cinema-tile-emerald min-h-[44px] px-3.5 py-1.5 rounded font-black text-[10px] uppercase cursor-pointer flex items-center gap-1.5"
+                    >
+                      <FileArchive className="w-3.5 h-3.5 cinema-tile-icon" />
+                      <span>SAVE ZIP</span>
+                    </button>
+                  </CinemaToolHUD>
                 </div>
               </div>
             </div>

@@ -22,6 +22,7 @@ import {
   Minimize2,
   Repeat
 } from 'lucide-react';
+import { CinemaToolHUD } from '../ui/CinemaToolHUD';
 
 export interface TactileTransportProps {
   isPlaying: boolean;
@@ -117,55 +118,82 @@ export const TactileTransport: React.FC<TactileTransportProps> = ({
     <div className={`w-full bg-[#0B0B0D]/95 backdrop-blur-xl border border-white/[0.07] rounded-[3px] p-2 flex flex-wrap items-center justify-between gap-2 text-xs font-mono-tech select-none shadow-[0_10px_30px_rgba(0,0,0,0.8)] ${className}`}>
       {/* Left: Transport buttons & Quick Cadence Selector */}
       <div className="flex items-center gap-1.5 shrink-0">
-        <button
-          onClick={() => onStepFrame?.(false)}
-          className="p-1.5 rounded-[2px] bg-[#141417] hover:border-[#F59E0B]/60 border border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5] cursor-pointer transition-all active:scale-95"
-          title={`Previous Frame (1/${safeFps}s)`}
+        <CinemaToolHUD
+          title="PREV FRAME"
+          en={`Steps playhead back by 1 frame (1/${safeFps}s).`}
+          bn="১ ফ্রেম পেছনে সরাতে এটি চাপুন।"
+          accent="cyan"
         >
-          <SkipBack className="w-3.5 h-3.5" />
-        </button>
+          <button
+            type="button"
+            onClick={() => onStepFrame?.(false)}
+            className="cinema-tile cinema-tile-cyan p-1.5 rounded-md cursor-pointer"
+            aria-label="Previous Frame"
+          >
+            <SkipBack className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+          </button>
+        </CinemaToolHUD>
 
-        <button
-          onClick={onTogglePlay}
-          className={`px-3 py-1.5 rounded-[2px] border font-bold flex items-center gap-1.5 tracking-wider transition-all cursor-pointer text-[10px] sm:text-[11px] ${
-            isPlaying
-              ? 'border-[#F59E0B] bg-[#F59E0B]/15 text-[#F4F4F5]'
-              : 'border-white/[0.07] bg-[#141417] text-[#8E8E93] hover:border-[#F59E0B]/60 hover:text-[#F4F4F5]'
-          }`}
+        <CinemaToolHUD
+          title={isPlaying ? 'PAUSE CLIP' : 'PLAY CLIP'}
+          en="Starts or pauses real-time stage playback."
+          bn="ভিডিও বা সিন প্লে এবং পজ করতে চাপুন।"
+          shortcut="Space"
+          accent="amber"
         >
-          {isPlaying ? (
-            <>
-              <Pause className="w-3.5 h-3.5 fill-current text-[#F59E0B]" />
-              <span>PAUSE</span>
-            </>
-          ) : (
-            <>
-              <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
-              <span>PLAY</span>
-            </>
-          )}
-        </button>
+          <button
+            type="button"
+            onClick={onTogglePlay}
+            data-active={isPlaying ? 'true' : 'false'}
+            className="cinema-tile cinema-tile-amber px-3 py-1.5 rounded-md font-black flex items-center gap-1.5 tracking-wider cursor-pointer text-[10px] sm:text-[11px]"
+          >
+            {isPlaying ? (
+              <>
+                <Pause className="w-3.5 h-3.5 cinema-tile-icon fill-current" strokeWidth={2.2} />
+                <span>PAUSE</span>
+              </>
+            ) : (
+              <>
+                <Play className="w-3.5 h-3.5 cinema-tile-icon fill-current ml-0.5" strokeWidth={2.2} />
+                <span>PLAY</span>
+              </>
+            )}
+          </button>
+        </CinemaToolHUD>
 
-        <button
-          onClick={() => onStepFrame?.(true)}
-          className="p-1.5 rounded-[2px] bg-[#141417] hover:border-[#F59E0B]/60 border border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5] cursor-pointer transition-all active:scale-95"
-          title={`Next Frame (1/${safeFps}s)`}
+        <CinemaToolHUD
+          title="NEXT FRAME"
+          en={`Advances playhead forward by 1 frame (1/${safeFps}s).`}
+          bn="১ ফ্রেম সামনে এগোতে এটি চাপুন।"
+          accent="cyan"
         >
-          <SkipForward className="w-3.5 h-3.5" />
-        </button>
+          <button
+            type="button"
+            onClick={() => onStepFrame?.(true)}
+            className="cinema-tile cinema-tile-cyan p-1.5 rounded-md cursor-pointer"
+            aria-label="Next Frame"
+          >
+            <SkipForward className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+          </button>
+        </CinemaToolHUD>
 
         {onToggleLoop && (
-          <button
-            onClick={onToggleLoop}
-            className={`p-1.5 rounded-[2px] border cursor-pointer transition-all ${
-              isLooping
-                ? 'bg-[#F59E0B]/15 border-[#F59E0B]/65 text-[#F59E0B]'
-                : 'bg-[#141417] border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5] hover:border-[#F59E0B]/60'
-            }`}
-            title="Toggle Shot Loop"
+          <CinemaToolHUD
+            title="SHOT LOOP"
+            en="Continuously loops playback within the active shot."
+            bn="বর্তমান শটটি বারবার লুপ করে দেখতে চালু করুন।"
+            accent="amber"
           >
-            <Repeat className="w-3.5 h-3.5" />
-          </button>
+            <button
+              type="button"
+              onClick={onToggleLoop}
+              data-active={isLooping ? 'true' : 'false'}
+              className="cinema-tile cinema-tile-amber p-1.5 rounded-md cursor-pointer"
+              aria-label="Toggle Loop"
+            >
+              <Repeat className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+            </button>
+          </CinemaToolHUD>
         )}
 
         {onChangeSlideDuration && (
@@ -205,71 +233,113 @@ export const TactileTransport: React.FC<TactileTransportProps> = ({
       {/* Right: Mode & Extras */}
       <div className="flex items-center gap-1.5 shrink-0">
         {/* Playback Mode (Solo vs Sequence) */}
-        <div className="flex items-center bg-[#141417] border border-white/[0.07] rounded-[2px] p-0.5">
-          <button
-            onClick={() => onSelectPlaybackMode('sequence')}
-            className={`px-2 py-0.5 text-[9px] rounded-[1px] transition-all cursor-pointer ${
-              playbackMode === 'sequence'
-                ? 'bg-[#F59E0B] text-[#0B0B0D] font-bold'
-                : 'text-[#8E8E93] hover:text-[#F4F4F5]'
-            }`}
+        <div className="flex items-center bg-[#141417] border border-white/[0.07] rounded-md p-0.5 gap-0.5">
+          <CinemaToolHUD
+            title="SEQUENCE MODE"
+            en="Plays continuously through every shot in the timeline."
+            bn="সবগুলো শট একটার পর একটা ধারাবাহিকভাবে চালাতে SEQ চাপুন।"
+            accent="emerald"
           >
-            SEQ
-          </button>
-          <button
-            onClick={() => onSelectPlaybackMode('solo')}
-            className={`px-2 py-0.5 text-[9px] rounded-[1px] transition-all cursor-pointer ${
-              playbackMode === 'solo'
-                ? 'bg-[#F59E0B] text-[#0B0B0D] font-bold'
-                : 'text-[#8E8E93] hover:text-[#F4F4F5]'
-            }`}
+            <button
+              type="button"
+              onClick={() => onSelectPlaybackMode('sequence')}
+              data-active={playbackMode === 'sequence' ? 'true' : 'false'}
+              className="cinema-tile cinema-tile-emerald px-2 py-0.5 text-[9px] font-black tracking-wider rounded-[3px] cursor-pointer"
+            >
+              SEQ
+            </button>
+          </CinemaToolHUD>
+          <CinemaToolHUD
+            title="SOLO SHOT"
+            en="Locks playback to repeat only the active shot."
+            bn="শুধুমাত্র বর্তমান শটটি আলাদাভাবে বারবার দেখতে SOLO চাপুন।"
+            accent="amber"
           >
-            SOLO
-          </button>
+            <button
+              type="button"
+              onClick={() => onSelectPlaybackMode('solo')}
+              data-active={playbackMode === 'solo' ? 'true' : 'false'}
+              className="cinema-tile cinema-tile-amber px-2 py-0.5 text-[9px] font-black tracking-wider rounded-[3px] cursor-pointer"
+            >
+              SOLO
+            </button>
+          </CinemaToolHUD>
         </div>
 
         {onToggleMute && (
-          <button
-            onClick={onToggleMute}
-            className={`p-1.5 rounded-[2px] border cursor-pointer transition-all ${
-              isMuted
-                ? 'bg-[#141417] border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5] hover:border-[#F59E0B]/60'
-                : 'bg-[#F59E0B]/15 border-[#F59E0B]/65 text-[#F59E0B]'
-            }`}
-            title={isMuted ? 'Unmute Audio' : 'Mute Audio'}
+          <CinemaToolHUD
+            title={isMuted ? 'UNMUTE AUDIO' : 'MUTE AUDIO'}
+            en="Toggles monitor audio output on or off."
+            bn="সাউন্ড চালু বা মিউট করতে স্পিকার আইকনে চাপুন।"
+            shortcut="M"
+            accent="emerald"
           >
-            {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-          </button>
+            <button
+              type="button"
+              onClick={onToggleMute}
+              data-active={!isMuted ? 'true' : 'false'}
+              className="cinema-tile cinema-tile-emerald p-1.5 rounded-md cursor-pointer"
+              aria-label="Toggle Mute"
+            >
+              {isMuted ? <VolumeX className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} /> : <Volume2 className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />}
+            </button>
+          </CinemaToolHUD>
         )}
 
         {onCaptureStill && (
-          <button
-            onClick={onCaptureStill}
-            className="p-1.5 rounded-[2px] bg-[#141417] hover:border-[#F59E0B]/60 border border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5] cursor-pointer transition-all"
-            title="Capture High-Res Frame PNG"
+          <CinemaToolHUD
+            title="CAPTURE PNG"
+            en="Saves the active frame as a high-resolution PNG still."
+            bn="বর্তমান ফ্রেমটি হাই-রেজোলিউশন ছবি হিসেবে সেভ করতে চাপুন।"
+            accent="cyan"
           >
-            <Camera className="w-3.5 h-3.5" />
-          </button>
+            <button
+              type="button"
+              onClick={onCaptureStill}
+              className="cinema-tile cinema-tile-cyan p-1.5 rounded-md cursor-pointer"
+              aria-label="Capture Still"
+            >
+              <Camera className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+            </button>
+          </CinemaToolHUD>
         )}
 
         {hasMedia && onPurgeMedia && (
-          <button
-            onClick={onPurgeMedia}
-            className="p-1.5 rounded-[2px] bg-[#141417] hover:border-[#F59E0B]/60 border border-white/[0.07] text-[#8E8E93] hover:text-[#F59E0B] cursor-pointer transition-all"
-            title="Purge Active Shot Media"
+          <CinemaToolHUD
+            title="PURGE MEDIA"
+            en="Clears uploaded media from the active shot slot."
+            bn="এই শট থেকে আপলোড করা ভিডিও বা ছবি সরাতে চাপুন।"
+            accent="crimson"
           >
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
+            <button
+              type="button"
+              onClick={onPurgeMedia}
+              className="cinema-tile cinema-tile-crimson p-1.5 rounded-md cursor-pointer"
+              aria-label="Purge Media"
+            >
+              <Trash2 className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+            </button>
+          </CinemaToolHUD>
         )}
 
         {onToggleFullscreen && (
-          <button
-            onClick={onToggleFullscreen}
-            className="p-1.5 rounded-[2px] bg-[#141417] hover:border-[#F59E0B]/60 border border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5] cursor-pointer transition-all"
-            title="Toggle Monitor Fullscreen"
+          <CinemaToolHUD
+            title="FULLSCREEN"
+            en="Expands the stage monitor across your full screen."
+            bn="স্টেজ প্রিভিউ বড় করে ফুলস্ক্রিনে দেখতে চাপুন।"
+            shortcut="F"
+            accent="amber"
           >
-            {isFullscreen ? <Minimize2 className="w-3.5 h-3.5 text-[#F59E0B]" /> : <Maximize2 className="w-3.5 h-3.5" />}
-          </button>
+            <button
+              type="button"
+              onClick={onToggleFullscreen}
+              data-active={isFullscreen ? 'true' : 'false'}
+              className="cinema-tile cinema-tile-amber p-1.5 rounded-md cursor-pointer"
+              aria-label="Toggle Fullscreen"
+            >
+              {isFullscreen ? <Minimize2 className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} /> : <Maximize2 className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />}
+            </button>
+          </CinemaToolHUD>
         )}
       </div>
     </div>

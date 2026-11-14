@@ -1,13 +1,8 @@
 /**
  * @file /src/components/ComponentsMatrixPopover.tsx
  * @description Components Visibility Matrix Popover.
- * Features:
- * - Real-time keyword search bar at the top
- * - Collapsible categories ('Titles & Narrative', 'Telemetry HUD', 'Optical Post FX')
- *   with smooth CSS Grid slide-down reveal animations when toggling categories or master channels
- * - Title Block Opacity slider in 'Titles & Narrative' to soften text over complex imagery
- * - Instant toggle, per-category master switch, reset to default, and Clean Zen mode
- * - Persists state to 'rawx_components_v1' in localStorage
+ * Icon-First + 1-2 Word Bold Tags with universal <CinemaToolHUD /> English/Bangla guidance.
+ * Zero visible descriptive sentences; persists state to 'rawx_components_v1' in localStorage.
  */
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
@@ -21,11 +16,15 @@ import {
   Sparkles,
   Type,
   Activity,
-  Sliders
+  Sliders,
+  RotateCcw,
+  CheckCheck,
+  Focus,
 } from 'lucide-react';
 
 import { clampBarrelDistortion } from '../utils/barrelDistortionFilter';
 export { clampBarrelDistortion } from '../utils/barrelDistortionFilter';
+import { CinemaToolHUD, CinemaHudAccent } from './ui/CinemaToolHUD';
 
 export interface ComponentVisibility {
   titlesAll: boolean;
@@ -58,15 +57,15 @@ export const DEFAULT_COMPONENT_VISIBILITY: ComponentVisibility = {
   tagline: true,
   hudData: true,
   reticles: true,
-  guides: false, // guides off by default
+  guides: false,
   grain: true,
   vignette: true,
   bloom: true,
   lensBlur: true,
   motionBlur: true,
-  frameStepButtons: false, // default OFF per Director specification
+  frameStepButtons: false,
   titleOpacity: 1.0,
-  barrelDistortion: 0
+  barrelDistortion: 0,
 };
 
 export const BOOLEAN_COMPONENT_KEYS: BooleanVisibilityKey[] = [
@@ -84,7 +83,7 @@ export const BOOLEAN_COMPONENT_KEYS: BooleanVisibilityKey[] = [
   'vignette',
   'bloom',
   'lensBlur',
-  'motionBlur'
+  'motionBlur',
 ];
 
 export function countActiveComponentToggles(visibility: ComponentVisibility): {
@@ -139,7 +138,7 @@ export function loadSavedComponentVisibility(): ComponentVisibility {
         ...DEFAULT_COMPONENT_VISIBILITY,
         ...parsed,
         titleOpacity,
-        barrelDistortion
+        barrelDistortion,
       };
       applyTitleBlockOpacityCssVar(titleOpacity);
       return hydrated;
@@ -157,7 +156,7 @@ export function saveComponentVisibility(state: ComponentVisibility): void {
     const normalized: ComponentVisibility = {
       ...state,
       titleOpacity: clampTitleOpacity(state.titleOpacity),
-      barrelDistortion: clampBarrelDistortion(state.barrelDistortion)
+      barrelDistortion: clampBarrelDistortion(state.barrelDistortion),
     };
     applyTitleBlockOpacityCssVar(normalized.titleOpacity ?? 1.0);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
@@ -177,38 +176,182 @@ export type MatrixCategory = 'Titles & Narrative' | 'Telemetry HUD' | 'Optical P
 
 interface ComponentRow {
   key: BooleanVisibilityKey;
-  label: string;
+  shortLabel: string;
+  searchLabel: string;
   category: MatrixCategory;
   desc: string;
+  bn: string;
+  accent: CinemaHudAccent;
 }
 
 const COMPONENT_ROWS: ComponentRow[] = [
   // Titles & Narrative
-  { key: 'titlesAll', label: 'Master Titles (All)', category: 'Titles & Narrative', desc: 'Global toggle for all title & narrative layers' },
-  { key: 'titleBn', label: 'Bangla Title (বাংলা)', category: 'Titles & Narrative', desc: 'Noto Serif Bengali calligraphic headline' },
-  { key: 'titleEn', label: 'English Main Title', category: 'Titles & Narrative', desc: 'Cinzel golden uppercase cinematic title' },
-  { key: 'badge', label: 'Episode Badge (EP 001)', category: 'Titles & Narrative', desc: 'Anthology episode counter tag' },
-  { key: 'tagline', label: 'Curatorial Tagline', category: 'Titles & Narrative', desc: 'Secondary curatorial narrative line' },
-  { key: 'caption', label: 'Sound / Action Cue', category: 'Titles & Narrative', desc: 'Directorial sound design notification' },
+  {
+    key: 'titlesAll',
+    shortLabel: 'ALL TITLES',
+    searchLabel: 'Master Titles (All)',
+    category: 'Titles & Narrative',
+    desc: 'Global master toggle for all title and narrative layers.',
+    bn: 'সব ধরনের টাইটেল একসাথে অন বা অফ করতে এই সুইচ চাপুন।',
+    accent: 'amber',
+  },
+  {
+    key: 'titleBn',
+    shortLabel: 'BANGLA',
+    searchLabel: 'Bangla Title (বাংলা)',
+    category: 'Titles & Narrative',
+    desc: 'Noto Serif Bengali calligraphic headline overlay.',
+    bn: 'ভিডিওর উপর বাংলা শিরোনাম দেখাতে বা লুকাতে এটি চাপুন।',
+    accent: 'amber',
+  },
+  {
+    key: 'titleEn',
+    shortLabel: 'ENGLISH',
+    searchLabel: 'English Main Title',
+    category: 'Titles & Narrative',
+    desc: 'Cinzel golden uppercase cinematic headline overlay.',
+    bn: 'ইংরেজি বড় সিনেমাটিক টাইটেল চালু বা বন্ধ করতে এটি চাপুন।',
+    accent: 'amber',
+  },
+  {
+    key: 'badge',
+    shortLabel: 'EP BADGE',
+    searchLabel: 'Episode Badge (EP 001)',
+    category: 'Titles & Narrative',
+    desc: 'Anthology shot counter and episode number badge.',
+    bn: 'পর্দায় শট বা এপিসোডের নাম্বার ব্যাজ দেখাতে এটি টগল করুন।',
+    accent: 'amber',
+  },
+  {
+    key: 'tagline',
+    shortLabel: 'TAGLINE',
+    searchLabel: 'Curatorial Tagline',
+    category: 'Titles & Narrative',
+    desc: 'Secondary curatorial subtitle beneath main title.',
+    bn: 'মূল টাইটেলের নিচের ছোট সাব-টাইটেল লাইন চালু করতে চাপুন।',
+    accent: 'amber',
+  },
+  {
+    key: 'caption',
+    shortLabel: 'SOUND CUE',
+    searchLabel: 'Sound / Action Cue',
+    category: 'Titles & Narrative',
+    desc: 'Directorial sound design cue strip below viewport.',
+    bn: 'দৃশ্যের সাউন্ড কিউ বার দেখাতে বা লুকাতে এটি ব্যবহার করুন।',
+    accent: 'amber',
+  },
 
   // Telemetry HUD
-  { key: 'hudData', label: 'HUD Telemetry Data', category: 'Telemetry HUD', desc: 'Focal, aperture, node, archive readout' },
-  { key: 'reticles', label: 'Corner Reticle Brackets', category: 'Telemetry HUD', desc: 'Gold optical corner targeting brackets' },
-  { key: 'guides', label: 'Rule of Thirds & Crosshair', category: 'Telemetry HUD', desc: 'Composition 3x3 grid & center marker' },
-  { key: 'frameStepButtons', label: 'Frame-Step Buttons (-1F / +1F)', category: 'Telemetry HUD', desc: 'Display discrete frame step buttons on transport strip' },
+  {
+    key: 'hudData',
+    shortLabel: 'HUD DATA',
+    searchLabel: 'HUD Telemetry Data',
+    category: 'Telemetry HUD',
+    desc: 'Camera focal length, aperture, node, and archive readout.',
+    bn: 'ক্যামেরার লেন্স, আইএসও ও ফ্রেম তথ্য পর্দায় দেখতে অন করুন।',
+    accent: 'cyan',
+  },
+  {
+    key: 'reticles',
+    shortLabel: 'RETICLES',
+    searchLabel: 'Corner Reticle Brackets',
+    category: 'Telemetry HUD',
+    desc: 'Optical viewfinder corner framing brackets.',
+    bn: 'ভিউফাইন্ডারের চার কোণার ফ্রেমিং ব্র্যাকেট অন বা অফ করুন।',
+    accent: 'cyan',
+  },
+  {
+    key: 'guides',
+    shortLabel: 'GUIDES',
+    searchLabel: 'Rule of Thirds & Crosshair',
+    category: 'Telemetry HUD',
+    desc: 'Composition 3x3 rule-of-thirds grid and center crosshair.',
+    bn: 'শটের ফ্রেম মাপার ৩×৩ গ্রিড ও সেন্টার ক্রসহেয়ার দেখতে চাপুন।',
+    accent: 'cyan',
+  },
+  {
+    key: 'frameStepButtons',
+    shortLabel: 'FRAME STEP',
+    searchLabel: 'Frame-Step Buttons (-1F / +1F)',
+    category: 'Telemetry HUD',
+    desc: 'Show discrete -1F and +1F frame step transport buttons.',
+    bn: 'টাইমলাইনে এক ফ্রেম করে আগে-পিছে নেওয়ার বাটন চালু করতে চাপুন।',
+    accent: 'cyan',
+  },
 
   // Optical Post FX
-  { key: 'grain', label: '35mm Film Grain', category: 'Optical Post FX', desc: 'Dynamic procedural ISO 800 grain' },
-  { key: 'vignette', label: 'Optical Falloff Vignette', category: 'Optical Post FX', desc: 'Edge falloff radial gradient' },
-  { key: 'bloom', label: 'Center Focus Skin Bloom', category: 'Optical Post FX', desc: 'Center softness & highlight halation' },
-  { key: 'lensBlur', label: 'Anamorphic Lens Blur', category: 'Optical Post FX', desc: 'Edge radial anamorphic lens blur' },
-  { key: 'motionBlur', label: 'Hypersonic Motion Blur', category: 'Optical Post FX', desc: 'Photo-motion optical edge shutter blur' }
+  {
+    key: 'grain',
+    shortLabel: '35MM GRAIN',
+    searchLabel: '35mm Film Grain',
+    category: 'Optical Post FX',
+    desc: 'Dynamic procedural ISO 800 photochemical film grain.',
+    bn: 'ভিডিওতে বাস্তব ৩৫ মিমি ফিল্মের মতো গ্রেইন যোগ করতে চাপুন।',
+    accent: 'crimson',
+  },
+  {
+    key: 'vignette',
+    shortLabel: 'VIGNETTE',
+    searchLabel: 'Optical Falloff Vignette',
+    category: 'Optical Post FX',
+    desc: 'Edge light falloff radial cinema vignette.',
+    bn: 'ভিডিওর চারধারে হালকা অন্ধকার সিনেমাটিক শেড দিতে অন করুন।',
+    accent: 'crimson',
+  },
+  {
+    key: 'bloom',
+    shortLabel: 'SKIN BLOOM',
+    searchLabel: 'Center Focus Skin Bloom',
+    category: 'Optical Post FX',
+    desc: 'Pro-Mist highlight glow and center focus skin softness.',
+    bn: 'আলোয় নরম গ্লো এবং স্কিন স্মুথ লুক আনতে SKIN BLOOM চাপুন।',
+    accent: 'crimson',
+  },
+  {
+    key: 'lensBlur',
+    shortLabel: 'LENS BLUR',
+    searchLabel: 'Anamorphic Lens Blur',
+    category: 'Optical Post FX',
+    desc: 'Peripheral anamorphic optical glass falloff blur.',
+    bn: 'ফ্রেমের কিনারায় অ্যানামরফিক লেন্সের মতো ব্লার আনতে চাপুন।',
+    accent: 'crimson',
+  },
+  {
+    key: 'motionBlur',
+    shortLabel: 'MOTION BLUR',
+    searchLabel: 'Hypersonic Motion Blur',
+    category: 'Optical Post FX',
+    desc: 'Dynamic shutter-angle optical motion trail blur.',
+    bn: 'দ্রুত মুভমেন্টের সময় মোশন ব্লার স্মুথনেস আনতে এটি অন করুন।',
+    accent: 'crimson',
+  },
 ];
 
-const CATEGORY_META: Record<MatrixCategory, { id: string; icon: React.ElementType; color: string }> = {
-  'Titles & Narrative': { id: 'titles', icon: Type, color: 'text-amber-400' },
-  'Telemetry HUD': { id: 'hud', icon: Activity, color: 'text-cyan-400' },
-  'Optical Post FX': { id: 'fx', icon: Sparkles, color: 'text-purple-400' }
+const CATEGORY_META: Record<
+  MatrixCategory,
+  { id: string; shortLabel: string; icon: React.ElementType; color: string; accent: CinemaHudAccent }
+> = {
+  'Titles & Narrative': {
+    id: 'titles',
+    shortLabel: 'TITLES',
+    icon: Type,
+    color: 'text-amber-400',
+    accent: 'amber',
+  },
+  'Telemetry HUD': {
+    id: 'hud',
+    shortLabel: 'TELEMETRY',
+    icon: Activity,
+    color: 'text-cyan-400',
+    accent: 'cyan',
+  },
+  'Optical Post FX': {
+    id: 'fx',
+    shortLabel: 'OPTICS FX',
+    icon: Sparkles,
+    color: 'text-red-400',
+    accent: 'crimson',
+  },
 };
 
 function computeCategoryEnabled(cat: MatrixCategory, vis: ComponentVisibility): boolean {
@@ -224,7 +367,7 @@ export const ComponentsMatrixPopover: React.FC<ComponentsMatrixPopoverProps> = (
   isOpen,
   onClose,
   visibility,
-  onChange
+  onChange,
 }) => {
   const popoverRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -232,7 +375,7 @@ export const ComponentsMatrixPopover: React.FC<ComponentsMatrixPopoverProps> = (
   const [collapsedCategories, setCollapsedCategories] = useState<Record<MatrixCategory, boolean>>(() => ({
     'Titles & Narrative': !computeCategoryEnabled('Titles & Narrative', visibility),
     'Telemetry HUD': !computeCategoryEnabled('Telemetry HUD', visibility),
-    'Optical Post FX': !computeCategoryEnabled('Optical Post FX', visibility)
+    'Optical Post FX': !computeCategoryEnabled('Optical Post FX', visibility),
   }));
 
   const isInternalToggleRef = useRef(false);
@@ -243,30 +386,29 @@ export const ComponentsMatrixPopover: React.FC<ComponentsMatrixPopoverProps> = (
       titleEn: true,
       badge: true,
       tagline: true,
-      caption: true
+      caption: true,
     },
     'Telemetry HUD': {
       hudData: true,
       reticles: true,
       guides: false,
-      frameStepButtons: false
+      frameStepButtons: false,
     },
     'Optical Post FX': {
       grain: true,
       vignette: true,
       bloom: true,
       lensBlur: true,
-      motionBlur: true
-    }
+      motionBlur: true,
+    },
   });
 
   const prevCategoryEnabledRef = useRef<Record<MatrixCategory, boolean>>({
     'Titles & Narrative': computeCategoryEnabled('Titles & Narrative', visibility),
     'Telemetry HUD': computeCategoryEnabled('Telemetry HUD', visibility),
-    'Optical Post FX': computeCategoryEnabled('Optical Post FX', visibility)
+    'Optical Post FX': computeCategoryEnabled('Optical Post FX', visibility),
   });
 
-  // Sync CSS variable --title-block-opacity whenever visibility or open state changes
   const resolvedOpacity = clampTitleOpacity(
     visibility.titleOpacity ?? readTitleBlockOpacityCssVar(1.0)
   );
@@ -278,12 +420,11 @@ export const ComponentsMatrixPopover: React.FC<ComponentsMatrixPopoverProps> = (
     }
   }, [resolvedOpacity, isOpen]);
 
-  // Automatically trigger slide-down reveal or collapse when a category's visibility state flips externally (e.g. T or H shortcut)
   useEffect(() => {
     const nextEnabled: Record<MatrixCategory, boolean> = {
       'Titles & Narrative': computeCategoryEnabled('Titles & Narrative', visibility),
       'Telemetry HUD': computeCategoryEnabled('Telemetry HUD', visibility),
-      'Optical Post FX': computeCategoryEnabled('Optical Post FX', visibility)
+      'Optical Post FX': computeCategoryEnabled('Optical Post FX', visibility),
     };
     const prevEnabled = prevCategoryEnabledRef.current;
     prevCategoryEnabledRef.current = nextEnabled;
@@ -308,7 +449,6 @@ export const ComponentsMatrixPopover: React.FC<ComponentsMatrixPopoverProps> = (
     }
   }, [visibility]);
 
-  // Reset search filter and focus search input on open while preserving category expand state
   useEffect(() => {
     if (isOpen) {
       setSearchQuery('');
@@ -316,7 +456,6 @@ export const ComponentsMatrixPopover: React.FC<ComponentsMatrixPopoverProps> = (
     }
   }, [isOpen]);
 
-  // Close on outside click
   useEffect(() => {
     if (!isOpen) return;
     const handleClickOutside = (e: MouseEvent) => {
@@ -338,12 +477,11 @@ export const ComponentsMatrixPopover: React.FC<ComponentsMatrixPopoverProps> = (
     const next: ComponentVisibility = {
       ...visibility,
       [key]: nextVal,
-      titleOpacity: clampTitleOpacity(visibility.titleOpacity)
+      titleOpacity: clampTitleOpacity(visibility.titleOpacity),
     };
 
     const rowDef = COMPONENT_ROWS.find((r) => r.key === key);
 
-    // If Master Titles (All) is toggled ON while all sub-channels were off, restore primary channels
     if (
       key === 'titlesAll' &&
       nextVal &&
@@ -356,7 +494,6 @@ export const ComponentsMatrixPopover: React.FC<ComponentsMatrixPopoverProps> = (
       next.tagline = true;
     }
 
-    // If an individual narrative sub-option is enabled while titlesAll was off, enable titlesAll
     if (
       key !== 'titlesAll' &&
       nextVal &&
@@ -366,7 +503,6 @@ export const ComponentsMatrixPopover: React.FC<ComponentsMatrixPopoverProps> = (
       next.titlesAll = true;
     }
 
-    // Snapshot active sub-options for the category whenever at least one sub-option remains enabled
     if (rowDef) {
       const cat = rowDef.category;
       const wasCatEnabled = computeCategoryEnabled(cat, visibility);
@@ -396,7 +532,7 @@ export const ComponentsMatrixPopover: React.FC<ComponentsMatrixPopoverProps> = (
     }
     const next: ComponentVisibility = {
       ...visibility,
-      titleOpacity: clamped
+      titleOpacity: clamped,
     };
     onChange(next);
     saveComponentVisibility(next);
@@ -410,7 +546,7 @@ export const ComponentsMatrixPopover: React.FC<ComponentsMatrixPopoverProps> = (
     const clamped = clampBarrelDistortion(rawVal);
     const next: ComponentVisibility = {
       ...visibility,
-      barrelDistortion: clamped
+      barrelDistortion: clamped,
     };
     onChange(next);
     saveComponentVisibility(next);
@@ -419,11 +555,10 @@ export const ComponentsMatrixPopover: React.FC<ComponentsMatrixPopoverProps> = (
   const handleToggleCategoryCollapse = (category: MatrixCategory) => {
     setCollapsedCategories((prev) => ({
       ...prev,
-      [category]: !prev[category]
+      [category]: !prev[category],
     }));
   };
 
-  // Toggling a category's visibility switch turns its options ON (with smooth slide-down reveal) or OFF (with slide-up collapse)
   const handleToggleCategoryVisibility = (
     category: MatrixCategory,
     enableCategory: boolean,
@@ -434,11 +569,10 @@ export const ComponentsMatrixPopover: React.FC<ComponentsMatrixPopoverProps> = (
     const rows = COMPONENT_ROWS.filter((r) => r.category === category);
     const next: ComponentVisibility = {
       ...visibility,
-      titleOpacity: clampTitleOpacity(visibility.titleOpacity)
+      titleOpacity: clampTitleOpacity(visibility.titleOpacity),
     };
 
     if (!enableCategory) {
-      // Save current active configuration before muting category
       if (computeCategoryEnabled(category, visibility)) {
         const snapshot: Partial<Record<BooleanVisibilityKey, boolean>> = {};
         rows.forEach((r) => {
@@ -469,10 +603,9 @@ export const ComponentsMatrixPopover: React.FC<ComponentsMatrixPopoverProps> = (
       }
     }
 
-    // Slide-down reveal sub-options when category is enabled; smoothly fold when muted
     setCollapsedCategories((prev) => ({
       ...prev,
-      [category]: !enableCategory
+      [category]: !enableCategory,
     }));
 
     onChange(next);
@@ -499,12 +632,12 @@ export const ComponentsMatrixPopover: React.FC<ComponentsMatrixPopoverProps> = (
       motionBlur: val,
       frameStepButtons: val,
       titleOpacity: clampTitleOpacity(visibility.titleOpacity),
-      barrelDistortion: clampBarrelDistortion(visibility.barrelDistortion)
+      barrelDistortion: clampBarrelDistortion(visibility.barrelDistortion),
     };
     setCollapsedCategories({
       'Titles & Narrative': !val,
       'Telemetry HUD': !val,
-      'Optical Post FX': !val
+      'Optical Post FX': !val,
     });
     onChange(next);
     saveComponentVisibility(next);
@@ -515,12 +648,12 @@ export const ComponentsMatrixPopover: React.FC<ComponentsMatrixPopoverProps> = (
     setCollapsedCategories({
       'Titles & Narrative': false,
       'Telemetry HUD': false,
-      'Optical Post FX': false
+      'Optical Post FX': false,
     });
     const resetState: ComponentVisibility = {
       ...DEFAULT_COMPONENT_VISIBILITY,
       titleOpacity: 1.0,
-      barrelDistortion: 0
+      barrelDistortion: 0,
     };
     applyTitleBlockOpacityCssVar(resetState.titleOpacity ?? 1.0);
     onChange(resetState);
@@ -542,12 +675,12 @@ export const ComponentsMatrixPopover: React.FC<ComponentsMatrixPopoverProps> = (
       guides: false,
       frameStepButtons: false,
       titleOpacity: clampTitleOpacity(visibility.titleOpacity),
-      barrelDistortion: clampBarrelDistortion(visibility.barrelDistortion)
+      barrelDistortion: clampBarrelDistortion(visibility.barrelDistortion),
     };
     setCollapsedCategories((prev) => ({
       ...prev,
       'Titles & Narrative': true,
-      'Telemetry HUD': true
+      'Telemetry HUD': true,
     }));
     onChange(next);
     saveComponentVisibility(next);
@@ -574,23 +707,22 @@ export const ComponentsMatrixPopover: React.FC<ComponentsMatrixPopoverProps> = (
       'optical fx'.includes(normalizedQuery) ||
       'lens'.includes(normalizedQuery));
 
-  // Auto-expand categories when typing a search query so matched sub-options slide open
   useEffect(() => {
     if (normalizedQuery.length > 0) {
       setCollapsedCategories({
         'Titles & Narrative': false,
         'Telemetry HUD': false,
-        'Optical Post FX': false
+        'Optical Post FX': false,
       });
     }
   }, [normalizedQuery]);
 
-  // Filter rows based on search query
   const filteredRows = useMemo(() => {
     if (!normalizedQuery) return COMPONENT_ROWS;
     return COMPONENT_ROWS.filter(
       (r) =>
-        r.label.toLowerCase().includes(normalizedQuery) ||
+        r.shortLabel.toLowerCase().includes(normalizedQuery) ||
+        r.searchLabel.toLowerCase().includes(normalizedQuery) ||
         r.desc.toLowerCase().includes(normalizedQuery) ||
         r.category.toLowerCase().includes(normalizedQuery) ||
         (matchesOpacitySearch && r.category === 'Titles & Narrative') ||
@@ -604,57 +736,49 @@ export const ComponentsMatrixPopover: React.FC<ComponentsMatrixPopoverProps> = (
 
   const renderToggleRow = (row: ComponentRow) => {
     const isActive = Boolean(visibility[row.key]);
-    return (
-      <button
-        key={row.key}
-        type="button"
-        onClick={() => handleToggle(row.key)}
-        aria-pressed={isActive}
-        className={`matrix-sub-option w-full px-2.5 py-1.5 rounded flex items-center justify-between text-left cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#FFE066] ${
-          isActive
-            ? 'bg-white/[0.05] hover:bg-white/[0.09] text-white'
-            : 'text-zinc-500 hover:text-zinc-200 bg-transparent hover:bg-white/[0.03]'
-        }`}
-      >
-        <div className="flex flex-col min-w-0 pr-2">
-          <span className="text-[10.5px] font-medium leading-tight truncate">
-            {row.label}
-          </span>
-          <span
-            className={`text-[8.5px] leading-tight truncate mt-0.5 ${
-              isActive ? 'text-white/45' : 'text-zinc-600'
-            }`}
-          >
-            {row.desc}
-          </span>
-        </div>
+    const accentClass =
+      row.accent === 'cyan'
+        ? 'cinema-tile-cyan'
+        : row.accent === 'crimson'
+          ? 'cinema-tile-crimson'
+          : 'cinema-tile-amber';
 
-        {/* Animated Visibility Switch + Eye Indicator */}
-        <div className="flex items-center gap-2 shrink-0">
+    return (
+      <CinemaToolHUD
+        key={row.key}
+        title={row.searchLabel.toUpperCase()}
+        en={row.desc}
+        bn={row.bn}
+        accent={row.accent}
+        side="left"
+        blockWrapper
+      >
+        <button
+          type="button"
+          onClick={() => handleToggle(row.key)}
+          aria-pressed={isActive}
+          data-active={isActive ? 'true' : 'false'}
+          className={`cinema-tile ${accentClass} matrix-sub-option w-full px-2.5 py-2 rounded-lg flex items-center justify-between gap-2 cursor-pointer min-h-[40px]`}
+        >
+          <span className="flex items-center gap-2 min-w-0">
+            <span className="cinema-tile-icon shrink-0">
+              {isActive ? <Eye className="w-4 h-4" strokeWidth={2.2} /> : <EyeOff className="w-4 h-4" strokeWidth={2.2} />}
+            </span>
+            <span className="font-black tracking-wider text-[10px] sm:text-[11px] uppercase truncate">
+              {row.shortLabel}
+            </span>
+          </span>
           <span
-            className={`relative inline-flex h-4 w-7 items-center rounded-full border transition-colors duration-200 ${
+            className={`text-[9px] font-black tracking-wider px-1.5 py-0.5 rounded border shrink-0 ${
               isActive
-                ? 'bg-[#D4AF37]/30 border-[#D4AF37]/80'
-                : 'bg-black/60 border-white/15'
+                ? 'bg-black/60 border-white/25 text-white'
+                : 'bg-black/40 border-white/10 text-zinc-500'
             }`}
           >
-            <span
-              className={`inline-block h-2.5 w-2.5 rounded-full transition-transform duration-200 ${
-                isActive
-                  ? 'translate-x-3.5 bg-[#FFE066] shadow-[0_0_6px_rgba(255,224,102,0.85)]'
-                  : 'translate-x-0.5 bg-zinc-500'
-              }`}
-            />
+            {isActive ? 'ON' : 'OFF'}
           </span>
-          <span
-            className={`transition-colors duration-200 ${
-              isActive ? 'text-[#D4AF37]' : 'text-white/30'
-            }`}
-          >
-            {isActive ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-          </span>
-        </div>
-      </button>
+        </button>
+      </CinemaToolHUD>
     );
   };
 
@@ -666,53 +790,58 @@ export const ComponentsMatrixPopover: React.FC<ComponentsMatrixPopoverProps> = (
       onKeyDown={(e) => {
         if (e.key === 'Escape') {
           e.stopPropagation();
-          if (searchQuery) {
-            setSearchQuery('');
-          } else {
-            onClose();
-          }
+          if (searchQuery) setSearchQuery('');
+          else onClose();
         }
       }}
-      className="fixed top-16 sm:top-20 right-2 sm:right-12 z-[95] w-[355px] sm:w-[410px] bg-[#0A0B0E]/98 border border-[#D4AF37]/50 rounded-lg shadow-[0_20px_70px_rgba(0,0,0,0.95)] backdrop-blur-xl flex flex-col font-mono select-none overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+      className="fixed top-14 sm:top-16 right-2 sm:right-12 z-[95] w-[345px] sm:w-[395px] bg-[#0B0C0F]/98 border border-[#26282E] rounded-xl shadow-[0_20px_70px_rgba(0,0,0,0.95)] backdrop-blur-xl flex flex-col font-mono select-none overflow-hidden animate-in fade-in zoom-in-95 duration-150"
     >
-      {/* Header */}
-      <div className="px-3.5 py-2.5 border-b border-white/10 flex items-center justify-between bg-black/60">
+      {/* Header Badge */}
+      <div className="px-3.5 py-2.5 border-b border-white/10 flex items-center justify-between bg-[#111215]">
         <div className="flex items-center gap-2">
-          <Layers className="w-4 h-4 text-[#D4AF37]" />
-          <span className="font-cinzel text-xs font-bold tracking-[0.14em] text-white">
-            Components Matrix
+          <Layers className="w-4 h-4 text-amber-400" strokeWidth={2.3} />
+          <span className="text-[11px] font-black tracking-wider uppercase text-white">
+            LAYERS MATRIX
           </span>
-          <span className="text-[#FFE066] text-[9.5px] font-bold tabular-nums">
-            · {activeCount}/{totalCount} Active
+          <span className="text-amber-400 text-[10px] font-black tabular-nums">
+            {activeCount}/{totalCount}
           </span>
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close Components Matrix"
-          className="p-1 text-white/50 hover:text-white hover:bg-white/10 rounded transition-colors cursor-pointer"
+        <CinemaToolHUD
+          title="CLOSE LAYERS MATRIX"
+          en="Close the HUD & Optics visibility popover."
+          bn="লেয়ার প্যানেল বন্ধ করতে X চাপুন।"
+          shortcut="ESC"
+          accent="crimson"
         >
-          <X className="w-3.5 h-3.5" />
-        </button>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close Components Matrix"
+            className="cinema-tile cinema-tile-crimson p-1.5 rounded-md cursor-pointer"
+          >
+            <X className="w-3.5 h-3.5 cinema-tile-icon" />
+          </button>
+        </CinemaToolHUD>
       </div>
 
       {/* Real-Time Keyword Search Bar */}
       <div className="px-3 py-2 border-b border-white/10 bg-black/40">
         <div className="relative">
-          <Search className="w-3.5 h-3.5 text-white/40 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             ref={searchInputRef}
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search toggles or opacity (e.g. titles, hud, grain)..."
-            className="w-full pl-8 pr-7 py-1.5 text-xs bg-white/5 border border-white/10 focus:border-[#D4AF37] focus:outline-none rounded text-white placeholder-white/35 transition-colors font-mono"
+            placeholder="SEARCH LAYERS..."
+            className="w-full pl-8 pr-7 py-1.5 text-[11px] font-bold tracking-wider uppercase bg-[#111215] border border-[#26282E] focus:border-amber-400 focus:outline-none rounded-lg text-white placeholder-zinc-500 transition-colors font-mono"
           />
           {searchQuery && (
             <button
               type="button"
               onClick={() => setSearchQuery('')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-white/40 hover:text-white p-0.5 cursor-pointer"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white p-0.5 cursor-pointer"
             >
               <X className="w-3 h-3" />
             </button>
@@ -721,44 +850,71 @@ export const ComponentsMatrixPopover: React.FC<ComponentsMatrixPopoverProps> = (
       </div>
 
       {/* Quick Preset Controls */}
-      <div className="px-3 py-1.5 border-b border-white/10 bg-black/30 flex items-center gap-1.5 overflow-x-auto no-scrollbar text-[9.5px]">
-        <button
-          type="button"
-          onClick={handleSetDefault}
-          className="px-2.5 py-1 rounded bg-white/5 hover:bg-white/10 border border-white/10 hover:border-[#D4AF37] text-white/80 hover:text-[#FFE066] cursor-pointer shrink-0 transition-colors"
-          title="Restore standard display configuration"
+      <div className="px-3 py-2 border-b border-white/10 bg-black/30 grid grid-cols-3 gap-1.5">
+        <CinemaToolHUD
+          title="RESTORE DEFAULTS"
+          en="Reset all overlays, guides, and optical FX to studio defaults."
+          bn="সব লেয়ার ও অপটিকস স্ট্যান্ডার্ড সেটিংসে ফিরিয়ে আনতে DEFAULT চাপুন।"
+          accent="amber"
+          blockWrapper
         >
-          Default
-        </button>
-        <button
-          type="button"
-          onClick={() => handleSetAll(true)}
-          className="px-2.5 py-1 rounded bg-white/5 hover:bg-white/10 border border-white/10 hover:border-[#D4AF37] text-white/80 hover:text-[#FFE066] cursor-pointer shrink-0 transition-colors"
+          <button
+            type="button"
+            onClick={handleSetDefault}
+            className="cinema-tile cinema-tile-amber w-full py-1.5 px-2 rounded-md flex items-center justify-center gap-1.5 text-[10px] font-black tracking-wider uppercase cursor-pointer"
+          >
+            <RotateCcw className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+            <span>DEFAULT</span>
+          </button>
+        </CinemaToolHUD>
+
+        <CinemaToolHUD
+          title="ENABLE ALL LAYERS"
+          en="Turn ON all titles, telemetry reticles, guides, and post FX."
+          bn="সবগুলো টাইটেল, গ্রিড এবং ফিল্ম ইফেক্ট একসাথে চালু করতে ALL ON চাপুন।"
+          accent="emerald"
+          blockWrapper
         >
-          All On
-        </button>
-        <button
-          type="button"
-          onClick={handleZenClean}
-          className="px-2.5 py-1 rounded bg-white/5 hover:bg-white/10 border border-white/10 hover:border-[#D4AF37] text-white/80 hover:text-[#FFE066] cursor-pointer shrink-0 transition-colors"
-          title="Hide all text, HUD, and guides for clean cinema view"
+          <button
+            type="button"
+            onClick={() => handleSetAll(true)}
+            className="cinema-tile cinema-tile-emerald w-full py-1.5 px-2 rounded-md flex items-center justify-center gap-1.5 text-[10px] font-black tracking-wider uppercase cursor-pointer"
+          >
+            <CheckCheck className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+            <span>ALL ON</span>
+          </button>
+        </CinemaToolHUD>
+
+        <CinemaToolHUD
+          title="CLEAN ZEN VIEW"
+          en="Hide all titles, HUD telemetry, and guides for pure cinema frame."
+          bn="পর্দার সব লেখা ও গ্রিড সরিয়ে শুধু ভিডিও দেখতে CLEAN ZEN চাপুন।"
+          accent="cyan"
+          blockWrapper
         >
-          Clean Zen
-        </button>
+          <button
+            type="button"
+            onClick={handleZenClean}
+            className="cinema-tile cinema-tile-cyan w-full py-1.5 px-2 rounded-md flex items-center justify-center gap-1.5 text-[10px] font-black tracking-wider uppercase cursor-pointer"
+          >
+            <Focus className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+            <span>CLEAN ZEN</span>
+          </button>
+        </CinemaToolHUD>
       </div>
 
-      {/* Collapsible Categories List (.matrix-body) with Smooth Slide-Down Reveal */}
+      {/* Collapsible Categories List */}
       <div className="matrix-body max-h-[420px] overflow-y-auto p-2.5 no-scrollbar flex flex-col gap-2">
         {filteredRows.length === 0 ? (
-          <div className="py-8 text-center text-white/40 text-xs">
-            <Search className="w-6 h-6 mx-auto mb-2 opacity-40" />
-            <p>No components match "{searchQuery}"</p>
+          <div className="py-6 text-center text-zinc-400 space-y-2">
+            <Search className="w-5 h-5 mx-auto opacity-50" />
+            <div className="text-[10px] font-black tracking-wider uppercase">NO MATCH</div>
             <button
               type="button"
               onClick={() => setSearchQuery('')}
-              className="mt-1 text-[#D4AF37] hover:underline text-[10px] cursor-pointer"
+              className="text-amber-400 hover:underline text-[10px] font-black uppercase cursor-pointer"
             >
-              Clear filter
+              CLEAR
             </button>
           </div>
         ) : (
@@ -791,13 +947,8 @@ export const ComponentsMatrixPopover: React.FC<ComponentsMatrixPopoverProps> = (
                 key={cat}
                 data-matrix-category={meta.id}
                 data-expanded={isCategoryExpanded}
-                className={`matrix-category-card border rounded-md overflow-hidden ${
-                  isCategoryEnabled
-                    ? 'border-[#D4AF37]/30 bg-white/[0.025]'
-                    : 'border-white/10 bg-white/[0.015]'
-                }`}
+                className="matrix-category-card border border-[#26282E] rounded-lg overflow-hidden bg-[#111215]/70"
               >
-                {/* Clickable Category Header */}
                 <div
                   id={headerId}
                   onClick={() => handleToggleCategoryCollapse(cat)}
@@ -811,68 +962,51 @@ export const ComponentsMatrixPopover: React.FC<ComponentsMatrixPopoverProps> = (
                       handleToggleCategoryCollapse(cat);
                     }
                   }}
-                  className="px-2.5 py-2 flex items-center justify-between cursor-pointer hover:bg-white/[0.06] transition-colors bg-black/50 border-b border-white/5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#FFE066]"
+                  className="px-2.5 py-2 flex items-center justify-between cursor-pointer hover:bg-white/[0.04] transition-colors bg-[#111215] border-b border-white/5"
                 >
                   <div className="flex items-center gap-2 min-w-0">
                     <ChevronDown
-                      className={`w-3.5 h-3.5 shrink-0 transition-transform duration-300 ease-out ${
-                        isCategoryExpanded ? 'rotate-0 text-[#D4AF37]' : '-rotate-90 text-white/45'
+                      className={`w-3.5 h-3.5 shrink-0 transition-transform duration-300 ${
+                        isCategoryExpanded ? 'rotate-0 text-amber-400' : '-rotate-90 text-zinc-500'
                       }`}
                     />
-                    <Icon className={`w-3.5 h-3.5 shrink-0 ${meta.color}`} />
-                    <span className="text-[10.5px] font-semibold tracking-wide text-white truncate whitespace-nowrap">
-                      {cat}
+                    <Icon className={`w-4 h-4 shrink-0 ${meta.color}`} strokeWidth={2.2} />
+                    <span className="text-[10.5px] font-black tracking-wider uppercase text-white truncate">
+                      {meta.shortLabel}
                     </span>
-                    <span className="text-[9px] text-white/50 tabular-nums shrink-0 whitespace-nowrap">
+                    <span className="text-[9.5px] font-bold text-zinc-400 tabular-nums shrink-0">
                       {activeInCat}/{rowsInCat.length}
                     </span>
                   </div>
 
-                  {/* Category Master Visibility Switch */}
                   <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={isCategoryEnabled}
-                      aria-expanded={isCategoryExpanded}
-                      aria-label={`Toggle ${cat} visibility`}
-                      onClick={(e) => handleToggleCategoryVisibility(cat, !isCategoryEnabled, e)}
-                      className={`px-2 py-0.5 rounded border cursor-pointer transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#FFE066] ${
-                        isCategoryEnabled
-                          ? 'bg-[#D4AF37]/20 border-[#D4AF37]/60 text-[#FFE066]'
-                          : 'bg-white/5 hover:bg-white/10 text-white/55 hover:text-white border-white/10'
-                      }`}
-                      title={
-                        isCategoryEnabled
-                          ? `Mute ${cat} layers`
-                          : `Enable and reveal ${cat} sub-options`
-                      }
+                    <CinemaToolHUD
+                      title={`TOGGLE ${meta.shortLabel}`}
+                      en={`Mute or enable all layers in ${meta.shortLabel}.`}
+                      bn={`${meta.shortLabel} বিভাগের সব লেয়ার একসাথে চালু বা বন্ধ করতে চাপুন।`}
+                      accent={meta.accent}
+                      side="left"
                     >
-                      <span
-                        className={`relative inline-flex h-3 w-5 items-center rounded-full border transition-colors duration-200 ${
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={isCategoryEnabled}
+                        aria-expanded={isCategoryExpanded}
+                        aria-label={`Toggle ${cat} visibility`}
+                        onClick={(e) => handleToggleCategoryVisibility(cat, !isCategoryEnabled, e)}
+                        className={`px-2 py-1 rounded-md border cursor-pointer transition-all flex items-center gap-1.5 ${
                           isCategoryEnabled
-                            ? 'bg-[#D4AF37]/40 border-[#FFE066]/80'
-                            : 'bg-black/70 border-white/20'
+                            ? 'bg-amber-500/20 border-amber-400/70 text-amber-300'
+                            : 'bg-black/40 border-white/10 text-zinc-500 hover:text-white'
                         }`}
                       >
-                        <span
-                          className={`inline-block h-2 w-2 rounded-full transition-transform duration-200 ${
-                            isCategoryEnabled
-                              ? 'translate-x-2.5 bg-[#FFE066] shadow-[0_0_5px_rgba(255,224,102,0.85)]'
-                              : 'translate-x-0.5 bg-zinc-500'
-                          }`}
-                        />
-                      </span>
-                      {isCategoryEnabled ? (
-                        <Eye className="w-3 h-3 text-[#FFE066]" />
-                      ) : (
-                        <EyeOff className="w-3 h-3 text-white/40" />
-                      )}
-                    </button>
+                        {isCategoryEnabled ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                        <span className="text-[9px] font-black uppercase">{isCategoryEnabled ? 'ON' : 'OFF'}</span>
+                      </button>
+                    </CinemaToolHUD>
                   </div>
                 </div>
 
-                {/* Category Container with .matrix-slide-reveal Slide-Down Animation */}
                 <div
                   id={panelId}
                   role="region"
@@ -887,64 +1021,61 @@ export const ComponentsMatrixPopover: React.FC<ComponentsMatrixPopoverProps> = (
                   }`}
                 >
                   <div className="matrix-slide-inner">
-                    <div className="p-1.5 flex flex-col gap-1">
+                    <div className="p-2 flex flex-col gap-1.5">
                       {cat === 'Titles & Narrative' ? (
                         <>
                           {masterTitleRow && renderToggleRow(masterTitleRow)}
 
-                          {/* Range Slider (.matrix-opacity-slider) bound to --title-block-opacity & ComponentVisibility */}
-                          <div className="matrix-sub-option mx-1 my-1 px-2.5 py-2 rounded bg-[#0C0D10]/90 border border-[#D4AF37]/25 space-y-1.5">
-                            <div className="flex items-center justify-between gap-2">
-                              <label
-                                htmlFor="matrix-title-block-opacity"
-                                className="flex items-center gap-1.5 text-[10px] font-medium text-zinc-200 whitespace-nowrap cursor-pointer"
-                              >
-                                <Sliders className="w-3 h-3 text-[#D4AF37] shrink-0" />
-                                <span>Title Block Opacity</span>
-                              </label>
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                {titleOpacityPercent !== 100 && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleTitleOpacityChange(1.0)}
-                                    className="text-[8.5px] text-zinc-400 hover:text-[#FFE066] underline cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#FFE066] rounded-sm"
-                                    title="Reset title block opacity to 100%"
-                                  >
-                                    Reset
-                                  </button>
-                                )}
-                                <span className="text-[10px] font-bold text-[#FFE066] tabular-nums min-w-[34px] text-right">
-                                  {titleOpacityPercent}%
-                                </span>
+                          <CinemaToolHUD
+                            title="TITLE OPACITY"
+                            en="Adjust alpha opacity of cinema titles over bright plates."
+                            bn="টাইটেলের স্বচ্ছতা বা উজ্জ্বলতা কমাতে বা বাড়াতে স্লাইডার টানুন।"
+                            accent="amber"
+                            side="left"
+                            blockWrapper
+                          >
+                            <div className="matrix-sub-option w-full px-2.5 py-2 rounded-lg bg-[#0B0C0F] border border-[#26282E] space-y-1.5">
+                              <div className="flex items-center justify-between gap-2">
+                                <label
+                                  htmlFor="matrix-title-block-opacity"
+                                  className="flex items-center gap-1.5 text-[10px] font-black tracking-wider uppercase text-zinc-200 cursor-pointer"
+                                >
+                                  <Sliders className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                                  <span>OPACITY</span>
+                                </label>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  {titleOpacityPercent !== 100 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleTitleOpacityChange(1.0)}
+                                      className="text-[9px] font-black text-amber-300 hover:underline uppercase cursor-pointer"
+                                    >
+                                      RESET
+                                    </button>
+                                  )}
+                                  <span className="text-[10px] font-black text-amber-300 tabular-nums">
+                                    {titleOpacityPercent}%
+                                  </span>
+                                </div>
                               </div>
+                              <input
+                                id="matrix-title-block-opacity"
+                                name="titleOpacity"
+                                type="range"
+                                min={0}
+                                max={1}
+                                step={0.01}
+                                value={titleOpacity}
+                                data-css-var="--title-block-opacity"
+                                onChange={(e) => handleTitleOpacityChange(Number.parseFloat(e.target.value))}
+                                aria-label="Title Block Opacity"
+                                className="matrix-opacity-slider w-full"
+                              />
                             </div>
+                          </CinemaToolHUD>
 
-                            <input
-                              id="matrix-title-block-opacity"
-                              name="titleOpacity"
-                              type="range"
-                              min={0}
-                              max={1}
-                              step={0.01}
-                              value={titleOpacity}
-                              data-css-var="--title-block-opacity"
-                              onChange={(e) => handleTitleOpacityChange(Number.parseFloat(e.target.value))}
-                              aria-label="Title Block Opacity"
-                              aria-valuemin={0}
-                              aria-valuemax={100}
-                              aria-valuenow={titleOpacityPercent}
-                              className="matrix-opacity-slider w-full"
-                            />
-
-                            <div className="flex items-center justify-between text-[8px] text-white/40">
-                              <span>Softens title contrast over complex plates</span>
-                              <span className="tabular-nums">0% – 100%</span>
-                            </div>
-                          </div>
-
-                          {/* Individual Narrative Sub-Options */}
                           <div
-                            className={`flex flex-col gap-0.5 divide-y divide-white/5 pt-0.5 border-t border-white/5 transition-opacity duration-200 ${
+                            className={`grid grid-cols-2 gap-1.5 pt-1 border-t border-white/5 ${
                               visibility.titlesAll ? 'opacity-100' : 'opacity-65'
                             }`}
                           >
@@ -953,61 +1084,59 @@ export const ComponentsMatrixPopover: React.FC<ComponentsMatrixPopoverProps> = (
                         </>
                       ) : cat === 'Optical Post FX' ? (
                         <>
-                          {/* Barrel Distortion Simulation Slider */}
-                          <div className="matrix-sub-option mx-1 my-1 px-2.5 py-2 rounded bg-[#0C0D10]/90 border border-purple-500/25 space-y-1.5">
-                            <div className="flex items-center justify-between gap-2">
-                              <label
-                                htmlFor="matrix-barrel-distortion"
-                                className="flex items-center gap-1.5 text-[10px] font-medium text-zinc-200 whitespace-nowrap cursor-pointer"
-                              >
-                                <Sliders className="w-3 h-3 text-purple-400 shrink-0" />
-                                <span>Barrel Distortion</span>
-                              </label>
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                {barrelDistortionPercent !== 0 && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleBarrelDistortionChange(0)}
-                                    className="text-[8.5px] text-zinc-400 hover:text-purple-300 underline cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-purple-400 rounded-sm"
-                                    title="Reset barrel distortion to 0%"
-                                  >
-                                    Reset
-                                  </button>
-                                )}
-                                <span className="text-[10px] font-bold text-purple-300 tabular-nums min-w-[34px] text-right">
-                                  {barrelDistortionPercent}%
-                                </span>
+                          <CinemaToolHUD
+                            title="BARREL DISTORTION"
+                            en="Simulate wide anamorphic glass curvature distortion."
+                            bn="ওয়াইড অ্যাঙ্গেল লেন্সের কার্ভ ইফেক্ট দিতে এই স্লাইডার ডানে-বামে টানুন।"
+                            accent="crimson"
+                            side="left"
+                            blockWrapper
+                          >
+                            <div className="matrix-sub-option w-full px-2.5 py-2 rounded-lg bg-[#0B0C0F] border border-[#26282E] space-y-1.5">
+                              <div className="flex items-center justify-between gap-2">
+                                <label
+                                  htmlFor="matrix-barrel-distortion"
+                                  className="flex items-center gap-1.5 text-[10px] font-black tracking-wider uppercase text-zinc-200 cursor-pointer"
+                                >
+                                  <Sliders className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                                  <span>BARREL WARP</span>
+                                </label>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  {barrelDistortionPercent !== 0 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleBarrelDistortionChange(0)}
+                                      className="text-[9px] font-black text-red-300 hover:underline uppercase cursor-pointer"
+                                    >
+                                      RESET
+                                    </button>
+                                  )}
+                                  <span className="text-[10px] font-black text-red-300 tabular-nums">
+                                    {barrelDistortionPercent}%
+                                  </span>
+                                </div>
                               </div>
+                              <input
+                                id="matrix-barrel-distortion"
+                                name="barrelDistortion"
+                                type="range"
+                                min={0}
+                                max={1}
+                                step={0.01}
+                                value={barrelDistortion}
+                                onChange={(e) => handleBarrelDistortionChange(Number.parseFloat(e.target.value))}
+                                aria-label="Barrel Distortion Simulation"
+                                className="matrix-opacity-slider w-full accent-red-400"
+                              />
                             </div>
+                          </CinemaToolHUD>
 
-                            <input
-                              id="matrix-barrel-distortion"
-                              name="barrelDistortion"
-                              type="range"
-                              min={0}
-                              max={1}
-                              step={0.01}
-                              value={barrelDistortion}
-                              onChange={(e) => handleBarrelDistortionChange(Number.parseFloat(e.target.value))}
-                              aria-label="Barrel Distortion Simulation"
-                              aria-valuemin={0}
-                              aria-valuemax={100}
-                              aria-valuenow={barrelDistortionPercent}
-                              className="matrix-opacity-slider w-full accent-purple-400"
-                            />
-
-                            <div className="flex items-center justify-between text-[8px] text-white/40">
-                              <span>Simulates wide-angle anamorphic spherical lens curvature</span>
-                              <span className="tabular-nums">0% – 100%</span>
-                            </div>
-                          </div>
-
-                          <div className="flex flex-col gap-0.5 divide-y divide-white/5">
+                          <div className="grid grid-cols-2 gap-1.5">
                             {subRows.map((row) => renderToggleRow(row))}
                           </div>
                         </>
                       ) : (
-                        <div className="flex flex-col gap-0.5 divide-y divide-white/5">
+                        <div className="grid grid-cols-2 gap-1.5">
                           {subRows.map((row) => renderToggleRow(row))}
                         </div>
                       )}
@@ -1018,12 +1147,6 @@ export const ComponentsMatrixPopover: React.FC<ComponentsMatrixPopoverProps> = (
             );
           })
         )}
-      </div>
-
-      {/* Footer Info */}
-      <div className="px-3.5 py-1.5 bg-black/60 border-t border-white/10 flex items-center justify-between text-[9px] text-white/45">
-        <span>Shortcut: Press V to toggle</span>
-        <span>Auto-saved locally</span>
       </div>
     </div>
   );

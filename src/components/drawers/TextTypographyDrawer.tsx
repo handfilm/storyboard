@@ -57,6 +57,7 @@ import {
   Eye,
   EyeOff
 } from 'lucide-react';
+import { CinemaBadgeHeader, CinemaToolHUD } from '../ui/CinemaToolHUD';
 
 export interface TextTypographyDrawerProps {
   currentFrame?: AnthologyFrame;
@@ -120,14 +121,14 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
 
   const categoryChips = [
     { id: 'all', label: `ALL (${CINEMATIC_TITLE_PRESETS.length})` },
-    { id: 'viral-hooks', label: '🎬 VIRAL HOOKS' },
-    { id: 'end-credits', label: '🎞️ END CREDITS' },
-    { id: 'dopamine', label: '🌪️ DOPAMINE' },
-    { id: 'corporate', label: '🏢 CORPORATE B2B' },
-    { id: 'cinematic', label: '🎥 CINEMATIC' },
-    { id: 'rap', label: '⚡ RAP' },
-    { id: 'docu', label: '🎙 DOCU' },
-    { id: 'retro', label: '📼 RETRO' }
+    { id: 'viral-hooks', label: 'HOOKS' },
+    { id: 'end-credits', label: 'CREDITS' },
+    { id: 'dopamine', label: 'DOPAMINE' },
+    { id: 'corporate', label: 'B2B' },
+    { id: 'cinematic', label: 'CINEMA' },
+    { id: 'rap', label: 'RAP' },
+    { id: 'docu', label: 'DOCU' },
+    { id: 'retro', label: 'RETRO' }
   ] as const;
 
   const resolvedLayers = buildDefaultTitleLayers(activePresetConfig, {
@@ -540,29 +541,32 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
       {!hideAutonomousStrip && <BrutalistKineticHudStrip />}
 
       {/* Per-Shot Isolated Title Inspector + Copy Style To All Action */}
-      <div className="p-3 rounded-xl bg-[#0D0E12] border border-white/10 space-y-2.5">
+      <div className="p-3 rounded-xl bg-[#0D0E12] border border-[#26282E] space-y-2.5">
         <div className="flex items-center justify-between gap-2 border-b border-white/10 pb-2">
           <div className="flex items-center gap-1.5 min-w-0">
-            <span className="px-1.5 py-0.5 rounded bg-[#F59E0B]/15 border border-[#F59E0B]/40 text-[#F59E0B] text-[9px] font-black tracking-wider shrink-0 tabular-nums">
-              SH{String(targetShotIndex + 1).padStart(3, '0')}
-            </span>
-            <span className="text-[9.5px] font-bold text-zinc-200 uppercase tracking-wider truncate">
-              PER-SHOT ISOLATED TITLE
-            </span>
+            <CinemaBadgeHeader
+              icon={<Type className="w-3.5 h-3.5" strokeWidth={2.2} />}
+              label={`SH${String(targetShotIndex + 1).padStart(3, '0')} TITLE`}
+              accent="amber"
+            />
           </div>
-          <button
-            type="button"
-            data-testid="toggle-shot-title-btn"
-            onClick={() => updateShotTitleData(targetShotIndex, { enabled: !shotTitleData.enabled })}
-            className={`px-2 py-0.5 rounded border text-[9px] font-bold flex items-center gap-1 cursor-pointer transition-colors shrink-0 ${
-              shotTitleData.enabled
-                ? 'bg-[#F59E0B]/20 border-[#F59E0B]/60 text-[#F59E0B]'
-                : 'bg-black/60 border-white/10 text-zinc-400 hover:text-white'
-            }`}
+          <CinemaToolHUD
+            title="SHOT TITLE VISIBILITY"
+            en="Toggles title overlay visibility strictly for the active shot."
+            bn="শুধুমাত্র এই শটের টাইটেল দেখা বা লুকাতে চাপুন।"
+            accent="amber"
           >
-            {shotTitleData.enabled ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
-            <span>{shotTitleData.enabled ? 'TITLE ON' : 'TITLE OFF'}</span>
-          </button>
+            <button
+              type="button"
+              data-testid="toggle-shot-title-btn"
+              data-active={shotTitleData.enabled ? 'true' : 'false'}
+              onClick={() => updateShotTitleData(targetShotIndex, { enabled: !shotTitleData.enabled })}
+              className="cinema-tile cinema-tile-amber px-2.5 py-1 rounded-md text-[10px] font-black tracking-wider uppercase flex items-center gap-1 cursor-pointer shrink-0"
+            >
+              {shotTitleData.enabled ? <Eye className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} /> : <EyeOff className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />}
+              <span>{shotTitleData.enabled ? 'ON' : 'OFF'}</span>
+            </button>
+          </CinemaToolHUD>
         </div>
 
         {/* Direct Bangla Title & English Subtitle Inputs scoped to this shot */}
@@ -588,32 +592,40 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
         {/* Pro 06 Super Title Studio Sub-Inspector: 5 Layers & IN/MID/OUT Keyframes */}
         <div className="pt-1.5 border-t border-white/10 space-y-2">
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1 bg-black/70 p-0.5 rounded border border-white/10">
-              <button
-                type="button"
-                onClick={() => setInspectorMode('layers')}
-                className={`px-2 py-0.5 rounded text-[8.5px] font-bold uppercase cursor-pointer whitespace-nowrap transition-colors ${
-                  inspectorMode === 'layers'
-                    ? 'bg-[#F59E0B] text-[#0B0B0D]'
-                    : 'text-zinc-400 hover:text-white'
-                }`}
+            <div className="flex items-center gap-1 bg-black/70 p-0.5 rounded-md border border-[#26282E]">
+              <CinemaToolHUD
+                title="5-LAYER TITLE STUDIO"
+                en="Edits eyebrow, Bangla, English, subtitle, and credits layers individually."
+                bn="৫টি আলাদা টেক্সট লেয়ার (বাংলা, ইংরেজি, ক্রেডিট) সাজাতে চাপুন।"
+                accent="amber"
               >
-                5-LAYER STUDIO
-              </button>
-              <button
-                type="button"
-                onClick={() => setInspectorMode('keyframes')}
-                className={`px-2 py-0.5 rounded text-[8.5px] font-bold uppercase cursor-pointer whitespace-nowrap transition-colors ${
-                  inspectorMode === 'keyframes'
-                    ? 'bg-[#F59E0B] text-[#0B0B0D]'
-                    : 'text-zinc-400 hover:text-white'
-                }`}
+                <button
+                  type="button"
+                  data-active={inspectorMode === 'layers' ? 'true' : 'false'}
+                  onClick={() => setInspectorMode('layers')}
+                  className="cinema-tile cinema-tile-amber px-2.5 py-1 rounded-[4px] text-[9.5px] font-black tracking-wider uppercase cursor-pointer whitespace-nowrap"
+                >
+                  5-LAYER
+                </button>
+              </CinemaToolHUD>
+              <CinemaToolHUD
+                title="IN / MID / OUT KEYFRAMES"
+                en="Controls entrance, ambient loop, exit motion, and easing curves."
+                bn="টাইটেল ঢোকা ও বের হওয়ার অ্যানিমেশন স্পিড সেট করতে চাপুন।"
+                accent="cyan"
               >
-                IN / MID / OUT KEYFRAMES
-              </button>
+                <button
+                  type="button"
+                  data-active={inspectorMode === 'keyframes' ? 'true' : 'false'}
+                  onClick={() => setInspectorMode('keyframes')}
+                  className="cinema-tile cinema-tile-cyan px-2.5 py-1 rounded-[4px] text-[9.5px] font-black tracking-wider uppercase cursor-pointer whitespace-nowrap"
+                >
+                  KEYFRAMES
+                </button>
+              </CinemaToolHUD>
             </div>
-            <span className="text-[8.5px] text-zinc-500 uppercase tracking-wider tabular-nums">
-              {activeKeyframes.staggerMode.toUpperCase()} STAGGER
+            <span className="text-[8.5px] font-black text-zinc-500 uppercase tracking-wider tabular-nums">
+              {activeKeyframes.staggerMode.toUpperCase()}
             </span>
           </div>
 
@@ -635,13 +647,10 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
                     <button
                       key={layer.id}
                       type="button"
+                      data-active={isSel ? 'true' : 'false'}
                       onClick={() => setActiveLayerTab(layer.id)}
-                      className={`py-1 px-1 rounded text-[8px] font-bold uppercase truncate cursor-pointer border transition-colors ${
-                        isSel
-                          ? 'bg-[#F59E0B]/20 border-[#F59E0B] text-[#F59E0B]'
-                          : isEnabled
-                          ? 'bg-black/60 border-white/10 text-zinc-300 hover:text-white'
-                          : 'bg-black/40 border-white/5 text-zinc-600'
+                      className={`cinema-tile cinema-tile-amber py-1 px-1 rounded text-[9px] font-black tracking-wider uppercase truncate cursor-pointer ${
+                        !isSel && !isEnabled ? 'opacity-50' : ''
                       }`}
                     >
                       {layer.label}
@@ -976,66 +985,78 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
 
         {/* Per-Shot Alignment + Copy Style to All Shots */}
         <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
-          <div className="flex items-center gap-1 bg-black/60 border border-white/10 rounded p-0.5">
+          <div className="flex items-center gap-1 bg-black/60 border border-[#26282E] rounded-md p-0.5">
             {(['LEFT', 'MID', 'RIGHT', 'AUTO'] as TitleAlign[]).map((align) => (
-              <button
+              <CinemaToolHUD
                 key={align}
-                type="button"
-                onClick={() => updateShotTitleData(targetShotIndex, { alignment: align })}
-                className={`px-1.5 py-0.5 rounded text-[8.5px] font-bold cursor-pointer transition-colors ${
-                  shotTitleData.alignment === align
-                    ? 'bg-[#F59E0B] text-[#0B0B0D]'
-                    : 'text-zinc-400 hover:text-white'
-                }`}
+                title={`ALIGN ${align}`}
+                en={`Aligns shot title choreography to ${align}.`}
+                bn={`শটের টাইটেল পজিশন ${align} করতে চাপুন।`}
+                accent="amber"
               >
-                {align}
-              </button>
+                <button
+                  type="button"
+                  data-active={shotTitleData.alignment === align ? 'true' : 'false'}
+                  onClick={() => updateShotTitleData(targetShotIndex, { alignment: align })}
+                  className="cinema-tile cinema-tile-amber px-2 py-0.5 rounded-[4px] text-[9px] font-black tracking-wider cursor-pointer"
+                >
+                  {align}
+                </button>
+              </CinemaToolHUD>
             ))}
           </div>
 
-          <button
-            type="button"
-            data-testid="copy-style-to-all-btn"
-            onClick={handleCopyStyleToAll}
-            className={`px-2.5 py-1 rounded border text-[9px] font-black tracking-wider uppercase flex items-center gap-1.5 cursor-pointer transition-colors ${
-              copiedAllSuccess
-                ? 'bg-emerald-600/30 border-emerald-400 text-emerald-300'
-                : 'bg-[#141417] hover:bg-[#F59E0B]/15 border-white/15 hover:border-[#F59E0B]/60 text-zinc-200 hover:text-[#F59E0B]'
-            }`}
-            title="Copy visual style (preset, font, colors, glow, layout, alignment) to all shots while preserving each shot's unique text"
+          <CinemaToolHUD
+            title="SYNC STYLE TO ALL SHOTS"
+            en="Copies active preset, fonts, glow, and alignment across every shot."
+            bn="এই শটের টাইটেল ডিজাইন ও ফন্ট স্টাইল সবগুলো শটে কপি করতে চাপুন।"
+            accent="emerald"
           >
-            {copiedAllSuccess ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-            <span>{copiedAllSuccess ? 'STYLE COPIED TO ALL SHOTS' : 'COPY STYLE TO ALL SHOTS'}</span>
-          </button>
+            <button
+              type="button"
+              data-testid="copy-style-to-all-btn"
+              data-active={copiedAllSuccess ? 'true' : 'false'}
+              onClick={handleCopyStyleToAll}
+              className="cinema-tile cinema-tile-emerald px-2.5 py-1 rounded-md text-[10px] font-black tracking-wider uppercase flex items-center gap-1.5 cursor-pointer"
+            >
+              {copiedAllSuccess ? <Check className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} /> : <Copy className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />}
+              <span>{copiedAllSuccess ? 'SYNCED' : 'COPY ALL'}</span>
+            </button>
+          </CinemaToolHUD>
         </div>
       </div>
 
       {/* Category Filter Chips */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <label className="text-[10px] font-bold uppercase tracking-wider text-[#F5A623] flex items-center gap-1.5">
-            <Sparkles className="w-3 h-3 text-[#F5A623]" />
-            Director Title Presets ({filteredPresets.length})
-          </label>
-          <span className="text-[9px] text-zinc-400">1-CLICK OR DRAG MEDIA</span>
+          <CinemaBadgeHeader
+            icon={<Sparkles className="w-3.5 h-3.5" strokeWidth={2.2} />}
+            label={`PRESETS (${filteredPresets.length})`}
+            accent="amber"
+          />
+          <span className="text-[9px] font-black tracking-wider uppercase text-zinc-500">TAP / DROP</span>
         </div>
 
-        <div className="flex flex-wrap gap-1.5 p-1 bg-black/50 border border-white/10 rounded-lg">
+        <div className="flex flex-wrap gap-1.5 p-1 bg-black/50 border border-[#26282E] rounded-lg">
           {categoryChips.map(chip => {
             const isActive = selectedCategory === chip.id;
             return (
-              <button
+              <CinemaToolHUD
                 key={chip.id}
-                type="button"
-                onClick={() => setSelectedCategory(chip.id)}
-                className={
-                  isActive
-                    ? 'px-2.5 py-1 text-[10px] font-mono text-amber-300 border border-amber-500/50 bg-amber-500/10 rounded shadow-[0_0_8px_rgba(245,166,35,0.2)] cursor-pointer font-bold transition-all'
-                    : 'px-2.5 py-1 text-[10px] font-mono text-white/50 border border-white/5 bg-white/[0.02] rounded hover:border-white/20 hover:text-white transition-all cursor-pointer'
-                }
+                title={`CATEGORY: ${chip.label}`}
+                en={`Filters title presets to ${chip.label} templates.`}
+                bn={`${chip.label} ক্যাটাগরির টাইটেল ডিজাইন দেখতে চাপুন।`}
+                accent={chip.id === 'dopamine' ? 'crimson' : 'amber'}
               >
-                {chip.label}
-              </button>
+                <button
+                  type="button"
+                  data-active={isActive ? 'true' : 'false'}
+                  onClick={() => setSelectedCategory(chip.id)}
+                  className={`cinema-tile ${chip.id === 'dopamine' ? 'cinema-tile-crimson' : 'cinema-tile-amber'} px-2.5 py-1 text-[10px] font-black tracking-wider uppercase rounded-md cursor-pointer`}
+                >
+                  {chip.label}
+                </button>
+              </CinemaToolHUD>
             );
           })}
         </div>
@@ -1046,14 +1067,13 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
         <div className="space-y-4">
           {/* Dopamine Engine Header */}
           <div className="p-3 rounded-xl bg-gradient-to-r from-red-950/40 via-purple-950/40 to-cyan-950/40 border border-red-500/30 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping" />
-              <span className="text-xs font-bold text-white tracking-wider uppercase">
-                [ 🌪️ DOPAMINE ENGINE // VIRAL COMPILATION ]
-              </span>
-            </div>
-            <span className="text-[9px] font-mono text-zinc-400">
-              TARGET: SH{String(activeShotIndex + 1).padStart(3, '0')}
+            <CinemaBadgeHeader
+              icon={<Flame className="w-3.5 h-3.5" strokeWidth={2.2} />}
+              label="DOPAMINE FX"
+              accent="crimson"
+            />
+            <span className="text-[9px] font-black font-mono text-zinc-300">
+              SH{String(activeShotIndex + 1).padStart(3, '0')}
             </span>
           </div>
 
@@ -1196,27 +1216,32 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
           </div>
 
           {/* Brutalist Apply Button */}
-          <button
-            type="button"
-            onClick={handleApplyDopamineToFrame}
-            className={`w-full py-2.5 px-4 py-2.5! px-4! font-mono font-bold text-xs uppercase tracking-widest transition-all cursor-pointer rounded-lg border flex items-center justify-center gap-2 ${
-              appliedDopamineSuccess
-                ? 'bg-emerald-600 border-emerald-400 text-white shadow-[0_0_20px_rgba(16,185,129,0.5)]'
-                : 'bg-red-950/70 hover:bg-red-600 border-red-500/50 hover:border-red-400 text-white shadow-[0_0_20px_rgba(239,68,68,0.3)]'
-            }`}
+          <CinemaToolHUD
+            title="APPLY DOPAMINE SEQUENCE"
+            en="Applies high-energy strobe & chromatic kinetic overlay to active frame."
+            bn="বর্তমান ফ্রেমে হাই-স্পিড ডোপামিন স্ট্রোব ও গ্লিচ টাইটেল বসাতে চাপুন।"
+            accent="crimson"
+            blockWrapper
           >
-            {appliedDopamineSuccess ? (
-              <>
-                <Check className="w-4 h-4 text-white" />
-                <span>[ ✔ SEQUENCE APPLIED ]</span>
-              </>
-            ) : (
-              <>
-                <Zap className="w-4 h-4 fill-current text-yellow-300" />
-                <span>[ ⚡ APPLY DOPAMINE SEQUENCE TO FRAME ]</span>
-              </>
-            )}
-          </button>
+            <button
+              type="button"
+              onClick={handleApplyDopamineToFrame}
+              data-active={appliedDopamineSuccess ? 'true' : 'false'}
+              className="cinema-tile cinema-tile-crimson w-full py-2.5 px-4 font-mono font-black text-[11px] uppercase tracking-wider cursor-pointer rounded-lg flex items-center justify-center gap-2"
+            >
+              {appliedDopamineSuccess ? (
+                <>
+                  <Check className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                  <span>APPLIED</span>
+                </>
+              ) : (
+                <>
+                  <Zap className="w-4 h-4 cinema-tile-icon fill-current" strokeWidth={2.2} />
+                  <span>APPLY DOPAMINE</span>
+                </>
+              )}
+            </button>
+          </CinemaToolHUD>
         </div>
       ) : (
         <div className="space-y-3">
@@ -1375,8 +1400,8 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
                 <span className="font-mono text-zinc-500 truncate max-w-[140px]">
                   {cardConfig.englishFontFamily.split(',')[0].replace(/"/g, '')}
                 </span>
-                <span className={`font-bold transition-colors ${isBoundSuccess ? 'text-emerald-400' : isApplied || isSelectedOnStage ? 'text-[#F59E0B]' : 'group-hover:text-[#F5A623]'}`}>
-                  {isBoundSuccess ? '✓ BOUND TO SHOT' : isApplied ? '✓ APPLIED TO SHOT' : isSelectedOnStage ? '● ACTIVE ON STAGE' : 'Click to Apply or Drop Media →'}
+                <span className={`font-black tracking-wider uppercase transition-colors ${isBoundSuccess ? 'text-emerald-400' : isApplied || isSelectedOnStage ? 'text-[#F59E0B]' : 'group-hover:text-[#F5A623]'}`}>
+                  {isBoundSuccess ? '✓ BOUND' : isApplied ? '✓ APPLIED' : isSelectedOnStage ? '● ACTIVE' : 'APPLY'}
                 </span>
               </div>
             </div>
@@ -1385,26 +1410,26 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
       </div>
       )}
 
-      {/* Manual Fine-Tuning Sliders (Dynamic between Dopamine and Standard Typography) */}
-      <div className="p-4 rounded-xl bg-black/60 border border-white/10 space-y-3.5 backdrop-blur-md">
+      {/* Manual Fine-Tuning Sliders */}
+      <div className="p-4 rounded-xl bg-black/60 border border-[#26282E] space-y-3.5 backdrop-blur-md">
         <div className="flex items-center justify-between border-b border-white/10 pb-2">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-white/90 flex items-center gap-1.5">
-            <SlidersHorizontal className="w-3 h-3 text-[#F5A623]" />
-            {selectedCategory === 'dopamine' ? '🌪️ Dopamine Engine Parameters' : 'Fine-Tune Selected Typography'}
-          </span>
-          <span className="text-[9px] text-zinc-400 font-mono">0ms Sync</span>
+          <CinemaBadgeHeader
+            icon={<SlidersHorizontal className="w-3.5 h-3.5" strokeWidth={2.2} />}
+            label={selectedCategory === 'dopamine' ? 'DOPAMINE TUNING' : 'TYPE TUNING'}
+            accent={selectedCategory === 'dopamine' ? 'crimson' : 'amber'}
+          />
+          <span className="text-[9px] text-emerald-400 font-black tracking-wider uppercase font-mono">LIVE</span>
         </div>
 
         {selectedCategory === 'dopamine' ? (
           <>
-            {/* Dopamine Glitch Intensity Slider */}
             <div className="space-y-1.5">
-              <div className="flex justify-between text-[10px] text-zinc-400">
+              <div className="flex justify-between text-[10px] text-zinc-300 font-black tracking-wider uppercase">
                 <span className="flex items-center gap-1">
                   <Radio className="w-3 h-3 text-red-400" />
-                  Glitch Intensity (Chromatic RGB Aberration)
+                  GLITCH
                 </span>
-                <span className="text-red-400 font-mono font-bold">{dopamineGlitch}%</span>
+                <span className="text-red-400 font-mono">{dopamineGlitch}%</span>
               </div>
               <input
                 type="range"
@@ -1417,14 +1442,13 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
               />
             </div>
 
-            {/* Dopamine Strobe Rate Slider */}
             <div className="space-y-1.5">
-              <div className="flex justify-between text-[10px] text-zinc-400">
+              <div className="flex justify-between text-[10px] text-zinc-300 font-black tracking-wider uppercase">
                 <span className="flex items-center gap-1">
                   <Zap className="w-3 h-3 text-yellow-400" />
-                  Strobe Flash Rate (Initial Pulse)
+                  STROBE
                 </span>
-                <span className="text-yellow-400 font-mono font-bold">{dopamineStrobe}ms</span>
+                <span className="text-yellow-400 font-mono">{dopamineStrobe}ms</span>
               </div>
               <input
                 type="range"
@@ -1437,14 +1461,13 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
               />
             </div>
 
-            {/* Dopamine Motion Speed Slider */}
             <div className="space-y-1.5">
-              <div className="flex justify-between text-[10px] text-zinc-400">
+              <div className="flex justify-between text-[10px] text-zinc-300 font-black tracking-wider uppercase">
                 <span className="flex items-center gap-1">
                   <Flame className="w-3 h-3 text-amber-400" />
-                  Motion Speed Multiplier (Kinetic Anamorphic Slide)
+                  SPEED
                 </span>
-                <span className="text-amber-400 font-mono font-bold">{dopamineSpeed.toFixed(1)}x</span>
+                <span className="text-amber-400 font-mono">{dopamineSpeed.toFixed(1)}x</span>
               </div>
               <input
                 type="range"
@@ -1459,10 +1482,9 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
           </>
         ) : (
           <>
-            {/* Title Size Slider */}
             <div className="space-y-1.5">
-              <div className="flex justify-between text-[10px] text-zinc-400">
-                <span>Font Scale (SH{String(targetShotIndex + 1).padStart(3, '0')})</span>
+              <div className="flex justify-between text-[10px] text-zinc-300 font-black tracking-wider uppercase">
+                <span>SCALE</span>
                 <span className="text-[#FFE066] font-mono tabular-nums">{titleSize}px</span>
               </div>
               <input
@@ -1476,10 +1498,9 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
               />
             </div>
 
-            {/* Glow Intensity Slider */}
             <div className="space-y-1.5">
-              <div className="flex justify-between text-[10px] text-zinc-400">
-                <span>Anamorphic Glow</span>
+              <div className="flex justify-between text-[10px] text-zinc-300 font-black tracking-wider uppercase">
+                <span>GLOW</span>
                 <span className="text-[#FFE066] font-mono tabular-nums">{Math.round(glowIntensity * 100)}%</span>
               </div>
               <input
@@ -1493,10 +1514,9 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
               />
             </div>
 
-            {/* Letter Tracking Slider */}
             <div className="space-y-1.5">
-              <div className="flex justify-between text-[10px] text-zinc-400">
-                <span>Letter Tracking</span>
+              <div className="flex justify-between text-[10px] text-zinc-300 font-black tracking-wider uppercase">
+                <span>TRACKING</span>
                 <span className="text-[#FFE066] font-mono tabular-nums">{tracking.toFixed(2)}em</span>
               </div>
               <input
@@ -1510,10 +1530,9 @@ export const TextTypographyDrawer: React.FC<TextTypographyDrawerProps> = ({
               />
             </div>
 
-            {/* Vertical Position Offset */}
             <div className="space-y-1.5">
-              <div className="flex justify-between text-[10px] text-zinc-400">
-                <span>Vertical Offset</span>
+              <div className="flex justify-between text-[10px] text-zinc-300 font-black tracking-wider uppercase">
+                <span>OFFSET Y</span>
                 <span className="text-[#FFE066] font-mono tabular-nums">{verticalOffset}px</span>
               </div>
               <input

@@ -18,6 +18,7 @@ import {
   parseDurationInput
 } from '../../types/storyboard';
 import { Clock, ChevronDown, Repeat, Music, Minus, Plus, Check } from 'lucide-react';
+import { CinemaBadgeHeader, CinemaToolHUD } from '../ui/CinemaToolHUD';
 
 export interface CadenceSelectorPillProps {
   durationSec: number;
@@ -143,29 +144,35 @@ export const CadenceSelectorPill: React.FC<CadenceSelectorPillProps> = ({
 
   return (
     <>
-      <button
-        ref={triggerRef}
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          setIsOpen((prev) => !prev);
-        }}
-        title={`Elastic Shot Cadence: ${formatDurationPillValue(safeDuration)} (${activeFrames} frames @ ${safeFps}fps)`}
-        className={`inline-flex items-center gap-1 rounded-full border font-mono tabular-nums whitespace-nowrap shrink-0 cursor-pointer transition-colors duration-150 ${
-          compact ? 'h-[18px] px-1.5 py-0 text-[9px] leading-none' : 'px-3 py-1 text-[10px]'
-        } ${
-          isOpen
-            ? 'bg-[#F59E0B]/15 border-[#F59E0B]/70 text-[#F4F4F5]'
-            : 'bg-[#141417] hover:border-[#F59E0B]/60 border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5]'
-        } ${className}`}
+      <CinemaToolHUD
+        title={`CADENCE: ${formatDurationPillValue(safeDuration)}`}
+        en={`${activeFrames} frames @ ${safeFps}fps. Click to adjust hold or beat snap.`}
+        bn="শটের সময়কাল, এফপিএস ও বিট-স্ন্যাপ সেট করতে চাপুন।"
+        accent="amber"
       >
-        <Clock className={`${compact ? 'w-2.5 h-2.5' : 'w-3 h-3'} shrink-0 ${isOpen ? 'text-[#F59E0B]' : 'text-[#8E8E93]'}`} />
-        <span className="text-[#8E8E93] font-semibold">DURATION:</span>
-        <span className="text-[#F4F4F5] font-bold tabular-nums">{formatDurationPillValue(safeDuration)}</span>
-        <ChevronDown
-          className={`w-3 h-3 text-[#8E8E93] transition-transform duration-150 ${isOpen ? 'rotate-180 text-[#F59E0B]' : ''}`}
-        />
-      </button>
+        <button
+          ref={triggerRef}
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsOpen((prev) => !prev);
+          }}
+          className={`inline-flex items-center gap-1 rounded-full border font-mono tabular-nums whitespace-nowrap shrink-0 cursor-pointer transition-colors duration-150 ${
+            compact ? 'h-[18px] px-1.5 py-0 text-[9px] leading-none' : 'px-3 py-1 text-[10px]'
+          } ${
+            isOpen
+              ? 'bg-[#F59E0B]/15 border-[#F59E0B]/70 text-[#F4F4F5]'
+              : 'bg-[#141417] hover:border-[#F59E0B]/60 border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5]'
+          } ${className}`}
+        >
+          <Clock className={`${compact ? 'w-2.5 h-2.5' : 'w-3 h-3'} shrink-0 ${isOpen ? 'text-[#F59E0B]' : 'text-[#8E8E93]'}`} />
+          <span className="text-[#8E8E93] font-semibold">HOLD</span>
+          <span className="text-[#F4F4F5] font-bold tabular-nums">{formatDurationPillValue(safeDuration)}</span>
+          <ChevronDown
+            className={`w-3 h-3 text-[#8E8E93] transition-transform duration-150 ${isOpen ? 'rotate-180 text-[#F59E0B]' : ''}`}
+          />
+        </button>
+      </CinemaToolHUD>
 
       {isOpen &&
         typeof document !== 'undefined' &&
@@ -183,14 +190,12 @@ export const CadenceSelectorPill: React.FC<CadenceSelectorPillProps> = ({
             }}
             className="bg-[#0B0B0D]/96 backdrop-blur-2xl border border-white/[0.07] rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.9)] p-3 font-mono text-xs text-[#F4F4F5] select-none tabular-nums"
           >
-            {/* Header */}
             <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/[0.07]">
-              <div className="flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-[#F59E0B]" />
-                <span className="text-[10.5px] font-bold tracking-wide text-[#F4F4F5]">
-                  Cadence & Shot Hold
-                </span>
-              </div>
+              <CinemaBadgeHeader
+                icon={<Clock className="w-3.5 h-3.5" strokeWidth={2.3} />}
+                label="SHOT HOLD"
+                accent="amber"
+              />
               <div className="flex items-center gap-1 bg-[#141417] border border-white/[0.07] rounded-md p-0.5 text-[9.5px] tabular-nums">
                 {[24, 60].map((fpsVal) => (
                   <button
@@ -209,39 +214,38 @@ export const CadenceSelectorPill: React.FC<CadenceSelectorPillProps> = ({
               </div>
             </div>
 
-            {/* Quick Rhythm Presets */}
             <div className="space-y-1">
               {CADENCE_PRESETS.map((preset) => {
                 const isSelected = matchedPreset?.id === preset.id && !isCustomExpanded;
                 const presetFrames = getShotFrameCount(preset.durationSec, safeFps);
                 return (
-                  <button
+                  <CinemaToolHUD
                     key={preset.id}
-                    type="button"
-                    onClick={() => {
-                      setIsCustomExpanded(false);
-                      onChangeDuration(preset.durationSec);
-                    }}
-                    className={`w-full px-2.5 py-2 rounded-lg border text-left transition-colors duration-150 cursor-pointer flex items-center justify-between gap-2 ${
-                      isSelected
-                        ? 'bg-[#F59E0B]/15 border-[#F59E0B]/65 text-[#F4F4F5]'
-                        : 'bg-[#141417] hover:border-white/[0.14] border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5]'
-                    }`}
+                    title={preset.label.toUpperCase()}
+                    en={`${preset.subtitle} (${preset.durationSec.toFixed(1)}s / ${presetFrames}F)`}
+                    bn={`শটের দৈর্ঘ্য ${preset.durationSec.toFixed(1)} সেকেন্ড করতে চাপুন।`}
+                    accent="amber"
+                    blockWrapper
                   >
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5 text-[10.5px] font-bold whitespace-nowrap">
+                    <button
+                      type="button"
+                      data-active={isSelected ? 'true' : 'false'}
+                      onClick={() => {
+                        setIsCustomExpanded(false);
+                        onChangeDuration(preset.durationSec);
+                      }}
+                      className="cinema-tile cinema-tile-amber w-full px-2.5 py-2 rounded-lg text-left cursor-pointer flex items-center justify-between gap-2"
+                    >
+                      <div className="min-w-0 flex items-center gap-1.5 text-[10.5px] font-black tracking-wider uppercase whitespace-nowrap">
                         <span>{preset.icon}</span>
-                        <span className="text-[#F4F4F5]">{preset.label}</span>
+                        <span>{preset.label}</span>
                         <span className="text-[#F59E0B] tabular-nums">
-                          ({preset.durationSec.toFixed(1)}s / {presetFrames}F)
+                          {preset.durationSec.toFixed(1)}s
                         </span>
                       </div>
-                      <p className="text-[9.5px] text-[#8E8E93] truncate mt-0.5 font-sans">
-                        {preset.subtitle}
-                      </p>
-                    </div>
-                    {isSelected && <Check className="w-3.5 h-3.5 text-[#F59E0B] shrink-0" />}
-                  </button>
+                      {isSelected && <Check className="w-3.5 h-3.5 text-[#F59E0B] shrink-0" />}
+                    </button>
+                  </CinemaToolHUD>
                 );
               })}
 
@@ -357,52 +361,72 @@ export const CadenceSelectorPill: React.FC<CadenceSelectorPillProps> = ({
             {(onToggleSnapToBeat || onApplyDurationToAll || onMatchAudioBeats) && (
               <div className="mt-2.5 pt-2.5 border-t border-white/[0.07] flex flex-col gap-1.5">
                 {onMatchAudioBeats && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onMatchAudioBeats();
-                      setIsOpen(false);
-                    }}
-                    className="w-full px-2.5 py-1.5 rounded-lg bg-[#141417] hover:border-[#F59E0B]/60 border border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5] text-[10px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                    title="Align all timeline shot cuts to detected musical beat transients"
+                  <CinemaToolHUD
+                    title="MATCH BEATS"
+                    en="Align all shot cuts to detected beat transients."
+                    bn="মিউজিকের বিটে শটের কাট ম্যাচ করতে চাপুন।"
+                    accent="cyan"
+                    blockWrapper
                   >
-                    <Music className="w-3 h-3 text-[#F59E0B]" />
-                    <span>Match Beats (Auto-Cut Rhythm)</span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onMatchAudioBeats();
+                        setIsOpen(false);
+                      }}
+                      className="cinema-tile cinema-tile-cyan w-full px-2.5 py-1.5 rounded-lg text-[10px] font-black tracking-wider uppercase flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Music className="w-3 h-3 cinema-tile-icon" />
+                      <span>MATCH BEATS</span>
+                    </button>
+                  </CinemaToolHUD>
                 )}
 
                 {onToggleSnapToBeat && (
-                  <button
-                    type="button"
-                    onClick={onToggleSnapToBeat}
-                    className={`w-full px-2.5 py-1.5 rounded-lg border text-[10px] font-bold flex items-center justify-between transition-colors cursor-pointer ${
-                      isSnapToBeat
-                        ? 'bg-[#F59E0B]/15 border-[#F59E0B]/65 text-[#F4F4F5]'
-                        : 'bg-[#141417] hover:border-[#F59E0B]/60 border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5]'
-                    }`}
+                  <CinemaToolHUD
+                    title="BEAT SNAP"
+                    en="Snap shot resize and split edits to beats."
+                    bn="কাটার সময় অটোমেটিক বিটে স্ন্যাপ চালু করুন।"
+                    accent="cyan"
+                    blockWrapper
                   >
-                    <span className="flex items-center gap-1.5">
-                      <Music className={`w-3 h-3 ${isSnapToBeat ? 'text-[#F59E0B]' : 'text-[#8E8E93]'}`} />
-                      <span>SNAP CUTS TO BEATS</span>
-                    </span>
-                    <span className={`text-[9px] tabular-nums ${isSnapToBeat ? 'text-[#F59E0B]' : 'text-[#8E8E93]'}`}>
-                      {isSnapToBeat ? 'ON' : 'OFF'}
-                    </span>
-                  </button>
+                    <button
+                      type="button"
+                      data-active={isSnapToBeat ? 'true' : 'false'}
+                      onClick={onToggleSnapToBeat}
+                      className="cinema-tile cinema-tile-cyan w-full px-2.5 py-1.5 rounded-lg text-[10px] font-black tracking-wider uppercase flex items-center justify-between cursor-pointer"
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <Music className="w-3 h-3 cinema-tile-icon" />
+                        <span>BEAT SNAP</span>
+                      </span>
+                      <span className="text-[9px] tabular-nums">
+                        {isSnapToBeat ? 'ON' : 'OFF'}
+                      </span>
+                    </button>
+                  </CinemaToolHUD>
                 )}
 
                 {onApplyDurationToAll && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onApplyDurationToAll(safeDuration);
-                      setIsOpen(false);
-                    }}
-                    className="w-full px-2.5 py-1.5 rounded-lg bg-[#F59E0B]/15 hover:bg-[#F59E0B]/25 border border-[#F59E0B]/60 text-[#F4F4F5] text-[10px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer tabular-nums"
+                  <CinemaToolHUD
+                    title="RIPPLE ALL"
+                    en="Apply this shot duration across all timeline shots."
+                    bn="এই শটের সময়কাল সব শটে প্রয়োগ করতে চাপুন।"
+                    accent="amber"
+                    blockWrapper
                   >
-                    <Repeat className="w-3 h-3 text-[#F59E0B]" />
-                    <span>Ripple All ({formatDurationPillValue(safeDuration)})</span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onApplyDurationToAll(safeDuration);
+                        setIsOpen(false);
+                      }}
+                      className="cinema-tile cinema-tile-amber w-full px-2.5 py-1.5 rounded-lg text-[10px] font-black tracking-wider uppercase flex items-center justify-center gap-1.5 cursor-pointer tabular-nums"
+                    >
+                      <Repeat className="w-3 h-3 cinema-tile-icon" />
+                      <span>RIPPLE {formatDurationPillValue(safeDuration)}</span>
+                    </button>
+                  </CinemaToolHUD>
                 )}
               </div>
             )}

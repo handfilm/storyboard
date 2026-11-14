@@ -51,6 +51,7 @@ import {
   Music,
   Activity
 } from 'lucide-react';
+import { CinemaToolHUD } from './ui/CinemaToolHUD';
 
 export interface ReelsSequenceBoardProps {
   slides: SlideDraft[];
@@ -386,30 +387,42 @@ const VirtualizedSequenceCard: React.FC<VirtualizedCardProps> = ({
 
         <div className="flex items-center gap-0.5">
           {onMoveLeft && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onMoveLeft();
-              }}
-              className="p-1 rounded-full text-white/40 hover:text-white transition-colors cursor-pointer"
-              title="Move card left"
+            <CinemaToolHUD
+              title="MOVE LEFT"
+              en="Swap this shot earlier in sequence."
+              bn="শট কার্ডটি বামে সরাতে চাপুন।"
+              accent="amber"
             >
-              <ChevronLeft className="w-3.5 h-3.5" />
-            </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onMoveLeft();
+                }}
+                className="cinema-tile cinema-tile-amber p-1 rounded-full cursor-pointer"
+              >
+                <ChevronLeft className="w-3.5 h-3.5 cinema-tile-icon" />
+              </button>
+            </CinemaToolHUD>
           )}
           {onMoveRight && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onMoveRight();
-              }}
-              className="p-1 rounded-full text-white/40 hover:text-white transition-colors cursor-pointer"
-              title="Move card right"
+            <CinemaToolHUD
+              title="MOVE RIGHT"
+              en="Swap this shot later in sequence."
+              bn="শট কার্ডটি ডানে সরাতে চাপুন।"
+              accent="amber"
             >
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onMoveRight();
+                }}
+                className="cinema-tile cinema-tile-amber p-1 rounded-full cursor-pointer"
+              >
+                <ChevronRight className="w-3.5 h-3.5 cinema-tile-icon" />
+              </button>
+            </CinemaToolHUD>
           )}
         </div>
       </div>
@@ -439,69 +452,93 @@ const VirtualizedSequenceCard: React.FC<VirtualizedCardProps> = ({
       {/* 4. Bottom Row: Media Ingest Prompt or Bound Asset Indicator */}
       <div className="relative z-10 flex items-center justify-between text-[10px] text-white/40 font-mono pt-1 border-t border-white/5 pointer-events-auto">
         <div className="flex items-center gap-1.5">
-          <span className="truncate max-w-[100px] text-zinc-400">
-            {slide.remoteUrl ? 'BOUND ASSET' : 'DROP VIDEO'}
+          <span className="truncate max-w-[100px] text-zinc-400 font-bold">
+            {slide.remoteUrl ? 'BOUND' : 'DROP'}
           </span>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              const input = document.createElement('input');
-              input.type = 'file';
-              input.accept = 'video/*,image/*';
-              input.onchange = (ev: any) => {
-                if (ev.target?.files?.[0] && onDropMedia) {
-                  onDropMedia(ev.target.files[0]);
-                }
-              };
-              input.click();
-            }}
-            className="p-1 rounded bg-black/60 hover:bg-black text-zinc-400 hover:text-[#F5A623] transition-colors cursor-pointer"
-            title="Upload or replace media asset"
+          <CinemaToolHUD
+            title="UPLOAD MEDIA"
+            en="Attach or replace video/image file on this shot."
+            bn="এই শটে নতুন ভিডিও বা ছবি আপলোড করতে চাপুন।"
+            accent="amber"
           >
-            <Upload className="w-3 h-3" />
-          </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = 'video/*,image/*';
+                input.onchange = (ev: any) => {
+                  if (ev.target?.files?.[0] && onDropMedia) {
+                    onDropMedia(ev.target.files[0]);
+                  }
+                };
+                input.click();
+              }}
+              className="cinema-tile cinema-tile-amber p-1 rounded cursor-pointer"
+            >
+              <Upload className="w-3 h-3 cinema-tile-icon" />
+            </button>
+          </CinemaToolHUD>
         </div>
 
         <div className="flex items-center gap-1 pr-1">
           {onEdit && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onEdit();
-              }}
-              className="p-1 rounded hover:bg-white/10 text-white/50 hover:text-[#F5A623] transition-colors cursor-pointer"
-              title="Edit scene labels & text cues"
+            <CinemaToolHUD
+              title="EDIT SHOT"
+              en="Edit shot titles, Bangla line, and audio cues."
+              bn="শটের টাইটেল, বাংলা লেখা ও ডিরেক্টর নোট এডিট করতে চাপুন।"
+              accent="amber"
             >
-              <Edit3 className="w-3 h-3" />
-            </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit();
+                }}
+                className="cinema-tile cinema-tile-amber p-1 rounded cursor-pointer"
+              >
+                <Edit3 className="w-3 h-3 cinema-tile-icon" />
+              </button>
+            </CinemaToolHUD>
           )}
           {onDuplicate && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDuplicate();
-              }}
-              className="p-1 rounded hover:bg-white/10 text-white/50 hover:text-[#F5A623] transition-colors cursor-pointer"
-              title="Duplicate card"
+            <CinemaToolHUD
+              title="DUPLICATE SHOT"
+              en="Clone this shot card next in the timeline."
+              bn="এই শট কার্ডটি কপি করে ডুপ্লিকেট তৈরি করতে চাপুন।"
+              accent="cyan"
             >
-              <Copy className="w-3 h-3" />
-            </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDuplicate();
+                }}
+                className="cinema-tile cinema-tile-cyan p-1 rounded cursor-pointer"
+              >
+                <Copy className="w-3 h-3 cinema-tile-icon" />
+              </button>
+            </CinemaToolHUD>
           )}
           {onDelete && totalSlides > 1 && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete();
-              }}
-              className="p-1 rounded hover:bg-white/10 text-white/50 hover:text-red-400 transition-colors cursor-pointer"
-              title="Delete card"
+            <CinemaToolHUD
+              title="DELETE SHOT"
+              en="Remove this shot card from sequence."
+              bn="সিকোয়েন্স থেকে এই শটটি মুছে ফেলতে চাপুন।"
+              accent="crimson"
             >
-              <Trash2 className="w-3 h-3" />
-            </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete();
+                }}
+                className="cinema-tile cinema-tile-crimson p-1 rounded cursor-pointer"
+              >
+                <Trash2 className="w-3 h-3 cinema-tile-icon" />
+              </button>
+            </CinemaToolHUD>
           )}
         </div>
       </div>
@@ -631,56 +668,77 @@ export const ReelsSequenceBoard: React.FC<ReelsSequenceBoardProps> = ({
 
           <div className="flex flex-wrap items-center gap-1.5">
             {onApplyDurationToAll && (
-              <button
-                type="button"
-                onClick={() => onApplyDurationToAll(activeSlideDuration)}
-                className="px-2.5 py-1 rounded-full bg-[#161620] hover:bg-[#222230] border border-white/15 hover:border-[#F5A623]/60 text-white/80 hover:text-[#FFE066] flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap"
-                title="Apply current shot's duration across all slides in sequence"
+              <CinemaToolHUD
+                title="RIPPLE ALL"
+                en="Apply active shot duration across every cut in sequence."
+                bn="এই শটের সময়কাল সিকোয়েন্সের সব শটে প্রয়োগ করতে চাপুন।"
+                accent="amber"
               >
-                <Repeat className="w-3 h-3 text-[#F5A623]" />
-                <span>Ripple Apply Duration to All</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => onApplyDurationToAll(activeSlideDuration)}
+                  className="cinema-tile cinema-tile-amber px-2.5 py-1 rounded-md flex items-center gap-1.5 font-black tracking-wider text-[10px] uppercase cursor-pointer whitespace-nowrap"
+                >
+                  <Repeat className="w-3.5 h-3.5 cinema-tile-icon" />
+                  <span>RIPPLE ALL</span>
+                </button>
+              </CinemaToolHUD>
             )}
 
             {onMatchAudioBeats && (
-              <button
-                type="button"
-                onClick={onMatchAudioBeats}
-                className="px-2.5 py-1 rounded-full bg-[#161620] hover:bg-[#222230] border border-white/15 hover:border-cyan-400/60 text-white/80 hover:text-cyan-200 flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap"
-                title="Quantize all slide durations to detected audio waveform beats"
+              <CinemaToolHUD
+                title="MATCH BEATS"
+                en="Quantize all shot durations to detected waveform beats."
+                bn="মিউজিকের বিটের সাথে সব শটের দৈর্ঘ্য অটো-ম্যাচ করতে চাপুন।"
+                accent="cyan"
               >
-                <Activity className="w-3 h-3 text-cyan-400" />
-                <span>Match Audio Waveform Beats</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={onMatchAudioBeats}
+                  className="cinema-tile cinema-tile-cyan px-2.5 py-1 rounded-md flex items-center gap-1.5 font-black tracking-wider text-[10px] uppercase cursor-pointer whitespace-nowrap"
+                >
+                  <Activity className="w-3.5 h-3.5 cinema-tile-icon" />
+                  <span>MATCH BEATS</span>
+                </button>
+              </CinemaToolHUD>
             )}
 
             {onToggleSnapToBeat && (
-              <button
-                type="button"
-                onClick={onToggleSnapToBeat}
-                className={`px-2.5 py-1 rounded-full border flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap font-bold ${
-                  isSnapToBeat
-                    ? 'bg-cyan-500/20 border-cyan-400 text-cyan-200'
-                    : 'bg-[#161620] hover:bg-[#222230] border-white/15 text-white/70 hover:text-white'
-                }`}
-                title="Magnetically snap slide stretch/split cuts to detected kick/snare transients"
+              <CinemaToolHUD
+                title="BEAT SNAP"
+                en="Magnetically snap shot resize/split edges to beat transients."
+                bn="শট কাটার সময় বিট লাইনে ম্যাগনেটিক স্ন্যাপ চালু বা বন্ধ করুন।"
+                accent="cyan"
               >
-                <Music className="w-3 h-3 text-cyan-400" />
-                <span>SNAP CUTS TO BEATS</span>
-              </button>
+                <button
+                  type="button"
+                  data-active={isSnapToBeat ? 'true' : 'false'}
+                  onClick={onToggleSnapToBeat}
+                  className="cinema-tile cinema-tile-cyan px-2.5 py-1 rounded-md flex items-center gap-1.5 font-black tracking-wider text-[10px] uppercase cursor-pointer whitespace-nowrap"
+                >
+                  <Music className="w-3.5 h-3.5 cinema-tile-icon" />
+                  <span>BEAT SNAP</span>
+                </button>
+              </CinemaToolHUD>
             )}
 
             {onLoadAudioFile && (
               <>
-                <button
-                  type="button"
-                  onClick={() => audioInputRef.current?.click()}
-                  className="px-2.5 py-1 rounded-full bg-[#161620] hover:bg-[#222230] border border-white/15 text-white/70 hover:text-[#FFE066] flex items-center gap-1 cursor-pointer transition-colors whitespace-nowrap"
-                  title="Attach MP3/WAV track for offline AudioContext transient beat detection"
+                <CinemaToolHUD
+                  title="LOAD AUDIO"
+                  en="Attach MP3/WAV track for transient beat detection."
+                  bn="বিট ডিটেকশনের জন্য ডিভাইস থেকে অডিও বা গান যোগ করুন।"
+                  accent="emerald"
                 >
-                  <Upload className="w-3 h-3 text-[#F5A623]" />
-                  <span>Load Beat Track</span>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => audioInputRef.current?.click()}
+                    className="cinema-tile cinema-tile-emerald px-2.5 py-1 rounded-md flex items-center gap-1.5 font-black tracking-wider text-[10px] uppercase cursor-pointer whitespace-nowrap"
+                  >
+                    <Upload className="w-3.5 h-3.5 cinema-tile-icon" />
+                    <span>LOAD AUDIO</span>
+                  </button>
+                </CinemaToolHUD>
                 <input
                   ref={audioInputRef}
                   type="file"

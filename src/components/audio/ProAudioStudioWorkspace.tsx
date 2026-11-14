@@ -40,6 +40,7 @@ import {
   synthesizeFoleyRecipeToWavBlob,
   VocalIsolationMode
 } from '../../services/vocalRemoverAndFoleyService';
+import { CinemaBadgeHeader, CinemaToolHUD } from '../ui/CinemaToolHUD';
 
 export type ProAudioTab = 'vocal-remover' | 'record-vo' | 'gemini-audio' | 'mixer';
 
@@ -91,7 +92,7 @@ export const ProAudioStudioWorkspace: React.FC<ProAudioStudioWorkspaceProps> = (
       return;
     }
     if (!vrFile) {
-      flashNotice('Select an audio or video file first.');
+      flashNotice('SELECT MEDIA');
       return;
     }
     setVrProcessing(true);
@@ -110,10 +111,10 @@ export const ProAudioStudioWorkspace: React.FC<ProAudioStudioWorkspaceProps> = (
         durationSec: res.durationSec
       });
       flashNotice(
-        `${vrMode === 'instrumental' ? 'Instrumental stem' : 'Acapella stem'} rendered (${res.durationSec.toFixed(1)}s)`
+        `${vrMode === 'instrumental' ? 'INSTRO STEM' : 'ACAPELLA STEM'} (${res.durationSec.toFixed(1)}s)`
       );
     } catch (err: any) {
-      flashNotice(err?.message || 'Failed to decode audio file.');
+      flashNotice(err?.message || 'DECODE FAILED');
     } finally {
       setVrProcessing(false);
     }
@@ -163,7 +164,7 @@ export const ProAudioStudioWorkspace: React.FC<ProAudioStudioWorkspaceProps> = (
   const handleSelectVoiceEq = (preset: VoiceEqPreset) => {
     setVoiceEqPreset(preset);
     multiTrackAudioBus.applyVoiceEqPreset(preset);
-    flashNotice(`Voice EQ preset: ${preset.toUpperCase()}`);
+    flashNotice(`EQ: ${preset.toUpperCase()}`);
   };
 
   const handleToggleAutoDuck = () => {
@@ -176,14 +177,13 @@ export const ProAudioStudioWorkspace: React.FC<ProAudioStudioWorkspaceProps> = (
   const startActualMicRecording = async () => {
     setVoError(null);
     if (!navigator.mediaDevices?.getUserMedia) {
-      setVoError('Microphone capture is unavailable in this browser context.');
+      setVoError('MIC UNAVAILABLE');
       return;
     }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       micStreamRef.current = stream;
 
-      // Live Peak dB Meter
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       if (AudioCtx) {
         const meterCtx = new AudioCtx();
@@ -222,7 +222,7 @@ export const ProAudioStudioWorkspace: React.FC<ProAudioStudioWorkspaceProps> = (
         if (syncStageOnRec && isStagePlaying) {
           setStagePlaying(false);
         }
-        flashNotice('Voiceover take captured cleanly.');
+        flashNotice('VO CAPTURED');
       };
 
       multiTrackAudioBus.applyVoiceEqPreset(voiceEqPreset);
@@ -236,7 +236,7 @@ export const ProAudioStudioWorkspace: React.FC<ProAudioStudioWorkspaceProps> = (
       }
     } catch (err: any) {
       cleanupMicSession();
-      setVoError(err?.message || 'Microphone permission denied.');
+      setVoError(err?.message || 'MIC DENIED');
     }
   };
 
@@ -299,8 +299,8 @@ export const ProAudioStudioWorkspace: React.FC<ProAudioStudioWorkspaceProps> = (
     }
     flashNotice(
       key === 'normalizeLufs14'
-        ? `-14 LUFS Normalization ${nextVal ? 'ENABLED' : 'OFF'}`
-        : `Noise Reduction Filter ${nextVal ? 'ENABLED' : 'OFF'}`
+        ? `-14 LUFS ${nextVal ? 'ON' : 'OFF'}`
+        : `DENOISE ${nextVal ? 'ON' : 'OFF'}`
     );
   };
 
@@ -332,12 +332,12 @@ export const ProAudioStudioWorkspace: React.FC<ProAudioStudioWorkspaceProps> = (
       const json = await resp.json().catch(() => ({}));
       if (!resp.ok || !json?.success || !json?.audioDataUrl) {
         useLicenseStore.getState().handleApiLicenseError(resp.status, json, 'AI Vocal Remover & Gemini Voice Studio');
-        throw new Error(json?.error || `TTS generation failed (${resp.status})`);
+        throw new Error(json?.error || `TTS FAILED (${resp.status})`);
       }
       setTtsAudioUrl(json.audioDataUrl);
-      flashNotice(`Gemini TTS ready (${ttsVoice})`);
+      flashNotice(`TTS READY (${ttsVoice})`);
     } catch (err: any) {
-      setTtsError(err?.message || 'Gemini TTS failed.');
+      setTtsError(err?.message || 'TTS FAILED');
     } finally {
       setIsGeneratingTts(false);
     }
@@ -355,7 +355,7 @@ export const ProAudioStudioWorkspace: React.FC<ProAudioStudioWorkspaceProps> = (
       return url;
     });
     setActiveFoleyName(recipe.name);
-    flashNotice(`Foley synthesized: ${recipe.name}`);
+    flashNotice(`FOLEY: ${recipe.name}`);
   };
 
   const handleGenerateFoley = async () => {
@@ -417,7 +417,7 @@ export const ProAudioStudioWorkspace: React.FC<ProAudioStudioWorkspaceProps> = (
       index: targetShotIndex,
       partial: { [field]: url }
     });
-    flashNotice(`Bound ${label} to SH${String(targetShotIndex + 1).padStart(3, '0')}`);
+    flashNotice(`BOUND SH${String(targetShotIndex + 1).padStart(3, '0')}`);
   };
 
   const toggleDroneSynth = () => {
@@ -434,200 +434,323 @@ export const ProAudioStudioWorkspace: React.FC<ProAudioStudioWorkspaceProps> = (
     }
   };
 
+  const shotBadge = `SH${String(targetShotIndex + 1).padStart(3, '0')}`;
+
   return (
     <div
       className={`flex flex-col text-white font-mono select-none ${
         compact ? 'gap-2.5' : 'p-4 gap-3.5'
       }`}
     >
-      {/* Target Shot Header + Segmented Navigation */}
+      {/* Header + 4-Tile Navigation */}
       <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-white/10">
-        <div className="flex items-center gap-1.5 bg-black/60 p-0.5 rounded-lg border border-white/10 overflow-x-auto no-scrollbar">
+        <CinemaBadgeHeader
+          icon={<Volume2 className="w-4 h-4 text-[#F59E0B]" />}
+          label="AUDIO DECK"
+          accent="amber"
+          rightSlot={
+            <span className="px-2 py-0.5 rounded bg-[#F59E0B]/15 border border-[#F59E0B]/40 text-[#F59E0B] text-[9px] font-black tabular-nums">
+              {shotBadge}
+            </span>
+          }
+        />
+
+        <div className="grid grid-cols-4 gap-1.5 w-full sm:w-auto">
           {(
             [
-              { id: 'gemini-audio', label: '✨ GEMINI AUDIO' },
-              { id: 'record-vo', label: '🎤 RECORD VO' },
-              { id: 'vocal-remover', label: '🎛 VOCAL REMOVER' },
-              { id: 'mixer', label: '🎚 3-BUS MIXER' }
+              {
+                id: 'gemini-audio',
+                label: 'GEMINI TTS',
+                icon: Sparkles,
+                accent: 'amber' as const,
+                en: 'Synthesize neural voiceover & procedural 48kHz Foley SFX.',
+                bn: 'স্ক্রিপ্ট লিখে AI ভয়েস ও সাউন্ড এফেক্ট তৈরি করে শটে বসান।'
+              },
+              {
+                id: 'record-vo',
+                label: 'RECORD VO',
+                icon: Mic,
+                accent: 'crimson' as const,
+                en: 'Live mic voiceover booth with 3-2-1 sync & -12dB music duck.',
+                bn: 'মাইক থেকে লাইভ ভয়েসওভার রেকর্ড করুন ও শটের সাথে সিঙ্ক করুন।'
+              },
+              {
+                id: 'vocal-remover',
+                label: 'STEM SPLIT',
+                icon: AudioWaveform,
+                accent: 'cyan' as const,
+                en: 'Mid-Side DSP vocal remover & acapella stem separator.',
+                bn: 'গান থেকে ভোকাল বা মিউজিক আলাদা করতে ফাইল বেছে EXTRACT চাপুন।'
+              },
+              {
+                id: 'mixer',
+                label: '3-BUS MIX',
+                icon: Sliders,
+                accent: 'emerald' as const,
+                en: 'Master 3-bus console with stereo pan, 3-band EQ, & LUFS DSP.',
+                bn: 'ভয়েস, মিউজিক ও SFX ট্র্যাকের ভলিউম ও ইকিউ ব্যালেন্স করুন।'
+              }
             ] as const
-          ).map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              data-testid={`audio-tab-${t.id}`}
-              onClick={() => setActiveTab(t.id)}
-              className={`px-2.5 py-1 rounded text-[9px] font-bold uppercase tracking-wider cursor-pointer whitespace-nowrap shrink-0 transition-colors ${
-                activeTab === t.id
-                  ? 'bg-[#F59E0B] text-[#0B0B0D]'
-                  : 'text-zinc-400 hover:text-white'
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
+          ).map((t) => {
+            const Icon = t.icon;
+            const active = activeTab === t.id;
+            return (
+              <CinemaToolHUD
+                key={t.id}
+                title={t.label}
+                en={t.en}
+                bn={t.bn}
+                accent={t.accent}
+                blockWrapper
+              >
+                <button
+                  type="button"
+                  data-testid={`audio-tab-${t.id}`}
+                  data-active={active ? 'true' : 'false'}
+                  onClick={() => setActiveTab(t.id)}
+                  className={`w-full min-h-[44px] px-2 py-1.5 rounded-lg cinema-tile cinema-tile-${t.accent} flex flex-col items-center justify-center gap-1 cursor-pointer`}
+                >
+                  <Icon className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                  <span className="font-black tracking-wider text-[9px] uppercase whitespace-nowrap">
+                    {t.label}
+                  </span>
+                </button>
+              </CinemaToolHUD>
+            );
+          })}
         </div>
-
-        <span className="px-2 py-0.5 rounded bg-[#F59E0B]/15 border border-[#F59E0B]/40 text-[#F59E0B] text-[9px] font-bold tabular-nums shrink-0">
-          TARGET SH{String(targetShotIndex + 1).padStart(3, '0')}
-        </span>
       </div>
 
       {statusNotice && (
-        <div className="px-3 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-[10px] font-bold flex items-center gap-1.5">
+        <div className="px-3 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-[10px] font-black flex items-center gap-1.5 uppercase tracking-wider">
           <Check className="w-3.5 h-3.5 shrink-0" />
           <span>{statusNotice}</span>
         </div>
       )}
 
       {/* ================================================================= */}
-      {/* TAB 1: VOCAL REMOVER (MID-SIDE STEREO DSP)                         */}
+      {/* TAB 1: STEM SPLIT (MID-SIDE STEREO DSP)                           */}
       {/* ================================================================= */}
       {activeTab === 'vocal-remover' && (
         <div className="space-y-3 bg-[#0D0E12] border border-white/10 rounded-xl p-3.5">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-[#F59E0B] uppercase tracking-wider flex items-center gap-1.5">
-              <AudioWaveform className="w-3.5 h-3.5" />
-              STEREO MID-SIDE VOCAL REMOVER
-            </span>
-            <span className="text-[8.5px] text-zinc-400 uppercase">WEB AUDIO DSP</span>
-          </div>
+          <CinemaBadgeHeader
+            icon={<AudioWaveform className="w-4 h-4 text-cyan-400" />}
+            label="STEM SPLIT"
+            accent="cyan"
+            rightSlot={<span className="text-[9px] font-black text-zinc-400">MID-SIDE DSP</span>}
+          />
 
           <div className="flex items-center gap-2">
-            <label className="flex-1 min-w-0 flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg border border-dashed border-white/20 hover:border-[#F59E0B]/60 bg-black/50 cursor-pointer transition-colors">
-              <span className="text-[10px] text-zinc-300 truncate">
-                {vrFile ? `Loaded: ${vrFile.name}` : 'Select audio / video track to split vocals...'}
-              </span>
-              <span className="px-2 py-0.5 rounded bg-white/10 text-[9px] font-bold text-white shrink-0">
-                BROWSE
-              </span>
-              <input
-                type="file"
-                accept="audio/*,video/*"
-                className="hidden"
-                onChange={(e) => setVrFile(e.target.files?.[0] || null)}
-              />
-            </label>
-            <button
-              type="button"
-              onClick={async () => {
-                const candidateUrl =
-                  (targetShot as any)?.audioUrl ||
-                  (targetShot as any)?.voAudioUrl ||
-                  ((targetShot as any)?.isVideo ? targetShot?.imageUrl : '');
-                if (!candidateUrl) {
-                  flashNotice('Active shot has no video/audio track — browse a file.');
-                  return;
-                }
-                try {
-                  const res = await fetch(candidateUrl);
-                  const blob = await res.blob();
-                  const file = new File([blob], `shot_${String(targetShotIndex + 1).padStart(3, '0')}_audio.webm`, {
-                    type: blob.type || 'audio/webm'
-                  });
-                  setVrFile(file);
-                  flashNotice('Loaded active shot audio into Vocal Isolator');
-                } catch {
-                  flashNotice('Could not read active shot media URL; browse file manually.');
-                }
-              }}
-              className="px-2.5 py-2.5 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-400/40 text-cyan-200 text-[9px] font-bold uppercase cursor-pointer shrink-0 whitespace-nowrap"
-              title="One-Click Load Active Shot Audio for Stem Isolation"
+            <CinemaToolHUD
+              title="BROWSE TRACK"
+              en="Pick an audio or video file to separate vocals & music."
+              bn="কম্পিউটার বা ফোন থেকে অডিও/ভিডিও ফাইল আপলোড করুন।"
+              accent="amber"
+              blockWrapper
             >
-              ACTIVE SHOT
-            </button>
+              <label className="w-full min-h-[44px] flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-dashed border-white/20 hover:border-[#F59E0B]/60 bg-black/50 cursor-pointer transition-colors">
+                <span className="text-[10px] font-bold text-zinc-300 truncate uppercase">
+                  {vrFile ? vrFile.name : 'DROP TRACK'}
+                </span>
+                <span className="px-2 py-0.5 rounded bg-white/10 text-[9px] font-black text-white shrink-0">
+                  BROWSE
+                </span>
+                <input
+                  type="file"
+                  accept="audio/*,video/*"
+                  className="hidden"
+                  onChange={(e) => setVrFile(e.target.files?.[0] || null)}
+                />
+              </label>
+            </CinemaToolHUD>
+
+            <CinemaToolHUD
+              title="LOAD ACTIVE SHOT"
+              en="Pull audio directly from the currently selected shot."
+              bn="বর্তমান শটের অডিও সরাসরি স্টেম স্প্লিটারে লোড করতে চাপুন।"
+              accent="cyan"
+            >
+              <button
+                type="button"
+                onClick={async () => {
+                  const candidateUrl =
+                    (targetShot as any)?.audioUrl ||
+                    (targetShot as any)?.voAudioUrl ||
+                    ((targetShot as any)?.isVideo ? targetShot?.imageUrl : '');
+                  if (!candidateUrl) {
+                    flashNotice('NO SHOT AUDIO');
+                    return;
+                  }
+                  try {
+                    const res = await fetch(candidateUrl);
+                    const blob = await res.blob();
+                    const file = new File([blob], `shot_${String(targetShotIndex + 1).padStart(3, '0')}_audio.webm`, {
+                      type: blob.type || 'audio/webm'
+                    });
+                    setVrFile(file);
+                    flashNotice('SHOT LOADED');
+                  } catch {
+                    flashNotice('BROWSE FILE');
+                  }
+                }}
+                className="min-h-[44px] px-3 py-2 rounded-lg cinema-tile cinema-tile-cyan flex flex-col items-center justify-center gap-0.5 cursor-pointer shrink-0"
+              >
+                <AudioWaveform className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                <span className="font-black tracking-wider text-[9px] uppercase whitespace-nowrap">
+                  SHOT AUDIO
+                </span>
+              </button>
+            </CinemaToolHUD>
           </div>
 
-          <div className="grid grid-cols-2 gap-1.5 bg-black/60 p-1 rounded-lg border border-white/10">
-            <button
-              type="button"
-              onClick={() => setVrMode('instrumental')}
-              className={`py-1.5 rounded text-[9px] font-bold uppercase cursor-pointer whitespace-nowrap ${
-                vrMode === 'instrumental'
-                  ? 'bg-[#F59E0B] text-black'
-                  : 'text-zinc-400 hover:text-white'
-              }`}
+          <div className="grid grid-cols-2 gap-2">
+            <CinemaToolHUD
+              title="INSTRUMENTAL MODE"
+              en="Remove center vocals and keep stereo music & backing instruments."
+              bn="গান থেকে ভোকাল মুছে শুধু কারাওকে মিউজিক আলাদা করতে চাপুন।"
+              accent="amber"
+              blockWrapper
             >
-              INSTRUMENTAL / KARAOKE
-            </button>
-            <button
-              type="button"
-              onClick={() => setVrMode('acapella')}
-              className={`py-1.5 rounded text-[9px] font-bold uppercase cursor-pointer whitespace-nowrap ${
-                vrMode === 'acapella'
-                  ? 'bg-[#F59E0B] text-black'
-                  : 'text-zinc-400 hover:text-white'
-              }`}
+              <button
+                type="button"
+                data-active={vrMode === 'instrumental' ? 'true' : 'false'}
+                onClick={() => setVrMode('instrumental')}
+                className="w-full min-h-[44px] py-2 rounded-lg cinema-tile cinema-tile-amber flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Music className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                <span className="font-black tracking-wider text-[10px] uppercase">INSTRO</span>
+              </button>
+            </CinemaToolHUD>
+
+            <CinemaToolHUD
+              title="ACAPELLA MODE"
+              en="Isolate center vocal track and suppress side stereo instruments."
+              bn="মিউজিক বাদ দিয়ে শুধু কণ্ঠ বা ভোকাল আলাদা করতে চাপুন।"
+              accent="cyan"
+              blockWrapper
             >
-              ACAPELLA VOCAL ISOLATE
-            </button>
+              <button
+                type="button"
+                data-active={vrMode === 'acapella' ? 'true' : 'false'}
+                onClick={() => setVrMode('acapella')}
+                className="w-full min-h-[44px] py-2 rounded-lg cinema-tile cinema-tile-cyan flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Mic className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                <span className="font-black tracking-wider text-[10px] uppercase">ACAPELLA</span>
+              </button>
+            </CinemaToolHUD>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[9px]">
-            <div>
-              <div className="flex justify-between text-zinc-400 mb-1 tabular-nums">
-                <span>CENTER SUPPRESSION</span>
-                <span className="text-[#FFE066] font-bold">{vrSuppression}%</span>
+            <CinemaToolHUD
+              title="CENTER SUPPRESS"
+              en="Adjust Mid-Side phase cancellation depth for vocal suppression."
+              bn="ভোকাল কতটুকু কাটবে বা রাখবে তা স্লাইডার দিয়ে সেট করুন।"
+              accent="amber"
+              blockWrapper
+            >
+              <div className="p-2 rounded-lg bg-black/50 border border-white/10">
+                <div className="flex justify-between text-zinc-400 mb-1 tabular-nums font-black uppercase">
+                  <span>SUPPRESS</span>
+                  <span className="text-[#FFE066]">{vrSuppression}%</span>
+                </div>
+                <input
+                  type="range"
+                  min={10}
+                  max={100}
+                  value={vrSuppression}
+                  onChange={(e) => setVrSuppression(Number(e.target.value))}
+                  className="w-full accent-[#F59E0B] cursor-pointer"
+                />
               </div>
-              <input
-                type="range"
-                min={10}
-                max={100}
-                value={vrSuppression}
-                onChange={(e) => setVrSuppression(Number(e.target.value))}
-                className="w-full accent-[#F59E0B] cursor-pointer"
-              />
-            </div>
-            <div>
-              <div className="flex justify-between text-zinc-400 mb-1 tabular-nums">
-                <span>BASS RETAIN (&lt;180Hz)</span>
-                <span className="text-[#FFE066] font-bold">{vrBassRetain}%</span>
+            </CinemaToolHUD>
+
+            <CinemaToolHUD
+              title="BASS RETAIN"
+              en="Preserve low-end sub frequencies below 180Hz during split."
+              bn="ভোকাল কাটার সময় বেজ ও কিক ড্রাম ধরে রাখতে এটি বাড়ান।"
+              accent="cyan"
+              blockWrapper
+            >
+              <div className="p-2 rounded-lg bg-black/50 border border-white/10">
+                <div className="flex justify-between text-zinc-400 mb-1 tabular-nums font-black uppercase">
+                  <span>BASS &lt;180</span>
+                  <span className="text-[#FFE066]">{vrBassRetain}%</span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={vrBassRetain}
+                  onChange={(e) => setVrBassRetain(Number(e.target.value))}
+                  className="w-full accent-[#F59E0B] cursor-pointer"
+                />
               </div>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={vrBassRetain}
-                onChange={(e) => setVrBassRetain(Number(e.target.value))}
-                className="w-full accent-[#F59E0B] cursor-pointer"
-              />
-            </div>
+            </CinemaToolHUD>
           </div>
 
-          <button
-            type="button"
-            disabled={!vrFile || vrProcessing}
-            onClick={handleRunVocalRemover}
-            className="w-full py-2 rounded-lg bg-[#F59E0B] hover:bg-amber-400 disabled:opacity-40 text-black font-black text-[10px] tracking-wider uppercase flex items-center justify-center gap-1.5 cursor-pointer"
+          <CinemaToolHUD
+            title="EXTRACT WAV STEM"
+            en="Run Web Audio DSP Mid-Side processor and render 16-bit WAV."
+            bn="মিড-সাইড প্রসেসিং চালিয়ে আলাদা WAV স্টেম তৈরি করুন।"
+            accent="amber"
+            blockWrapper
           >
-            {vrProcessing ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
-            <span>{vrProcessing ? 'PROCESSING MID-SIDE STEMS...' : 'EXTRACT STEM (WAV)'}</span>
-          </button>
+            <button
+              type="button"
+              disabled={!vrFile || vrProcessing}
+              data-active="true"
+              onClick={handleRunVocalRemover}
+              className="w-full min-h-[44px] py-2 rounded-lg cinema-tile cinema-tile-amber disabled:opacity-40 font-black text-[10px] tracking-wider uppercase flex items-center justify-center gap-2 cursor-pointer"
+            >
+              {vrProcessing ? <RefreshCw className="w-4 h-4 animate-spin cinema-tile-icon" /> : <Zap className="w-4 h-4 cinema-tile-icon" />}
+              <span>{vrProcessing ? 'SPLITTING...' : 'EXTRACT STEM'}</span>
+            </button>
+          </CinemaToolHUD>
 
           {vrResult && (
             <div className="p-2.5 rounded-lg bg-black/70 border border-emerald-500/30 space-y-2">
               <audio src={vrResult.wavUrl} controls className="w-full h-8" />
-              <div className="flex flex-wrap items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() =>
-                    bindAudioToTargetShot(
-                      vrMode === 'instrumental' ? 'audioUrl' : 'voAudioUrl',
-                      vrResult.wavUrl,
-                      `${vrMode.toUpperCase()} STEM`
-                    )
-                  }
-                  className="px-2.5 py-1 rounded bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[9px] font-bold uppercase cursor-pointer"
+              <div className="grid grid-cols-2 gap-2">
+                <CinemaToolHUD
+                  title="BIND STEM TO SHOT"
+                  en="Attach isolated stem directly to the active shot audio track."
+                  bn="তৈরি করা স্টেমটি বর্তমান শটের অডিওতে যুক্ত করুন।"
+                  accent="emerald"
+                  blockWrapper
                 >
-                  ASSIGN TO SHOT
-                </button>
-                <a
-                  href={vrResult.wavUrl}
-                  download={`handfilm-${vrMode}-stem.wav`}
-                  className="px-2.5 py-1 rounded bg-white/10 hover:bg-white/20 text-white text-[9px] font-bold uppercase flex items-center gap-1"
+                  <button
+                    type="button"
+                    onClick={() =>
+                      bindAudioToTargetShot(
+                        vrMode === 'instrumental' ? 'audioUrl' : 'voAudioUrl',
+                        vrResult.wavUrl,
+                        `${vrMode.toUpperCase()} STEM`
+                      )
+                    }
+                    className="w-full min-h-[44px] px-2.5 py-1.5 rounded-lg cinema-tile cinema-tile-emerald text-[9px] font-black uppercase flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Check className="w-3.5 h-3.5 cinema-tile-icon" />
+                    <span>BIND SHOT</span>
+                  </button>
+                </CinemaToolHUD>
+
+                <CinemaToolHUD
+                  title="DOWNLOAD WAV"
+                  en="Save isolated stereo WAV stem locally."
+                  bn="আলাদা করা অডিও ফাইল ডিভাইসে ডাউনলোড করুন।"
+                  accent="amber"
+                  blockWrapper
                 >
-                  <Download className="w-3 h-3" />
-                  <span>DOWNLOAD WAV</span>
-                </a>
+                  <a
+                    href={vrResult.wavUrl}
+                    download={`handfilm-${vrMode}-stem.wav`}
+                    className="w-full min-h-[44px] px-2.5 py-1.5 rounded-lg cinema-tile cinema-tile-amber text-[9px] font-black uppercase flex items-center justify-center gap-1.5"
+                  >
+                    <Download className="w-3.5 h-3.5 cinema-tile-icon" />
+                    <span>SAVE WAV</span>
+                  </a>
+                </CinemaToolHUD>
               </div>
             </div>
           )}
@@ -639,15 +762,16 @@ export const ProAudioStudioWorkspace: React.FC<ProAudioStudioWorkspaceProps> = (
       {/* ================================================================= */}
       {activeTab === 'record-vo' && (
         <div className="space-y-3 bg-[#0D0E12] border border-white/10 rounded-xl p-3.5">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-[#F59E0B] uppercase tracking-wider flex items-center gap-1.5">
-              <Mic className="w-3.5 h-3.5" />
-              DIRECTOR VOICEOVER BOOTH
-            </span>
-            <span className="text-[9px] tabular-nums text-zinc-400">
-              MIC INPUT: <strong className="text-white">{micPeakDb} dBFS</strong>
-            </span>
-          </div>
+          <CinemaBadgeHeader
+            icon={<Mic className="w-4 h-4 text-rose-400" />}
+            label="VO BOOTH"
+            accent="crimson"
+            rightSlot={
+              <span className="text-[9px] tabular-nums font-black text-[#FFE066]">
+                {micPeakDb} dBFS
+              </span>
+            }
+          />
 
           {/* Live Peak dB Meter */}
           <div className="h-2.5 w-full rounded bg-black/80 border border-white/10 overflow-hidden">
@@ -660,101 +784,124 @@ export const ProAudioStudioWorkspace: React.FC<ProAudioStudioWorkspaceProps> = (
           </div>
 
           {/* Voice EQ Curves */}
-          <div className="space-y-1">
-            <span className="text-[8.5px] text-zinc-400 uppercase block">VOICE EQ CURVE</span>
-            <div className="grid grid-cols-3 gap-1.5">
-              {(
-                [
-                  { id: 'podcast-crisp', label: 'PODCAST CRISP' },
-                  { id: 'cinema-narrator', label: 'CINEMA NARRATOR' },
-                  { id: 'radio-warm', label: 'RADIO WARM' }
-                ] as const
-              ).map((eq) => (
+          <div className="grid grid-cols-3 gap-1.5">
+            {(
+              [
+                { id: 'podcast-crisp', label: 'PODCAST', en: 'Crisp podcast vocal curve with airy highs.', bn: 'স্পষ্ট ও ঝকঝকে পডকাস্ট কণ্ঠের জন্য চাপুন।' },
+                { id: 'cinema-narrator', label: 'NARRATOR', en: 'Rich cinematic narrator presence EQ curve.', bn: 'গভীর সিনেমাটিক ন্যারেশন সাউন্ডের জন্য চাপুন।' },
+                { id: 'radio-warm', label: 'RADIO WARM', en: 'Warm broadcast midrange EQ saturation.', bn: 'উষ্ণ রেডিও ব্রডকাস্ট টোনের জন্য চাপুন।' }
+              ] as const
+            ).map((eq) => (
+              <CinemaToolHUD key={eq.id} title={`${eq.label} EQ`} en={eq.en} bn={eq.bn} accent="amber" blockWrapper>
                 <button
-                  key={eq.id}
                   type="button"
+                  data-active={voiceEqPreset === eq.id ? 'true' : 'false'}
                   onClick={() => handleSelectVoiceEq(eq.id)}
-                  className={`py-1.5 px-1 rounded text-[8.5px] font-bold uppercase cursor-pointer border whitespace-nowrap truncate ${
-                    voiceEqPreset === eq.id
-                      ? 'bg-[#F59E0B]/20 border-[#F59E0B] text-[#F59E0B]'
-                      : 'bg-black/60 border-white/10 text-zinc-400 hover:text-white'
-                  }`}
+                  className="w-full min-h-[44px] py-1.5 px-1.5 rounded-lg cinema-tile cinema-tile-amber flex flex-col items-center justify-center gap-0.5 cursor-pointer"
                 >
-                  {eq.label}
+                  <Sliders className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+                  <span className="text-[9px] font-black uppercase tracking-wider whitespace-nowrap">
+                    {eq.label}
+                  </span>
                 </button>
-              ))}
-            </div>
+              </CinemaToolHUD>
+            ))}
           </div>
 
           {/* Countdown & -12dB Auto Duck Toggles */}
           <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => setSyncStageOnRec(!syncStageOnRec)}
-              className={`p-2 rounded-lg border text-left text-[9px] font-bold cursor-pointer ${
-                syncStageOnRec
-                  ? 'bg-amber-500/15 border-[#F59E0B]/50 text-amber-300'
-                  : 'bg-black/60 border-white/10 text-zinc-400'
-              }`}
+            <CinemaToolHUD
+              title="3-2-1 STAGE SYNC"
+              en="Play 3-second countdown and auto-start playback with mic."
+              bn="৩-২-১ কাউন্টডাউন শেষে ভিডিও প্লে হয়ে ভয়েস রেকর্ড শুরু হবে।"
+              accent="amber"
+              blockWrapper
             >
-              {syncStageOnRec ? '✓ 3-2-1 STAGE SYNC' : 'MANUAL RECORD'}
-            </button>
-            <button
-              type="button"
-              onClick={handleToggleAutoDuck}
-              className={`p-2 rounded-lg border text-left text-[9px] font-bold cursor-pointer ${
-                autoDuck12Db
-                  ? 'bg-emerald-500/15 border-emerald-500/50 text-emerald-300'
-                  : 'bg-black/60 border-white/10 text-zinc-400'
-              }`}
+              <button
+                type="button"
+                data-active={syncStageOnRec ? 'true' : 'false'}
+                onClick={() => setSyncStageOnRec(!syncStageOnRec)}
+                className="w-full min-h-[44px] p-2 rounded-lg cinema-tile cinema-tile-amber flex items-center justify-center gap-1.5 text-[9.5px] font-black uppercase cursor-pointer"
+              >
+                <Play className="w-3.5 h-3.5 cinema-tile-icon" />
+                <span>{syncStageOnRec ? '3-2-1 SYNC' : 'MANUAL'}</span>
+              </button>
+            </CinemaToolHUD>
+
+            <CinemaToolHUD
+              title="-12DB AUTO-DUCK"
+              en="Automatically lower music bus -12dB when voiceover speaks."
+              bn="কথা বলার সময় ব্যাকগ্রাউন্ড মিউজিক অটোমেটিক ১২ ডিবি কমিয়ে দেয়।"
+              accent="emerald"
+              blockWrapper
             >
-              {autoDuck12Db ? '✓ -12DB AUTO-DUCK' : 'DUCKING OFF'}
-            </button>
+              <button
+                type="button"
+                data-active={autoDuck12Db ? 'true' : 'false'}
+                onClick={handleToggleAutoDuck}
+                className="w-full min-h-[44px] p-2 rounded-lg cinema-tile cinema-tile-emerald flex items-center justify-center gap-1.5 text-[9.5px] font-black uppercase cursor-pointer"
+              >
+                <Volume2 className="w-3.5 h-3.5 cinema-tile-icon" />
+                <span>{autoDuck12Db ? '-12DB DUCK' : 'DUCK OFF'}</span>
+              </button>
+            </CinemaToolHUD>
           </div>
 
           {voError && (
-            <div className="px-2.5 py-1.5 rounded bg-red-500/15 border border-red-500/40 text-red-300 text-[9px]">
+            <div className="px-2.5 py-1.5 rounded bg-red-500/15 border border-red-500/40 text-red-300 text-[9px] font-bold uppercase">
               {voError}
             </div>
           )}
 
-          <button
-            type="button"
-            onClick={handleToggleRecordVo}
-            className={`w-full py-2.5 rounded-lg font-black text-[10px] tracking-widest uppercase flex items-center justify-center gap-2 cursor-pointer transition-all ${
-              isRecordingVo
-                ? 'bg-red-600 hover:bg-red-500 text-white'
-                : countdownNum !== null
-                ? 'bg-amber-500 text-black'
-                : 'bg-[#E50914] hover:bg-red-500 text-white'
-            }`}
+          <CinemaToolHUD
+            title="RECORD VOICEOVER"
+            en="Capture studio mic take directly onto the timeline booth."
+            bn="লাইভ ভয়েসওভার রেকর্ড শুরু বা বন্ধ করতে চাপুন।"
+            accent="crimson"
+            blockWrapper
           >
-            {isRecordingVo ? (
-              <>
-                <Square className="w-3.5 h-3.5 fill-current" />
-                <span>STOP VO RECORDING</span>
-              </>
-            ) : countdownNum !== null ? (
-              <span>STARTING IN {countdownNum}...</span>
-            ) : (
-              <>
-                <Mic className="w-3.5 h-3.5" />
-                <span>RECORD VOICEOVER TAKE</span>
-              </>
-            )}
-          </button>
+            <button
+              type="button"
+              data-active={isRecordingVo || countdownNum !== null ? 'true' : 'false'}
+              onClick={handleToggleRecordVo}
+              className="w-full min-h-[44px] py-2.5 rounded-lg cinema-tile cinema-tile-crimson font-black text-[10px] tracking-widest uppercase flex items-center justify-center gap-2 cursor-pointer"
+            >
+              {isRecordingVo ? (
+                <>
+                  <Square className="w-4 h-4 fill-current cinema-tile-icon" />
+                  <span>STOP REC</span>
+                </>
+              ) : countdownNum !== null ? (
+                <span>WAIT {countdownNum}...</span>
+              ) : (
+                <>
+                  <Mic className="w-4 h-4 cinema-tile-icon" />
+                  <span>RECORD VO</span>
+                </>
+              )}
+            </button>
+          </CinemaToolHUD>
 
           {(recordedVoUrl || targetShot?.voAudioUrl) && (
             <div className="p-2.5 rounded-lg bg-black/70 border border-white/10 space-y-2">
               <audio src={recordedVoUrl || targetShot?.voAudioUrl} controls className="w-full h-8" />
               {recordedVoUrl && (
-                <button
-                  type="button"
-                  onClick={() => bindAudioToTargetShot('voAudioUrl', recordedVoUrl, 'LIVE MIC VO')}
-                  className="w-full py-1.5 rounded bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-[9px] font-bold uppercase cursor-pointer"
+                <CinemaToolHUD
+                  title="BIND VO TAKE"
+                  en="Assign captured microphone take to active shot voice track."
+                  bn="রেকর্ড করা ভয়েসওভারটি বর্তমান শটে যুক্ত করতে চাপুন।"
+                  accent="emerald"
+                  blockWrapper
                 >
-                  ✓ BIND VO TO SH{String(targetShotIndex + 1).padStart(3, '0')}
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => bindAudioToTargetShot('voAudioUrl', recordedVoUrl, 'LIVE MIC VO')}
+                    className="w-full min-h-[44px] py-1.5 rounded-lg cinema-tile cinema-tile-emerald text-[9.5px] font-black uppercase flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Check className="w-3.5 h-3.5 cinema-tile-icon" />
+                    <span>BIND {shotBadge}</span>
+                  </button>
+                </CinemaToolHUD>
               )}
             </div>
           )}
@@ -768,19 +915,18 @@ export const ProAudioStudioWorkspace: React.FC<ProAudioStudioWorkspaceProps> = (
         <div className="space-y-3">
           {/* Gemini Neural Voiceover (TTS) */}
           <div className="bg-[#0D0E12] border border-white/10 rounded-xl p-3 space-y-2.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold text-[#F59E0B] uppercase tracking-wider flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5" />
-                GEMINI NEURAL VOICEOVER (TTS)
-              </span>
-              <span className="text-[8.5px] text-zinc-400 uppercase">BANGLA & ENGLISH</span>
-            </div>
+            <CinemaBadgeHeader
+              icon={<Sparkles className="w-4 h-4 text-[#F59E0B]" />}
+              label="GEMINI TTS"
+              accent="amber"
+              rightSlot={<span className="text-[9px] font-black text-zinc-400">BN · EN</span>}
+            />
 
             <textarea
               value={ttsText}
               onChange={(e) => setTtsText(e.target.value)}
               rows={2}
-              placeholder="Enter Bengali or English narration script..."
+              placeholder="Script..."
               className="w-full bg-black/70 border border-white/10 focus:border-[#F59E0B] rounded-lg p-2 text-xs text-white outline-none resize-none"
             />
 
@@ -789,24 +935,24 @@ export const ProAudioStudioWorkspace: React.FC<ProAudioStudioWorkspaceProps> = (
                 aria-label="Gemini Voice"
                 value={ttsVoice}
                 onChange={(e) => setTtsVoice(e.target.value as any)}
-                className="bg-black/80 border border-white/10 rounded px-2 py-1 text-[9.5px] text-amber-300 outline-none"
+                className="bg-black/80 border border-white/10 rounded px-2 py-1.5 text-[10px] font-bold text-amber-300 outline-none"
               >
-                <option value="Kore">Voice: Kore (Firm Cinema)</option>
-                <option value="Puck">Voice: Puck (Upbeat Crisp)</option>
-                <option value="Fenrir">Voice: Fenrir (Deep Trailer)</option>
-                <option value="Zephyr">Voice: Zephyr (Bright Studio)</option>
-                <option value="Aoede">Voice: Aoede (Warm Poetic)</option>
+                <option value="Kore">Kore · Firm</option>
+                <option value="Puck">Puck · Crisp</option>
+                <option value="Fenrir">Fenrir · Deep</option>
+                <option value="Zephyr">Zephyr · Bright</option>
+                <option value="Aoede">Aoede · Poetic</option>
               </select>
               <select
                 aria-label="Delivery Style"
                 value={ttsStyle}
                 onChange={(e) => setTtsStyle(e.target.value as any)}
-                className="bg-black/80 border border-white/10 rounded px-2 py-1 text-[9.5px] text-zinc-200 outline-none"
+                className="bg-black/80 border border-white/10 rounded px-2 py-1.5 text-[10px] font-bold text-zinc-200 outline-none"
               >
-                <option value="cinema-narrator">Cinema Narrator</option>
+                <option value="cinema-narrator">Narrator</option>
                 <option value="bangla-poetic">Bangla Poetic</option>
-                <option value="hype-trailer">Trailer Impact</option>
-                <option value="whisper">Intimate Whisper</option>
+                <option value="hype-trailer">Trailer</option>
+                <option value="whisper">Whisper</option>
               </select>
             </div>
 
@@ -816,53 +962,70 @@ export const ProAudioStudioWorkspace: React.FC<ProAudioStudioWorkspaceProps> = (
                 data-testid="tts-emotion-select"
                 value={ttsEmotion}
                 onChange={(e) => setTtsEmotion(e.target.value as any)}
-                className="bg-black/80 border border-white/10 rounded px-2 py-1 text-[9.5px] text-cyan-300 outline-none"
+                className="bg-black/80 border border-white/10 rounded px-2 py-1.5 text-[10px] font-bold text-cyan-300 outline-none"
               >
-                <option value="dramatic">Emotion: Dramatic</option>
-                <option value="neutral">Emotion: Neutral</option>
-                <option value="warm">Emotion: Warm</option>
-                <option value="intense">Emotion: Intense</option>
-                <option value="whisper">Emotion: Whisper</option>
-                <option value="poetic">Emotion: Poetic</option>
+                <option value="dramatic">Dramatic</option>
+                <option value="neutral">Neutral</option>
+                <option value="warm">Warm</option>
+                <option value="intense">Intense</option>
+                <option value="whisper">Whisper</option>
+                <option value="poetic">Poetic</option>
               </select>
 
-              <div className="flex items-center gap-2 bg-black/80 border border-white/10 rounded px-2 py-1">
-                <span className="text-[9px] text-zinc-400 shrink-0">PITCH</span>
-                <input
-                  type="range"
-                  min={-12}
-                  max={12}
-                  step={1}
-                  aria-label="Pitch Semitones"
-                  value={ttsPitchSemitones}
-                  onChange={(e) => setTtsPitchSemitones(Number(e.target.value))}
-                  className="flex-1 accent-[#F59E0B] cursor-pointer"
-                />
-                <span className="text-[9px] text-amber-300 font-bold tabular-nums w-8 text-right">
-                  {ttsPitchSemitones > 0 ? `+${ttsPitchSemitones}` : ttsPitchSemitones}st
-                </span>
-              </div>
+              <CinemaToolHUD
+                title="VOCAL PITCH"
+                en="Shift generated narration pitch from -12 to +12 semitones."
+                bn="ভয়েসের টোন ভারী বা চিকন করতে সেমিটোন পিচ বদলান।"
+                accent="amber"
+                blockWrapper
+              >
+                <div className="flex items-center gap-2 bg-black/80 border border-white/10 rounded px-2 py-1.5">
+                  <span className="text-[9px] font-black text-zinc-400 shrink-0">PITCH</span>
+                  <input
+                    type="range"
+                    min={-12}
+                    max={12}
+                    step={1}
+                    aria-label="Pitch Semitones"
+                    value={ttsPitchSemitones}
+                    onChange={(e) => setTtsPitchSemitones(Number(e.target.value))}
+                    className="flex-1 accent-[#F59E0B] cursor-pointer"
+                  />
+                  <span className="text-[9px] text-amber-300 font-black tabular-nums w-8 text-right">
+                    {ttsPitchSemitones > 0 ? `+${ttsPitchSemitones}` : ttsPitchSemitones}st
+                  </span>
+                </div>
+              </CinemaToolHUD>
             </div>
 
             {ttsError && (
-              <div className="px-2.5 py-1.5 rounded bg-red-500/15 border border-red-500/40 text-red-300 text-[9px]">
+              <div className="px-2.5 py-1.5 rounded bg-red-500/15 border border-red-500/40 text-red-300 text-[9px] font-bold">
                 {ttsError}
               </div>
             )}
 
-            <button
-              type="button"
-              disabled={isGeneratingTts || !ttsText.trim()}
-              onClick={handleGenerateTts}
-              className="w-full py-2 rounded-lg bg-[#E50914] hover:bg-red-500 disabled:opacity-40 text-white font-black text-[9.5px] tracking-widest uppercase flex items-center justify-center gap-1.5 cursor-pointer"
+            <CinemaToolHUD
+              title="GENERATE VOICEOVER"
+              en="Synthesize studio Bangla/English voiceover via Gemini Neural TTS."
+              bn="লেখা থেকে সরাসরি AI ন্যারেশন ভয়েস তৈরি করতে চাপুন।"
+              accent="crimson"
+              blockWrapper
             >
-              {isGeneratingTts ? (
-                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Zap className="w-3.5 h-3.5 fill-current" />
-              )}
-              <span>{isGeneratingTts ? 'SYNTHESIZING VOICEOVER...' : 'GENERATE GEMINI VOICEOVER'}</span>
-            </button>
+              <button
+                type="button"
+                disabled={isGeneratingTts || !ttsText.trim()}
+                data-active="true"
+                onClick={handleGenerateTts}
+                className="w-full min-h-[44px] py-2 rounded-lg cinema-tile cinema-tile-crimson disabled:opacity-40 font-black text-[10px] tracking-widest uppercase flex items-center justify-center gap-2 cursor-pointer"
+              >
+                {isGeneratingTts ? (
+                  <RefreshCw className="w-4 h-4 animate-spin cinema-tile-icon" />
+                ) : (
+                  <Zap className="w-4 h-4 fill-current cinema-tile-icon" />
+                )}
+                <span>{isGeneratingTts ? 'SYNTHESIZING...' : 'GENERATE TTS'}</span>
+              </button>
+            </CinemaToolHUD>
 
             {ttsAudioUrl && (
               <div className="p-2 rounded-lg bg-black/70 border border-emerald-500/30 space-y-1.5">
@@ -874,71 +1037,105 @@ export const ProAudioStudioWorkspace: React.FC<ProAudioStudioWorkspaceProps> = (
                     e.currentTarget.playbackRate = Math.max(0.65, Math.min(1.5, Math.pow(2, ttsPitchSemitones / 12)));
                   }}
                 />
-                <button
-                  type="button"
-                  onClick={() => bindAudioToTargetShot('voAudioUrl', ttsAudioUrl, `TTS (${ttsVoice} · ${ttsEmotion})`)}
-                  className="w-full py-1 rounded bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-[9px] font-bold uppercase cursor-pointer"
+                <CinemaToolHUD
+                  title="BIND VOICEOVER"
+                  en="Attach synthesized TTS clip onto active shot voiceover lane."
+                  bn="তৈরি করা TTS ভয়েসটি বর্তমান শটের অডিও ট্র্যাকে বসান।"
+                  accent="emerald"
+                  blockWrapper
                 >
-                  ✓ ADD VOICEOVER TO SHOT AUDIO TRACK
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => bindAudioToTargetShot('voAudioUrl', ttsAudioUrl, `TTS (${ttsVoice} · ${ttsEmotion})`)}
+                    className="w-full min-h-[44px] py-1.5 rounded-lg cinema-tile cinema-tile-emerald text-[9.5px] font-black uppercase flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Check className="w-3.5 h-3.5 cinema-tile-icon" />
+                    <span>BIND VO</span>
+                  </button>
+                </CinemaToolHUD>
               </div>
             )}
           </div>
 
           {/* AI Foley & Built-In Soundscape Presets */}
           <div className="bg-[#0D0E12] border border-white/10 rounded-xl p-3 space-y-2.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold text-[#FFE066] uppercase tracking-wider flex items-center gap-1.5">
-                <Music className="w-3.5 h-3.5" />
-                AI FOLEY &amp; SOUNDSCAPE ENGINE
-              </span>
-              <span className="text-[8.5px] text-zinc-400">48KHZ WAV</span>
-            </div>
+            <CinemaBadgeHeader
+              icon={<Music className="w-4 h-4 text-[#FFE066]" />}
+              label="FOLEY SFX"
+              accent="amber"
+              rightSlot={<span className="text-[9px] font-black text-zinc-400">48KHZ WAV</span>}
+            />
 
             <div className="flex gap-1.5">
               <input
                 type="text"
                 value={foleyPrompt}
                 onChange={(e) => setFoleyPrompt(e.target.value)}
-                placeholder="Describe SFX: sub-bass drop, 35mm reel, storm rain..."
+                placeholder="SFX prompt..."
                 className="flex-1 min-w-0 px-2.5 py-1.5 rounded bg-black/70 border border-white/10 focus:border-[#F59E0B] text-[10.5px] text-white outline-none"
               />
-              <button
-                type="button"
-                disabled={isGeneratingFoley || !foleyPrompt.trim()}
-                onClick={handleGenerateFoley}
-                className="px-3 py-1.5 rounded bg-[#F59E0B] hover:bg-amber-400 disabled:opacity-40 text-black font-black text-[9px] uppercase cursor-pointer shrink-0 whitespace-nowrap"
+              <CinemaToolHUD
+                title="AI FOLEY GENERATOR"
+                en="Synthesize custom 48kHz sound effects from text description."
+                bn="সাউন্ডের বর্ণনা লিখে কাস্টম SFX অডিও তৈরি করুন।"
+                accent="amber"
               >
-                {isGeneratingFoley ? 'DESIGNING...' : 'GENERATE SFX'}
-              </button>
+                <button
+                  type="button"
+                  disabled={isGeneratingFoley || !foleyPrompt.trim()}
+                  data-active="true"
+                  onClick={handleGenerateFoley}
+                  className="min-h-[44px] px-3 py-1.5 rounded-lg cinema-tile cinema-tile-amber disabled:opacity-40 font-black text-[9.5px] uppercase cursor-pointer shrink-0 whitespace-nowrap"
+                >
+                  {isGeneratingFoley ? 'DESIGNING...' : 'GEN SFX'}
+                </button>
+              </CinemaToolHUD>
             </div>
 
-            <div className="flex flex-wrap gap-1">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
               {FOLEY_PRESETS.map((p) => (
-                <button
+                <CinemaToolHUD
                   key={p.id}
-                  type="button"
-                  onClick={() => applyFoleyRecipe(p)}
-                  className="px-2 py-1 rounded bg-white/[0.04] hover:bg-[#F59E0B]/20 border border-white/10 hover:border-[#F59E0B]/50 text-[8.5px] text-zinc-300 hover:text-amber-300 cursor-pointer whitespace-nowrap"
+                  title={p.name.toUpperCase()}
+                  en={`Synthesize ${p.name} 48kHz WAV foley preset immediately.`}
+                  bn={`${p.name} সিনেমাটিক সাউন্ড এফেক্ট তৈরি করতে চাপুন।`}
+                  accent="amber"
+                  blockWrapper
                 >
-                  {p.name}
-                </button>
+                  <button
+                    type="button"
+                    data-active={activeFoleyName === p.name ? 'true' : 'false'}
+                    onClick={() => applyFoleyRecipe(p)}
+                    className="w-full min-h-[44px] px-2 py-1.5 rounded-lg cinema-tile cinema-tile-amber text-[9px] font-black uppercase cursor-pointer truncate"
+                  >
+                    {p.name}
+                  </button>
+                </CinemaToolHUD>
               ))}
             </div>
 
             {foleyAudioUrl && (
               <div className="p-2 rounded-lg bg-black/70 border border-amber-500/30 space-y-1.5">
-                <div className="flex items-center justify-between text-[9px] text-amber-300 font-bold">
+                <div className="flex items-center justify-between text-[9px] text-amber-300 font-black uppercase">
                   <span>{activeFoleyName}</span>
                 </div>
                 <audio src={foleyAudioUrl} controls className="w-full h-8" />
-                <button
-                  type="button"
-                  onClick={() => bindAudioToTargetShot('sfxAudioUrl', foleyAudioUrl, activeFoleyName || 'AI FOLEY')}
-                  className="w-full py-1 rounded bg-[#F59E0B]/20 hover:bg-[#F59E0B]/30 border border-[#F59E0B]/50 text-[#F59E0B] text-[9px] font-bold uppercase cursor-pointer"
+                <CinemaToolHUD
+                  title="BIND SFX"
+                  en="Attach generated 48kHz Foley WAV to the active shot."
+                  bn="তৈরি হওয়া সাউন্ড এফেক্ট বর্তমান শটে যুক্ত করতে চাপুন।"
+                  accent="amber"
+                  blockWrapper
                 >
-                  ✓ BIND SFX TO SHOT
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => bindAudioToTargetShot('sfxAudioUrl', foleyAudioUrl, activeFoleyName || 'AI FOLEY')}
+                    className="w-full min-h-[44px] py-1.5 rounded-lg cinema-tile cinema-tile-amber text-[9.5px] font-black uppercase flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Check className="w-3.5 h-3.5 cinema-tile-icon" />
+                    <span>BIND SFX</span>
+                  </button>
+                </CinemaToolHUD>
               </div>
             )}
           </div>
@@ -953,11 +1150,11 @@ export const ProAudioStudioWorkspace: React.FC<ProAudioStudioWorkspaceProps> = (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             {(
               [
-                { stem: 'voice', label: 'DIALOGUE / VO', color: '#F59E0B', pulse: () => multiTrackAudioBus.triggerVoiceTestPulse() },
-                { stem: 'music', label: 'MUSIC / STEM', color: '#38BDF8', pulse: () => multiTrackAudioBus.triggerMusicBeatDrop() },
-                { stem: 'sfx', label: 'SFX / FOLEY', color: '#10B981', pulse: () => multiTrackAudioBus.triggerSfxImpact() }
-              ] as ReadonlyArray<{ stem: 'voice' | 'music' | 'sfx'; label: string; color: string; pulse: () => void }>
-            ).map(({ stem, label, color, pulse }) => {
+                { stem: 'voice', label: 'VOICE', color: '#F59E0B', accent: 'amber' as const, pulse: () => multiTrackAudioBus.triggerVoiceTestPulse() },
+                { stem: 'music', label: 'MUSIC', color: '#38BDF8', accent: 'cyan' as const, pulse: () => multiTrackAudioBus.triggerMusicBeatDrop() },
+                { stem: 'sfx', label: 'SFX', color: '#10B981', accent: 'emerald' as const, pulse: () => multiTrackAudioBus.triggerSfxImpact() }
+              ] as ReadonlyArray<{ stem: 'voice' | 'music' | 'sfx'; label: string; color: string; accent: 'amber' | 'cyan' | 'emerald'; pulse: () => void }>
+            ).map(({ stem, label, color, accent, pulse }) => {
               const cfg = multiTrackAudioBus.getStemConfig(stem);
               const dbVal = multiTrackAudioBus.getStemDb(stem);
               const meter = telemetry[stem];
@@ -968,16 +1165,23 @@ export const ProAudioStudioWorkspace: React.FC<ProAudioStudioWorkspaceProps> = (
                   className="p-2.5 rounded-xl bg-[#0D0E12] border border-white/10 space-y-2"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-[9px] font-black tracking-wider" style={{ color }}>
+                    <span className="text-[10px] font-black tracking-wider" style={{ color }}>
                       {label}
                     </span>
-                    <button
-                      type="button"
-                      onClick={pulse}
-                      className="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/15 text-[8px] text-zinc-300 cursor-pointer"
+                    <CinemaToolHUD
+                      title={`TEST ${label}`}
+                      en={`Fire test pulse on ${label} bus stem.`}
+                      bn={`${label} ট্র্যাকের সাউন্ড পরীক্ষা করতে চাপুন।`}
+                      accent={accent}
                     >
-                      TEST
-                    </button>
+                      <button
+                        type="button"
+                        onClick={pulse}
+                        className="px-2 py-1 rounded cinema-tile cinema-tile-amber text-[8.5px] font-black uppercase cursor-pointer"
+                      >
+                        TEST
+                      </button>
+                    </CinemaToolHUD>
                   </div>
 
                   {/* VU Meter */}
@@ -993,7 +1197,7 @@ export const ProAudioStudioWorkspace: React.FC<ProAudioStudioWorkspaceProps> = (
 
                   {/* Fader + M/S */}
                   <div>
-                    <div className="flex justify-between text-[8px] text-zinc-400 tabular-nums">
+                    <div className="flex justify-between text-[8px] font-black text-zinc-400 tabular-nums">
                       <span>GAIN</span>
                       <span className="text-white">{dbVal} dB</span>
                     </div>
@@ -1011,40 +1215,38 @@ export const ProAudioStudioWorkspace: React.FC<ProAudioStudioWorkspaceProps> = (
                     />
                   </div>
 
-                  <div className="flex items-center justify-between gap-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        multiTrackAudioBus.toggleMute(stem);
-                        setMixerTick((n) => n + 1);
-                      }}
-                      className={`flex-1 py-0.5 rounded text-[8.5px] font-bold border cursor-pointer ${
-                        cfg.isMuted
-                          ? 'bg-red-600/30 border-red-500 text-red-300'
-                          : 'bg-black/60 border-white/10 text-zinc-400'
-                      }`}
-                    >
-                      M
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        multiTrackAudioBus.toggleSolo(stem);
-                        setMixerTick((n) => n + 1);
-                      }}
-                      className={`flex-1 py-0.5 rounded text-[8.5px] font-bold border cursor-pointer ${
-                        cfg.isSoloed
-                          ? 'bg-amber-500/30 border-amber-400 text-amber-300'
-                          : 'bg-black/60 border-white/10 text-zinc-400'
-                      }`}
-                    >
-                      S
-                    </button>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <CinemaToolHUD title={`MUTE ${label}`} en={`Mute ${label} audio stem.`} bn={`${label} সাউন্ড মিউট করতে চাপুন।`} accent="crimson" blockWrapper>
+                      <button
+                        type="button"
+                        data-active={cfg.isMuted ? 'true' : 'false'}
+                        onClick={() => {
+                          multiTrackAudioBus.toggleMute(stem);
+                          setMixerTick((n) => n + 1);
+                        }}
+                        className="w-full py-1 rounded cinema-tile cinema-tile-crimson text-[9px] font-black cursor-pointer"
+                      >
+                        M
+                      </button>
+                    </CinemaToolHUD>
+                    <CinemaToolHUD title={`SOLO ${label}`} en={`Solo ${label} audio stem.`} bn={`শুধু ${label} ট্র্যাক শুনতে চাপুন।`} accent="amber" blockWrapper>
+                      <button
+                        type="button"
+                        data-active={cfg.isSoloed ? 'true' : 'false'}
+                        onClick={() => {
+                          multiTrackAudioBus.toggleSolo(stem);
+                          setMixerTick((n) => n + 1);
+                        }}
+                        className="w-full py-1 rounded cinema-tile cinema-tile-amber text-[9px] font-black cursor-pointer"
+                      >
+                        S
+                      </button>
+                    </CinemaToolHUD>
                   </div>
 
                   {/* Stereo Pan */}
                   <div>
-                    <div className="flex justify-between text-[8px] text-zinc-400 tabular-nums">
+                    <div className="flex justify-between text-[8px] font-black text-zinc-400 tabular-nums">
                       <span>PAN</span>
                       <span>
                         {cfg.pan === 0
@@ -1069,7 +1271,7 @@ export const ProAudioStudioWorkspace: React.FC<ProAudioStudioWorkspaceProps> = (
                   </div>
 
                   {/* 3-Band EQ */}
-                  <div className="space-y-1 pt-1 border-t border-white/10 text-[8px] text-zinc-400">
+                  <div className="space-y-1 pt-1 border-t border-white/10 text-[8px] font-black text-zinc-400">
                     {(
                       [
                         { band: 'low', label: 'LOW', val: cfg.eqLowDb },
@@ -1103,60 +1305,81 @@ export const ProAudioStudioWorkspace: React.FC<ProAudioStudioWorkspaceProps> = (
           </div>
 
           {/* -14 LUFS Loudness Normalization + Noise Reduction DSP Strip */}
-          <div className="p-2.5 rounded-xl bg-[#0D0E12] border border-white/10 grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <button
-              type="button"
-              data-testid="toggle-lufs14-btn"
-              onClick={() => toggleShotAudioFx('normalizeLufs14')}
-              className={`px-3 py-2 rounded-lg border text-[9.5px] font-bold uppercase flex items-center justify-between cursor-pointer transition-colors ${
-                normalizeLufs14
-                  ? 'bg-cyan-500/20 border-cyan-400 text-cyan-200'
-                  : 'bg-black/60 border-white/10 text-zinc-300 hover:border-white/25'
-              }`}
+          <div className="p-2.5 rounded-xl bg-[#0D0E12] border border-white/10 grid grid-cols-2 gap-2">
+            <CinemaToolHUD
+              title="-14 LUFS NORMALIZE"
+              en="Lock broadcast -14 LUFS loudness balancing across VO & music."
+              bn="ব্রডকাস্ট ও রিলসের জন্য অডিও লেভেল -১৪ LUFS-এ ব্যালেন্স করুন।"
+              accent="cyan"
+              blockWrapper
             >
-              <span>Loudness Normalize (-14 LUFS)</span>
-              <span className="text-[8.5px] font-black">{normalizeLufs14 ? 'ON' : 'OFF'}</span>
-            </button>
+              <button
+                type="button"
+                data-testid="toggle-lufs14-btn"
+                data-active={normalizeLufs14 ? 'true' : 'false'}
+                onClick={() => toggleShotAudioFx('normalizeLufs14')}
+                className="w-full min-h-[44px] px-3 py-2 rounded-lg cinema-tile cinema-tile-cyan text-[9.5px] font-black uppercase flex items-center justify-between cursor-pointer"
+              >
+                <span className="flex items-center gap-1.5">
+                  <Sliders className="w-3.5 h-3.5 cinema-tile-icon" />
+                  <span>-14 LUFS</span>
+                </span>
+                <span className="text-[9px]">{normalizeLufs14 ? 'ON' : 'OFF'}</span>
+              </button>
+            </CinemaToolHUD>
 
-            <button
-              type="button"
-              data-testid="toggle-denoise-btn"
-              onClick={() => toggleShotAudioFx('noiseReduction')}
-              className={`px-3 py-2 rounded-lg border text-[9.5px] font-bold uppercase flex items-center justify-between cursor-pointer transition-colors ${
-                noiseReduction
-                  ? 'bg-emerald-500/20 border-emerald-400 text-emerald-200'
-                  : 'bg-black/60 border-white/10 text-zinc-300 hover:border-white/25'
-              }`}
+            <CinemaToolHUD
+              title="NOISE REDUCTION"
+              en="Apply low-cut & vocal denoise DSP filter on active voice lane."
+              bn="ভয়েসের ব্যাকগ্রাউন্ড নয়েজ ও হিশ সাউন্ড কমাতে এটি চালু করুন।"
+              accent="emerald"
+              blockWrapper
             >
-              <span>Voice Noise Reduction DSP</span>
-              <span className="text-[8.5px] font-black">{noiseReduction ? 'ON' : 'OFF'}</span>
-            </button>
+              <button
+                type="button"
+                data-testid="toggle-denoise-btn"
+                data-active={noiseReduction ? 'true' : 'false'}
+                onClick={() => toggleShotAudioFx('noiseReduction')}
+                className="w-full min-h-[44px] px-3 py-2 rounded-lg cinema-tile cinema-tile-emerald text-[9.5px] font-black uppercase flex items-center justify-between cursor-pointer"
+              >
+                <span className="flex items-center gap-1.5">
+                  <AudioWaveform className="w-3.5 h-3.5 cinema-tile-icon" />
+                  <span>DENOISE</span>
+                </span>
+                <span className="text-[9px]">{noiseReduction ? 'ON' : 'OFF'}</span>
+              </button>
+            </CinemaToolHUD>
           </div>
 
           {/* Procedural Sub-Bass Drone & Master Limiter Bar */}
           <div className="p-2.5 rounded-xl bg-[#0D0E12] border border-white/10 flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-[9px]">
+            <div className="flex items-center gap-2 text-[9px] font-black">
               <Radio className="w-3.5 h-3.5 text-[#D4AF37]" />
-              <span className="text-zinc-300 font-bold uppercase">SUB-BASS DRONE (36-48Hz)</span>
+              <span className="text-zinc-300 uppercase">SUB DRONE</span>
               <span className="px-1.5 py-0.5 rounded bg-white/5 text-zinc-400 tabular-nums">
-                LIMITER -0.5dB
+                -0.5dB
               </span>
             </div>
-            <button
-              type="button"
-              onClick={toggleDroneSynth}
-              className={`px-3 py-1 rounded text-[9px] font-bold uppercase flex items-center gap-1.5 cursor-pointer ${
-                dronePlaying
-                  ? 'bg-[#D4AF37] text-black'
-                  : 'bg-white/10 hover:bg-white/20 text-white'
-              }`}
+            <CinemaToolHUD
+              title="SUB-BASS DRONE"
+              en="Toggle generative 36–48Hz anamorphic cinema drone synthesizer."
+              bn="সিনেমাটিক ৩৬–৪৮ হার্টজ সাব-বেজ ড্রোন চালু বা বন্ধ করুন।"
+              accent="amber"
             >
-              {dronePlaying ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
-              <span>{dronePlaying ? 'PAUSE DRONE' : 'START DRONE'}</span>
-            </button>
+              <button
+                type="button"
+                data-active={dronePlaying ? 'true' : 'false'}
+                onClick={toggleDroneSynth}
+                className="min-h-[44px] px-3 py-1.5 rounded-lg cinema-tile cinema-tile-amber text-[9.5px] font-black uppercase flex items-center gap-1.5 cursor-pointer"
+              >
+                {dronePlaying ? <Pause className="w-3.5 h-3.5 cinema-tile-icon" /> : <Play className="w-3.5 h-3.5 cinema-tile-icon" />}
+                <span>{dronePlaying ? 'STOP DRONE' : 'PLAY DRONE'}</span>
+              </button>
+            </CinemaToolHUD>
           </div>
         </div>
       )}
     </div>
   );
 };
+

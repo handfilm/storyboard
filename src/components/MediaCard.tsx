@@ -37,6 +37,7 @@ import {
   Play, 
   CheckCircle2
 } from 'lucide-react';
+import { CinemaToolHUD } from './ui/CinemaToolHUD';
 
 export interface MediaCardProps {
   item: VaultMediaItem;
@@ -378,20 +379,21 @@ export const MediaCard: React.FC<MediaCardProps> = ({
 
         {/* Top-Right: IDB STORED Badge & Delete Button */}
         <div className="absolute top-1.5 right-1.5 flex items-center gap-1 z-10">
-          <span className="px-1.5 py-0.2 bg-[#2a1d06]/95 text-[7px] font-bold text-[#F5A623] border border-[#F5A623]/60 rounded-[1px] tracking-wider shadow-sm" title="Original Uncompressed Master Asset">
-            MASTER RAW
+          <span className="px-1.5 py-0.2 bg-[#2a1d06]/95 text-[7px] font-black text-[#F59E0B] border border-[#F59E0B]/60 rounded tracking-wider shadow-sm">
+            RAW
           </span>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDeleteAsset(item.id);
-            }}
-            className="opacity-0 group-hover:opacity-100 p-0.5 bg-red-950/80 hover:bg-red-900 border border-red-500/40 text-red-300 rounded-[1px] cursor-pointer transition-opacity"
-            title="Delete asset from IndexedDB"
-          >
-            <Trash2 className="w-2.5 h-2.5" />
-          </button>
+          <CinemaToolHUD title="DELETE ASSET" en="Delete media asset from local IndexedDB vault." bn="ভল্ট থেকে ফাইলটি মুছতে চাপুন।" accent="crimson">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDeleteAsset(item.id);
+              }}
+              className="cinema-tile cinema-tile-crimson opacity-0 group-hover:opacity-100 p-1 rounded cursor-pointer transition-opacity"
+            >
+              <Trash2 className="w-3 h-3 cinema-tile-icon" strokeWidth={2.2} />
+            </button>
+          </CinemaToolHUD>
         </div>
 
         {/* Hover Center Play Button for Full Preview Modal */}
@@ -402,62 +404,48 @@ export const MediaCard: React.FC<MediaCardProps> = ({
               e.stopPropagation();
               onOpenPreview(item);
             }}
-            className="absolute inset-0 m-auto w-9 h-9 rounded-full bg-black/80 hover:bg-black border border-[#F5A623] text-white flex items-center justify-center z-40 cursor-pointer shadow-[0_0_12px_rgba(245,166,35,0.4)] transition-transform hover:scale-110"
-            title="Open Full Cinema Preview Modal"
+            className="absolute inset-0 m-auto w-9 h-9 rounded-full bg-black/80 hover:bg-black border border-[#F59E0B] text-white flex items-center justify-center z-40 cursor-pointer shadow-[0_0_12px_rgba(245,166,35,0.4)] transition-transform hover:scale-110"
+            aria-label="Preview"
           >
-            <Play className="w-4 h-4 text-[#F5A623] ml-0.5 fill-[#F5A623]" />
+            <Play className="w-4 h-4 text-[#F59E0B] ml-0.5 fill-[#F59E0B]" />
           </button>
         )}
       </div>
 
-      {/* 2. Metadata & Status Strip */}
+      {/* Metadata & Assignment Strip */}
       <div className="p-2 flex flex-col gap-1.5 bg-[#0c0c12]">
-        <div className="flex items-center justify-between text-[9px] min-w-0">
-          <p className="font-bold text-zinc-100 truncate pr-1" title={item.name}>
+        <div className="flex items-center justify-between text-[9.5px] min-w-0">
+          <p className="font-bold text-zinc-100 truncate pr-1">
             {item.name}
           </p>
-          <span className="text-[8px] text-zinc-300 bg-white/5 px-1 py-0.2 rounded border border-white/10 shrink-0 tabular-nums font-mono">
+          <span className="text-[8.5px] text-zinc-300 bg-white/5 px-1.5 py-0.5 rounded border border-white/10 shrink-0 tabular-nums font-mono">
             {formatBytes(item.size)}
           </span>
         </div>
 
-        {/* Tactical Status Badges */}
-        <div className="flex items-center justify-between text-[8px] text-zinc-400 border-t border-[#1c1c24] pt-1">
-          <div className="flex items-center gap-1.5">
-            <span className="text-zinc-500">MIME:</span>
-            <span className="text-zinc-300 font-bold truncate max-w-[80px]">{item.mimeType}</span>
-          </div>
-
-          {assignedIndex !== null && assignedIndex !== undefined ? (
-            <span className="text-[#F5A623] font-bold flex items-center gap-0.5">
-              <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />
-              SH{String(assignedIndex + 1).padStart(3, '0')}
-            </span>
-          ) : (
-            <span className="text-zinc-500">UNASSIGNED</span>
-          )}
-        </div>
-
-        {/* 3. Dynamic Shot Target Assignment & Quick Dropdown Selector for Shots 1-100 */}
         <div className="flex items-center gap-1 mt-0.5" onClick={(e) => e.stopPropagation()}>
-          <button
-            type="button"
-            onClick={() => onAssignToShot(item, targetShotIndex)}
-            className={`flex-1 py-1 px-1.5 rounded-[1px] text-[8.5px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors ${
-              isAssignedToActive
-                ? 'bg-emerald-950/80 border border-emerald-500/60 text-emerald-300 hover:bg-emerald-900'
-                : 'bg-[#181824] hover:bg-[#222232] border border-[#272732] hover:border-[#F5A623] text-[#F5A623]'
-            }`}
-            title={`Assign asset to Shot ${targetShotIndex + 1}`}
+          <CinemaToolHUD
+            title={`ASSIGN TO SHOT ${String(targetShotIndex + 1).padStart(3, '0')}`}
+            en="Link this media asset directly into the selected timeline shot slot."
+            bn={`ফাইলটি শট #${targetShotIndex + 1}-এ বসাতে চাপুন।`}
+            accent={isAssignedToActive ? 'emerald' : 'amber'}
+            blockWrapper
           >
-            <span>
-              {isAssignedToActive 
-                ? `✓ ASSIGNED TO SH${String(targetShotIndex + 1).padStart(3, '0')}`
-                : `+ ASSIGN TO SHOT ${String(targetShotIndex + 1).padStart(3, '0')}`}
-            </span>
-          </button>
+            <button
+              type="button"
+              onClick={() => onAssignToShot(item, targetShotIndex)}
+              data-active={isAssignedToActive ? 'true' : 'false'}
+              className={`cinema-tile ${isAssignedToActive ? 'cinema-tile-emerald' : 'cinema-tile-amber'} w-full min-h-[36px] py-1 px-2 rounded text-[10px] font-black tracking-wider uppercase flex items-center justify-center gap-1 cursor-pointer`}
+            >
+              {isAssignedToActive ? <CheckCircle2 className="w-3.5 h-3.5 cinema-tile-icon" /> : <Play className="w-3 h-3 cinema-tile-icon" />}
+              <span>
+                {isAssignedToActive
+                  ? `SH${String(targetShotIndex + 1).padStart(3, '0')} ON`
+                  : `+ SH${String(targetShotIndex + 1).padStart(3, '0')}`}
+              </span>
+            </button>
+          </CinemaToolHUD>
 
-          {/* Quick Dropdown Selector for Shots 1-100 */}
           <div className="relative shrink-0">
             <select
               value={targetShotIndex}
@@ -466,8 +454,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
                 setTargetShotIndex(val);
                 onAssignToShot(item, val);
               }}
-              className="bg-[#12121c] border border-[#272732] hover:border-[#F5A623] text-[#F5A623] text-[8px] font-mono font-bold py-1 px-1 rounded-[1px] outline-none cursor-pointer"
-              title="Target Shot Index (1-100)"
+              className="bg-[#12121c] border border-[#272732] hover:border-[#F59E0B] text-[#F59E0B] text-[9px] font-mono font-black py-2 px-1.5 rounded outline-none cursor-pointer"
             >
               {Array.from({ length: 100 }, (_, i) => (
                 <option key={i} value={i}>

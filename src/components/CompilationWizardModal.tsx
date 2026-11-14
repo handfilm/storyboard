@@ -19,23 +19,19 @@ import {
   Film,
   Zap,
   Upload,
-  Check,
   Music,
   FileText,
   Sliders,
   Scissors,
-  Sparkles,
   X,
-  Play,
-  Layers,
-  Clock,
-  Compass
+  Trash2,
+  Palette
 } from 'lucide-react';
 import { AnthologyFrame, CaptionStyle, LutPreset } from '../types/anthology';
 import { studioDraftDb } from '../services/db';
 import { thumbnailMemoryCache } from '../services/thumbnailEngine';
-import { audioEngine } from '../utils/audioEngine';
 import { autoDistributeLyrics } from '../services/captionEngine';
+import { CinemaToolHUD, CinemaBadgeHeader } from './ui/CinemaToolHUD';
 
 export type CompilationMode = 'rap_music_cut' | 'documentary_flow';
 
@@ -245,177 +241,188 @@ export const CompilationWizardModal: React.FC<CompilationWizardModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-xl animate-in fade-in duration-200">
-      <div className="w-full max-w-2xl bg-[#090A10] border border-[#d4af37]/60 rounded-[8px] shadow-[0_24px_60px_rgba(0,0,0,0.98),0_0_30px_rgba(245,166,35,0.25)] flex flex-col max-h-[90vh] overflow-hidden font-mono text-zinc-300">
-        
-        {/* Header */}
-        <div className="p-4 border-b border-white/10 flex items-center justify-between bg-gradient-to-r from-[#17140B] via-[#0E0F16] to-[#0A0A10]">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded bg-[#f5a623]/20 border border-[#f5a623]/60 flex items-center justify-center">
-              <Zap className="w-4 h-4 text-[#f5a623] fill-current" />
-            </div>
-            <div>
-              <div className="text-sm font-bold text-white tracking-wider flex items-center gap-2">
-                <span>1-CLICK AUTO-COMPILER</span>
-                <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#f5a623]/20 text-[#f5a623] border border-[#f5a623]/40">
-                  MUSIC VIDEO & DOCU
-                </span>
-              </div>
-              <div className="text-[10px] text-zinc-400">
-                Batch ingest multi-clips, slice to audio transients, grade & inject into timeline
-              </div>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-7 h-7 rounded flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-xl animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-2xl bg-[#0B0C10] border border-[#26282E] rounded-lg shadow-[0_24px_60px_rgba(0,0,0,0.98)] flex flex-col max-h-[90vh] overflow-hidden font-mono text-zinc-300"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="min-h-[56px] px-4 py-2 border-b border-[#26282E] flex items-center justify-between bg-[#111215]">
+          <CinemaBadgeHeader
+            icon={<Zap className="w-4 h-4 fill-current" strokeWidth={2.2} />}
+            label="AUTO COMPILER"
+            accent="amber"
+          />
+
+          <CinemaToolHUD
+            title="CLOSE COMPILER"
+            en="Close the auto-compilation wizard."
+            bn="কীভাবে ব্যবহার করবেন: অটো-কম্পাইলার বন্ধ করতে X বাটনে চাপুন।"
+            shortcut="ESC"
+            accent="crimson"
+            side="bottom"
           >
-            <X className="w-4 h-4" />
-          </button>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="cinema-tile cinema-tile-crimson min-h-[44px] min-w-[44px] px-2.5 rounded-md flex items-center justify-center gap-1 cursor-pointer"
+            >
+              <X className="w-4 h-4 cinema-tile-icon" strokeWidth={2.3} />
+              <span className="hidden sm:inline font-black tracking-wider text-[10px] uppercase">CLOSE</span>
+            </button>
+          </CinemaToolHUD>
         </div>
 
-        {/* Modal Body */}
         <div className="flex-1 overflow-y-auto p-5 space-y-5 text-xs">
-          
-          {/* Mode Selector: Rap Music Cut vs Documentary Flow */}
-          <div className="space-y-2">
-            <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider flex items-center gap-1.5">
-              <Scissors className="w-3.5 h-3.5 text-[#f5a623]" />
-              <span>Compilation Archetype</span>
-            </div>
+          <div className="space-y-2.5">
+            <CinemaBadgeHeader
+              icon={<Scissors className="w-3.5 h-3.5" strokeWidth={2.2} />}
+              label="CUT MODE"
+              accent="amber"
+            />
             <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setMode('rap_music_cut');
-                  setSelectedStock('bleach_bypass');
-                }}
-                className={`p-3 rounded-[6px] text-left transition-all border cursor-pointer ${
-                  mode === 'rap_music_cut'
-                    ? 'bg-gradient-to-b from-[#251b08] to-[#120d04] border-[#f5a623] shadow-[0_0_16px_rgba(245,166,35,0.25)]'
-                    : 'bg-white/5 hover:bg-white/10 border-white/5 text-zinc-400'
-                }`}
+              <CinemaToolHUD
+                title="RAP MUSIC CUT"
+                en={`Fast 1.5s-3.0s beat-matched transient cuts at ${detectedBpm} BPM with Bleach Bypass grade & rap lyrics.`}
+                bn="কীভাবে ব্যবহার করবেন: গানের বিটের সাথে দ্রুত কাট ও র‍্যাপ ক্যাপশন বসাতে RAP CUT বাছুন।"
+                accent="amber"
+                blockWrapper
               >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="font-bold text-white text-[11px] flex items-center gap-1.5">
-                    <Music className="w-3.5 h-3.5 text-[#f5a623]" />
-                    RAP MUSIC CUT
-                  </span>
-                  {mode === 'rap_music_cut' && <Check className="w-3.5 h-3.5 text-[#f5a623]" />}
-                </div>
-                <div className="text-[9.5px] text-zinc-400 leading-relaxed">
-                  Fast transient cuts (1.5s–3.0s cadence) matching {detectedBpm} BPM beats. High-grit Bleach Bypass grade with bouncing molten gold kinetic rap lyrics.
-                </div>
-              </button>
+                <button
+                  type="button"
+                  data-active={mode === 'rap_music_cut' ? 'true' : 'false'}
+                  onClick={() => {
+                    setMode('rap_music_cut');
+                    setSelectedStock('bleach_bypass');
+                  }}
+                  className="cinema-tile cinema-tile-amber w-full min-h-[56px] p-3 rounded-lg flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Music className="w-4 h-4 cinema-tile-icon shrink-0" strokeWidth={2.2} />
+                  <span className="font-black tracking-wider text-[11px] uppercase">RAP CUT</span>
+                </button>
+              </CinemaToolHUD>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setMode('documentary_flow');
-                  setSelectedStock('fuji_eterna');
-                }}
-                className={`p-3 rounded-[6px] text-left transition-all border cursor-pointer ${
-                  mode === 'documentary_flow'
-                    ? 'bg-gradient-to-b from-[#0a2322] to-[#051413] border-[#2dd4bf] shadow-[0_0_16px_rgba(45,212,191,0.25)]'
-                    : 'bg-white/5 hover:bg-white/10 border-white/5 text-zinc-400'
-                }`}
+              <CinemaToolHUD
+                title="DOCUMENTARY FLOW"
+                en="Narrative 4.5s-8.0s dialogue pacing with crossfades, Fuji Eterna LUT, and dual subtitles."
+                bn="কীভাবে ব্যবহার করবেন: ডকুমেন্টারি ও সংলাপভিত্তিক স্মুথ কাটের জন্য DOCU FLOW বাছুন।"
+                accent="cyan"
+                blockWrapper
               >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="font-bold text-white text-[11px] flex items-center gap-1.5">
-                    <Film className="w-3.5 h-3.5 text-[#2dd4bf]" />
-                    DOCUMENTARY FLOW
-                  </span>
-                  {mode === 'documentary_flow' && <Check className="w-3.5 h-3.5 text-[#2dd4bf]" />}
-                </div>
-                <div className="text-[9.5px] text-zinc-400 leading-relaxed">
-                  Preserves dialogue pacing (4.5s–8.0s takes) with smooth audio crossfades. Fuji Eterna soft contrast and centered bilingual subtitle typography.
-                </div>
-              </button>
+                <button
+                  type="button"
+                  data-active={mode === 'documentary_flow' ? 'true' : 'false'}
+                  onClick={() => {
+                    setMode('documentary_flow');
+                    setSelectedStock('fuji_eterna');
+                  }}
+                  className="cinema-tile cinema-tile-cyan w-full min-h-[56px] p-3 rounded-lg flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Film className="w-4 h-4 cinema-tile-icon shrink-0" strokeWidth={2.2} />
+                  <span className="font-black tracking-wider text-[11px] uppercase">DOCU FLOW</span>
+                </button>
+              </CinemaToolHUD>
             </div>
           </div>
 
-          {/* Film Stock LUT Selection */}
-          <div className="space-y-2">
-            <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider flex items-center justify-between">
-              <span className="flex items-center gap-1.5">
-                <Sliders className="w-3.5 h-3.5 text-amber-400" />
-                Color Grade Look
-              </span>
-              <span className="text-[#f5a623]">{selectedStock.toUpperCase()}</span>
-            </div>
+          <div className="space-y-2.5">
+            <CinemaBadgeHeader
+              icon={<Sliders className="w-3.5 h-3.5" strokeWidth={2.2} />}
+              label="COLOR LUT"
+              accent="amber"
+            />
             <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
               {[
-                { id: 'bleach_bypass', label: 'BLEACH BYPASS' },
+                { id: 'bleach_bypass', label: 'BLEACH' },
                 { id: 'kodak_vision3', label: 'KODAK 5219' },
-                { id: 'fuji_eterna', label: 'FUJI ETERNA' },
+                { id: 'fuji_eterna', label: 'ETERNA' },
                 { id: 'noir_35mm', label: 'MONO NOIR' },
                 { id: 'raw_clean', label: 'RAW CLEAN' }
               ].map((stock) => (
-                <button
+                <CinemaToolHUD
                   key={stock.id}
-                  type="button"
-                  onClick={() => setSelectedStock(stock.id as LutPreset)}
-                  className={`py-1.5 px-2 rounded-[4px] text-[9.5px] font-bold tracking-tight text-center transition-all border cursor-pointer ${
-                    selectedStock === stock.id
-                      ? 'bg-[#f5a623] text-black border-[#f5a623] shadow-[0_0_8px_rgba(245,166,35,0.4)]'
-                      : 'bg-white/5 hover:bg-white/10 border-white/5 text-zinc-300'
-                  }`}
+                  title={`LUT: ${stock.label}`}
+                  en={`Apply ${stock.label} color grading across compiled shots.`}
+                  bn={`কীভাবে ব্যবহার করবেন: পুরো প্রজেক্টে ${stock.label} কালার গ্রেড দিতে চাপুন।`}
+                  accent="amber"
+                  blockWrapper
                 >
-                  {stock.label}
-                </button>
+                  <button
+                    type="button"
+                    data-active={selectedStock === stock.id ? 'true' : 'false'}
+                    onClick={() => setSelectedStock(stock.id as LutPreset)}
+                    className="cinema-tile cinema-tile-amber w-full min-h-[44px] px-2 py-2 rounded-md flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Palette className="w-3.5 h-3.5 cinema-tile-icon shrink-0" strokeWidth={2.2} />
+                    <span className="font-black tracking-wider text-[10px] uppercase truncate">{stock.label}</span>
+                  </button>
+                </CinemaToolHUD>
               ))}
             </div>
           </div>
 
-          {/* Multi-Clip Batch Upload Area */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-[10px] text-zinc-400 font-bold uppercase tracking-wider">
-              <span className="flex items-center gap-1.5">
-                <Upload className="w-3.5 h-3.5 text-cyan-400" />
-                Batch Ingest Video Clips (5 to 50+ Files)
-              </span>
-              {uploadedFiles.length > 0 && (
-                <button
-                  type="button"
-                  onClick={handleClearFiles}
-                  className="text-rose-400 hover:underline cursor-pointer"
-                >
-                  Clear ({uploadedFiles.length})
-                </button>
-              )}
-            </div>
+          <div className="space-y-2.5">
+            <CinemaBadgeHeader
+              icon={<Upload className="w-3.5 h-3.5" strokeWidth={2.2} />}
+              label="BATCH CLIPS"
+              accent="cyan"
+              rightSlot={
+                uploadedFiles.length > 0 ? (
+                  <CinemaToolHUD
+                    title="CLEAR CLIPS"
+                    en="Remove all queued video and image files."
+                    bn="কীভাবে ব্যবহার করবেন: আপলোড করা সব ক্লিপ মুছতে CLEAR চাপুন।"
+                    accent="crimson"
+                  >
+                    <button
+                      type="button"
+                      onClick={handleClearFiles}
+                      className="cinema-tile cinema-tile-crimson px-2.5 py-1 min-h-[32px] rounded flex items-center gap-1 cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+                      <span className="font-black text-[10px] uppercase">CLEAR ({uploadedFiles.length})</span>
+                    </button>
+                  </CinemaToolHUD>
+                ) : undefined
+              }
+            />
 
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed border-white/15 hover:border-[#f5a623]/70 rounded-[6px] p-4 text-center cursor-pointer transition-colors bg-black/40 flex flex-col items-center justify-center gap-2 group"
+            <CinemaToolHUD
+              title="BATCH MEDIA INGEST"
+              en="Upload 5 to 50+ MP4, WebM, MOV, or image clips for instant slicing."
+              bn="কীভাবে ব্যবহার করবেন: ফোন বা পিসি থেকে একাধিক ভিডিও/ছবি একসাথে বাছতে এখানে চাপুন।"
+              accent="cyan"
+              blockWrapper
             >
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                accept="video/*,image/*"
-                onChange={handleFilesSelected}
-                className="hidden"
-              />
-              <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center group-hover:scale-110 transition-transform text-[#f5a623]">
-                <Upload className="w-5 h-5" />
-              </div>
-              <div className="text-[11px] font-bold text-white">
-                Drag & Drop 5 to 50+ video clips here, or <span className="text-[#f5a623] underline">Browse Files</span>
-              </div>
-              <div className="text-[9px] text-zinc-400">
-                Supports MP4, WebM, MOV, QuickTime up to 4K resolution. Clips are sliced into 100-shot carousel.
-              </div>
-            </div>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="cinema-tile cinema-tile-cyan w-full min-h-[84px] border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center gap-2 cursor-pointer"
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept="video/*,image/*"
+                  onChange={handleFilesSelected}
+                  className="hidden"
+                />
+                <Upload className="w-5 h-5 cinema-tile-icon" strokeWidth={2.2} />
+                <span className="font-black tracking-wider text-[11px] uppercase">
+                  UPLOAD CLIPS ({uploadedFiles.length})
+                </span>
+              </button>
+            </CinemaToolHUD>
 
-            {/* Uploaded File List Badges */}
             {uploadedFiles.length > 0 && (
-              <div className="max-h-24 overflow-y-auto p-2 bg-black/50 border border-white/10 rounded flex flex-wrap gap-1.5">
+              <div className="max-h-24 overflow-y-auto p-2 bg-black/50 border border-[#26282E] rounded flex flex-wrap gap-1.5">
                 {uploadedFiles.map((f, idx) => (
                   <span
                     key={idx}
-                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-white/5 text-[9px] text-zinc-200 border border-white/10"
+                    className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-[#111215] text-[9.5px] font-bold text-zinc-200 border border-[#26282E]"
                   >
                     <span className="truncate max-w-[120px]">{f.name}</span>
                     <button
@@ -424,7 +431,8 @@ export const CompilationWizardModal: React.FC<CompilationWizardModalProps> = ({
                         e.stopPropagation();
                         handleRemoveFile(idx);
                       }}
-                      className="text-zinc-400 hover:text-white"
+                      className="text-zinc-400 hover:text-red-400 cursor-pointer"
+                      aria-label="Remove file"
                     >
                       ×
                     </button>
@@ -434,30 +442,26 @@ export const CompilationWizardModal: React.FC<CompilationWizardModalProps> = ({
             )}
           </div>
 
-          {/* Lyrical Typography & Dialogue Verse Input */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between text-[10px] text-zinc-400 font-bold uppercase tracking-wider">
-              <span className="flex items-center gap-1.5">
-                <FileText className="w-3.5 h-3.5 text-emerald-400" />
-                Lyrics / Narration Script (Auto-Distributed)
-              </span>
-              <span className="text-zinc-500">Auto-synced to shot cadences</span>
-            </div>
+          <div className="space-y-2">
+            <CinemaBadgeHeader
+              icon={<FileText className="w-3.5 h-3.5" strokeWidth={2.2} />}
+              label="LYRICS SCRIPT"
+              accent="emerald"
+            />
             <textarea
               rows={2}
               value={lyricsScript}
               onChange={(e) => setLyricsScript(e.target.value)}
-              placeholder="Paste song lyrics separated by slashes or lines..."
-              className="w-full p-2.5 rounded bg-black/60 border border-white/15 text-white focus:outline-none focus:border-[#f5a623] text-xs font-mono resize-none"
+              placeholder="VERSE 1 // VERSE 2 // VERSE 3"
+              className="w-full p-2.5 rounded bg-black/60 border border-[#26282E] text-white focus:outline-none focus:border-amber-400 text-xs font-mono resize-none"
             />
           </div>
 
-          {/* Processing Progress Status */}
           {isProcessing && (
-            <div className="space-y-2 p-3 rounded bg-black/70 border border-[#f5a623]/40">
-              <div className="flex justify-between text-[10px] text-zinc-300">
-                <span>{statusMessage}</span>
-                <span className="text-[#f5a623] font-bold">{progressPercent}%</span>
+            <div className="space-y-2 p-3 rounded bg-black/70 border border-amber-500/40">
+              <div className="flex justify-between text-[10px] font-bold text-zinc-200">
+                <span className="truncate">{statusMessage}</span>
+                <span className="text-amber-400">{progressPercent}%</span>
               </div>
               <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
                 <div
@@ -467,35 +471,51 @@ export const CompilationWizardModal: React.FC<CompilationWizardModalProps> = ({
               </div>
             </div>
           )}
-
         </div>
 
-        {/* Modal Footer */}
-        <div className="p-4 border-t border-white/10 flex items-center justify-between bg-black/60">
-          <div className="text-[9.5px] text-zinc-400">
-            Target Output: <span className="text-white font-bold">{Math.max(frames.length, totalTargetShots)} shots</span> @ 24.0 fps
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isProcessing}
-              className="px-4 py-2 rounded text-zinc-400 hover:text-white cursor-pointer text-[10px]"
+        <div className="min-h-[60px] px-4 py-2.5 border-t border-[#26282E] flex flex-wrap items-center justify-between gap-2 bg-[#111215]">
+          <span className="text-[10px] font-black tracking-wider uppercase text-zinc-400">
+            {Math.max(frames.length, totalTargetShots)} SHOTS // 24FPS
+          </span>
+          <div className="flex items-center gap-2">
+            <CinemaToolHUD
+              title="CANCEL"
+              en="Cancel auto-compilation and return to studio."
+              bn="কীভাবে ব্যবহার করবেন: বাতিল করতে CANCEL বাটনে চাপুন।"
+              accent="crimson"
             >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handleRunCompilation}
-              disabled={isProcessing}
-              className="px-5 py-2.5 rounded-[4px] bg-gradient-to-r from-[#d4af37] via-[#f5a623] to-[#d4af37] text-black font-bold text-[11px] tracking-wider hover:brightness-110 flex items-center gap-2 shadow-[0_4px_16px_rgba(245,166,35,0.4)] active:translate-y-0.5 cursor-pointer"
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={isProcessing}
+                className="cinema-tile cinema-tile-crimson px-3 py-2 min-h-[44px] rounded-md flex items-center gap-1.5 cursor-pointer disabled:opacity-40"
+              >
+                <X className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                <span className="font-black tracking-wider text-[10px] uppercase">CANCEL</span>
+              </button>
+            </CinemaToolHUD>
+
+            <CinemaToolHUD
+              title="AUTO-COMPILE SEQUENCE"
+              en="Ingest clips, cut to BPM transients, grade LUT, and populate carousel."
+              bn="কীভাবে ব্যবহার করবেন: সব ক্লিপ ও লিরিক্স দিয়ে পুরো ১০০ শটের সিকোয়েন্স তৈরি করতে COMPILE চাপুন।"
+              accent="amber"
             >
-              <Zap className="w-4 h-4 fill-current" />
-              <span>⚡ AUTO-COMPILE 100-SHOT SEQUENCE</span>
-            </button>
+              <button
+                type="button"
+                onClick={handleRunCompilation}
+                disabled={isProcessing}
+                data-active="true"
+                className="cinema-tile cinema-tile-amber px-4 py-2 min-h-[44px] rounded-md flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                <Zap className="w-4 h-4 cinema-tile-icon fill-current" strokeWidth={2.2} />
+                <span className="font-black tracking-wider text-[10px] sm:text-[11px] uppercase">
+                  {isProcessing ? 'COMPILING...' : 'AUTO COMPILE'}
+                </span>
+              </button>
+            </CinemaToolHUD>
           </div>
         </div>
-
       </div>
     </div>
   );

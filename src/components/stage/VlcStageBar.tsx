@@ -46,6 +46,7 @@ import { AnthologyFrame, LutPreset } from '../../types/anthology';
 import type { ShotMediaMap } from '../../services/handfilmMediaVault';
 import { resolveShotMediaEntry } from '../../services/handfilmMediaVault';
 import { formatLutPresetLabel } from '../../utils/engine';
+import { CinemaToolHUD } from '../ui/CinemaToolHUD';
 
 export interface VlcStageBarProps {
   frames: AnthologyFrame[];
@@ -406,105 +407,172 @@ export const VlcStageBar: React.FC<VlcStageBarProps> = ({
       <div className="flex items-center justify-between gap-1.5 min-h-[17px] h-[17px] leading-none">
         {/* Left: Core VLC Transport */}
         <div className="flex items-center gap-0.5 shrink-0">
-          <button
-            type="button"
-            onClick={onTogglePlay}
-            className="w-[16px] h-[16px] rounded bg-[#F59E0B] hover:bg-[#F59E0B]/90 text-[#0B0B0D] flex items-center justify-center transition-colors cursor-pointer shadow-sm"
-            title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
-            aria-label={isPlaying ? 'Pause' : 'Play'}
+          <CinemaToolHUD
+            title={isPlaying ? 'PAUSE PLAYBACK' : 'PLAY SEQUENCE'}
+            en="Toggles real-time stage playback."
+            bn="কীভাবে ব্যবহার করবেন: প্লে বা পজ করতে স্পেসবার চাপুন বা এখানে ক্লিক করুন।"
+            shortcut="SPACE"
+            accent="amber"
+            side="top"
           >
-            {isPlaying ? <Pause className="w-[9px] h-[9px] fill-current" /> : <Play className="w-[9px] h-[9px] fill-current ml-0.5" />}
-          </button>
+            <button
+              type="button"
+              onClick={onTogglePlay}
+              className="cinema-tile cinema-tile-amber w-[16px] h-[16px] rounded !bg-[#F59E0B] hover:!bg-[#F59E0B]/90 !text-[#0B0B0D] flex items-center justify-center cursor-pointer shadow-sm"
+              aria-label={isPlaying ? 'Pause' : 'Play'}
+            >
+              {isPlaying ? <Pause className="w-[9px] h-[9px] fill-current" /> : <Play className="w-[9px] h-[9px] fill-current ml-0.5" />}
+            </button>
+          </CinemaToolHUD>
 
-          <button
-            type="button"
-            onClick={onStop}
-            className="w-[16px] h-[16px] rounded bg-[#141417] border border-white/[0.07] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5] flex items-center justify-center transition-colors cursor-pointer"
-            title="Stop (Reset to 00:00)"
-            aria-label="Stop"
+          <CinemaToolHUD
+            title="STOP & REWIND"
+            en="Stops playback and resets playhead to 00:00."
+            bn="কীভাবে ব্যবহার করবেন: ভিডিও থামিয়ে শট শুরুতে ফিরিয়ে নিতে ক্লিক করুন।"
+            accent="amber"
+            side="top"
           >
-            <Square className="w-[8.5px] h-[8.5px] fill-current" />
-          </button>
+            <button
+              type="button"
+              onClick={onStop}
+              className="cinema-tile cinema-tile-amber w-[16px] h-[16px] rounded flex items-center justify-center cursor-pointer"
+              aria-label="Stop"
+            >
+              <Square className="w-[8.5px] h-[8.5px] fill-current" />
+            </button>
+          </CinemaToolHUD>
 
           <div className="w-px h-2.5 bg-white/[0.07] mx-0.5" />
 
-          <button
-            type="button"
-            onClick={onPrevShot}
-            className="w-[16px] h-[16px] rounded hover:bg-[#141417] text-[#8E8E93] hover:text-[#F4F4F5] flex items-center justify-center transition-colors cursor-pointer"
-            title="Previous Shot"
-            aria-label="Previous Shot"
+          <CinemaToolHUD
+            title="PREVIOUS SHOT"
+            en="Jumps directly to the previous shot."
+            bn="কীভাবে ব্যবহার করবেন: আগের শটে ফিরে যেতে ক্লিক করুন বা বাম অ্যারো চাপুন।"
+            accent="cyan"
+            side="top"
           >
-            <SkipBack className="w-[9px] h-[9px]" />
-          </button>
+            <button
+              type="button"
+              onClick={onPrevShot}
+              className="cinema-tile cinema-tile-cyan w-[16px] h-[16px] rounded flex items-center justify-center cursor-pointer"
+              aria-label="Previous Shot"
+            >
+              <SkipBack className="w-[9px] h-[9px]" />
+            </button>
+          </CinemaToolHUD>
 
-          <button
-            type="button"
-            onClick={() => onSkipSeconds(-5)}
-            className="px-1 h-[16px] rounded hover:bg-[#141417] text-[#8E8E93] hover:text-[#F4F4F5] flex items-center gap-0.5 text-[8px] font-mono tabular-nums cursor-pointer whitespace-nowrap"
-            title="Skip Back 5s"
+          <CinemaToolHUD
+            title="SKIP -5S"
+            en="Rewinds timeline playhead by 5 seconds."
+            bn="কীভাবে ব্যবহার করবেন: ৫ সেকেন্ড পেছনে স্কিপ করতে ক্লিক করুন।"
+            accent="cyan"
+            side="top"
           >
-            <RotateCcw className="w-[8.5px] h-[8.5px]" />
-            <span>5s</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => onSkipSeconds(-5)}
+              className="cinema-tile cinema-tile-cyan px-1 h-[16px] rounded flex items-center gap-0.5 text-[8px] font-mono tabular-nums cursor-pointer whitespace-nowrap"
+            >
+              <RotateCcw className="w-[8.5px] h-[8.5px]" />
+              <span>5s</span>
+            </button>
+          </CinemaToolHUD>
 
-          <button
-            type="button"
-            onClick={() => onStepFrame(false)}
-            className="px-1 h-[16px] rounded hover:bg-[#141417] text-[#8E8E93] hover:text-[#F4F4F5] flex items-center text-[8px] font-mono tabular-nums cursor-pointer whitespace-nowrap"
-            title="Step Back 1 Frame (,)"
+          <CinemaToolHUD
+            title="STEP -1 FRAME"
+            en="Moves backward by one exact frame."
+            bn="কীভাবে ব্যবহার করবেন: ১ ফ্রেম পেছনে দেখতে কমা (,) চাপুন বা ক্লিক করুন।"
+            shortcut=","
+            accent="cyan"
+            side="top"
           >
-            <ChevronLeft className="w-[8.5px] h-[8.5px]" />
-            <span>1F</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => onStepFrame(false)}
+              className="cinema-tile cinema-tile-cyan px-1 h-[16px] rounded flex items-center text-[8px] font-mono tabular-nums cursor-pointer whitespace-nowrap"
+            >
+              <ChevronLeft className="w-[8.5px] h-[8.5px]" />
+              <span>1F</span>
+            </button>
+          </CinemaToolHUD>
 
-          <button
-            type="button"
-            onClick={() => onStepFrame(true)}
-            className="px-1 h-[16px] rounded hover:bg-[#141417] text-[#8E8E93] hover:text-[#F4F4F5] flex items-center text-[8px] font-mono tabular-nums cursor-pointer whitespace-nowrap"
-            title="Step Forward 1 Frame (.)"
+          <CinemaToolHUD
+            title="STEP +1 FRAME"
+            en="Advances forward by one exact frame."
+            bn="কীভাবে ব্যবহার করবেন: ১ ফ্রেম সামনে দেখতে ডট (.) চাপুন বা ক্লিক করুন।"
+            shortcut="."
+            accent="cyan"
+            side="top"
           >
-            <span>1F</span>
-            <ChevronRight className="w-[8.5px] h-[8.5px]" />
-          </button>
+            <button
+              type="button"
+              onClick={() => onStepFrame(true)}
+              className="cinema-tile cinema-tile-cyan px-1 h-[16px] rounded flex items-center text-[8px] font-mono tabular-nums cursor-pointer whitespace-nowrap"
+            >
+              <span>1F</span>
+              <ChevronRight className="w-[8.5px] h-[8.5px]" />
+            </button>
+          </CinemaToolHUD>
 
-          <button
-            type="button"
-            onClick={() => onSkipSeconds(5)}
-            className="px-1 h-[16px] rounded hover:bg-[#141417] text-[#8E8E93] hover:text-[#F4F4F5] flex items-center gap-0.5 text-[8px] font-mono tabular-nums cursor-pointer whitespace-nowrap"
-            title="Skip Forward 5s"
+          <CinemaToolHUD
+            title="SKIP +5S"
+            en="Fast-forwards timeline playhead by 5 seconds."
+            bn="কীভাবে ব্যবহার করবেন: ৫ সেকেন্ড সামনে স্কিপ করতে ক্লিক করুন।"
+            accent="cyan"
+            side="top"
           >
-            <span>5s</span>
-            <RotateCw className="w-[8.5px] h-[8.5px]" />
-          </button>
+            <button
+              type="button"
+              onClick={() => onSkipSeconds(5)}
+              className="cinema-tile cinema-tile-cyan px-1 h-[16px] rounded flex items-center gap-0.5 text-[8px] font-mono tabular-nums cursor-pointer whitespace-nowrap"
+            >
+              <span>5s</span>
+              <RotateCw className="w-[8.5px] h-[8.5px]" />
+            </button>
+          </CinemaToolHUD>
 
-          <button
-            type="button"
-            onClick={onNextShot}
-            className="w-[16px] h-[16px] rounded hover:bg-[#141417] text-[#8E8E93] hover:text-[#F4F4F5] flex items-center justify-center transition-colors cursor-pointer"
-            title="Next Shot"
-            aria-label="Next Shot"
+          <CinemaToolHUD
+            title="NEXT SHOT"
+            en="Jumps directly to the next shot."
+            bn="কীভাবে ব্যবহার করবেন: পরের শটে যেতে ক্লিক করুন বা ডান অ্যারো চাপুন।"
+            accent="cyan"
+            side="top"
           >
-            <SkipForward className="w-[9px] h-[9px]" />
-          </button>
+            <button
+              type="button"
+              onClick={onNextShot}
+              className="cinema-tile cinema-tile-cyan w-[16px] h-[16px] rounded flex items-center justify-center cursor-pointer"
+              aria-label="Next Shot"
+            >
+              <SkipForward className="w-[9px] h-[9px]" />
+            </button>
+          </CinemaToolHUD>
 
           {/* VLC Volume + 200% Preamp */}
           <div className="flex items-center gap-1 ml-1 pl-1.5 border-l border-white/[0.07]">
-            <button
-              type="button"
-              onClick={onToggleMute}
-              className="w-[16px] h-[16px] rounded hover:bg-[#141417] flex items-center justify-center cursor-pointer"
-              title={isMuted ? 'Unmute (M)' : 'Mute (M)'}
-              aria-label={isMuted ? 'Unmute' : 'Mute'}
+            <CinemaToolHUD
+              title={isMuted ? 'UNMUTE AUDIO' : 'MUTE AUDIO'}
+              en="Toggles stage audio output."
+              bn="কীভাবে ব্যবহার করবেন: সাউন্ড অন বা মিউট করতে M চাপুন বা ক্লিক করুন।"
+              shortcut="M"
+              accent="emerald"
+              side="top"
             >
-              {isMuted || volume <= 0.01 ? (
-                <VolumeX className="w-[9px] h-[9px] text-[#8E8E93]" />
-              ) : volume < 0.6 ? (
-                <Volume1 className="w-[9px] h-[9px] text-[#F4F4F5]" />
-              ) : (
-                <Volume2 className={`w-[9px] h-[9px] ${volume > 1.05 ? 'text-[#F59E0B]' : 'text-[#F4F4F5]'}`} />
-              )}
-            </button>
+              <button
+                type="button"
+                onClick={onToggleMute}
+                className="cinema-tile cinema-tile-emerald w-[16px] h-[16px] rounded flex items-center justify-center cursor-pointer"
+                aria-label={isMuted ? 'Unmute' : 'Mute'}
+              >
+                {isMuted || volume <= 0.01 ? (
+                  <VolumeX className="w-[9px] h-[9px] text-[#8E8E93]" />
+                ) : volume < 0.6 ? (
+                  <Volume1 className="w-[9px] h-[9px] text-[#F4F4F5]" />
+                ) : (
+                  <Volume2 className={`w-[9px] h-[9px] ${volume > 1.05 ? 'text-[#F59E0B]' : 'text-[#F4F4F5]'}`} />
+                )}
+              </button>
+            </CinemaToolHUD>
             <input
               type="range"
               min="0"
@@ -532,18 +600,25 @@ export const VlcStageBar: React.FC<VlcStageBarProps> = ({
         >
           {/* Active Aspect Scope Dropdown Trigger */}
           <div className="relative flex items-center">
-            <button
-              type="button"
-              onClick={() => {
-                setIsAspectOpen((o) => !o);
-                setIsSpeedOpen(false);
-              }}
-              className="flex items-center gap-1 text-[#8E8E93] hover:text-[#F59E0B] font-bold cursor-pointer transition-colors whitespace-nowrap"
-              title="Active Aspect Scope (Click to switch)"
+            <CinemaToolHUD
+              title="ASPECT SCOPE"
+              en="Switches stage cinema matte aspect ratio."
+              bn="কীভাবে ব্যবহার করবেন: ক্লিক করে 2.39:1, 16:9 বা 9:16 ফ্রেম বাছুন।"
+              accent="amber"
+              side="top"
             >
-              <RectangleHorizontal className="w-[9px] h-[9px] text-[#F59E0B]/85" />
-              <span>{aspectRatio}</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsAspectOpen((o) => !o);
+                  setIsSpeedOpen(false);
+                }}
+                className="flex items-center gap-1 text-[#8E8E93] hover:text-[#F59E0B] font-bold cursor-pointer transition-colors whitespace-nowrap"
+              >
+                <RectangleHorizontal className="w-[9px] h-[9px] text-[#F59E0B]/85" />
+                <span>{aspectRatio}</span>
+              </button>
+            </CinemaToolHUD>
             {isAspectOpen && (
               <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 py-1 bg-[#0B0B0D] border border-white/[0.07] rounded-md shadow-2xl min-w-[82px] z-50 flex flex-col">
                 {VLC_ASPECT_OPTIONS.map((r) => (
@@ -568,106 +643,154 @@ export const VlcStageBar: React.FC<VlcStageBarProps> = ({
           <span className="text-white/15">·</span>
 
           {/* Color LUT Badge */}
-          <span
-            data-testid="vlc-center-lut-badge"
-            className="flex items-center gap-1 text-[#8E8E93] hover:text-cyan-300 font-bold whitespace-nowrap transition-colors"
-            title={`Active Color LUT: ${lutDisplayLabel}`}
+          <CinemaToolHUD
+            title={`COLOR LUT: ${lutDisplayLabel}`}
+            en="Active 3D film grade look applied to current shot."
+            bn="কীভাবে ব্যবহার করবেন: বাম পাশের FX বা FILTER ট্রে থেকে যেকোনো লুট পরিবর্তন করুন।"
+            accent="cyan"
+            side="top"
           >
-            <Palette className="w-[9px] h-[9px] text-cyan-400/80" />
-            <span>{lutDisplayLabel}</span>
-          </span>
+            <span
+              data-testid="vlc-center-lut-badge"
+              className="flex items-center gap-1 text-[#8E8E93] hover:text-cyan-300 font-bold whitespace-nowrap transition-colors"
+            >
+              <Palette className="w-[9px] h-[9px] text-cyan-400/80" />
+              <span>{lutDisplayLabel}</span>
+            </span>
+          </CinemaToolHUD>
 
           <span className="text-white/15">·</span>
 
           {/* Total Sequence Runtime */}
-          <span
-            data-testid="vlc-center-runtime-badge"
-            className="flex items-center gap-1 text-[#F4F4F5]/90 hover:text-[#F59E0B] font-bold whitespace-nowrap transition-colors"
-            title={`Total Sequence Runtime${typeof totalShotsCount === 'number' ? ` across ${totalShotsCount} shots` : ''}`}
+          <CinemaToolHUD
+            title="TOTAL RUNTIME"
+            en={`Cumulative sequence duration (${typeof totalShotsCount === 'number' ? `${totalShotsCount} shots` : 'all shots'}).`}
+            bn="কীভাবে ব্যবহার করবেন: এটি পুরো প্রজেক্টের মোট সময় দেখায়।"
+            accent="amber"
+            side="top"
           >
-            <Clock className="w-[9px] h-[9px] text-[#F59E0B]/85" />
-            <span>{displayRuntime}</span>
-          </span>
+            <span
+              data-testid="vlc-center-runtime-badge"
+              className="flex items-center gap-1 text-[#F4F4F5]/90 hover:text-[#F59E0B] font-bold whitespace-nowrap transition-colors"
+            >
+              <Clock className="w-[9px] h-[9px] text-[#F59E0B]/85" />
+              <span>{displayRuntime}</span>
+            </span>
+          </CinemaToolHUD>
         </div>
 
         {/* Right: A-B Loop, Loop Mode, Speed, Fit Mode, Snapshot, Upload, Titles, Playlist, Theater, Fullscreen */}
         <div className="flex items-center gap-1 shrink-0 text-[8px] font-mono tabular-nums">
           {/* A-B Loop Controls */}
           <div className="hidden md:flex items-center rounded border border-white/[0.07] bg-[#141417] overflow-hidden h-[16px]">
-            <button
-              type="button"
-              onClick={() => onSetAbPoint('a')}
-              className={`px-1 h-full cursor-pointer transition-colors whitespace-nowrap ${
-                abLoop.a !== null ? 'bg-[#F59E0B]/15 text-[#F59E0B] font-bold' : 'text-[#8E8E93] hover:text-[#F4F4F5]'
-              }`}
-              title="Set Loop Start Point A"
+            <CinemaToolHUD
+              title="LOOP IN POINT A"
+              en="Sets A-B loop start pin at current playhead."
+              bn="কীভাবে ব্যবহার করবেন: লুপ শুরুর জায়গায় A পিন সেট করতে ক্লিক করুন।"
+              accent="amber"
+              side="top"
             >
-              A
-            </button>
-            <button
-              type="button"
-              onClick={() => onSetAbPoint('b')}
-              className={`px-1 h-full border-l border-white/[0.07] cursor-pointer transition-colors whitespace-nowrap ${
-                abLoop.b !== null ? 'bg-[#F59E0B]/15 text-[#F59E0B] font-bold' : 'text-[#8E8E93] hover:text-[#F4F4F5]'
-              }`}
-              title="Set Loop End Point B"
-            >
-              B
-            </button>
-            {(abLoop.a !== null || abLoop.b !== null) && (
               <button
                 type="button"
-                onClick={() => onSetAbPoint('clear')}
-                className="px-1 h-full border-l border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5] hover:bg-white/[0.06] cursor-pointer"
-                title="Clear A-B Loop"
+                onClick={() => onSetAbPoint('a')}
+                data-active={abLoop.a !== null ? 'true' : 'false'}
+                className={`px-1 h-full cursor-pointer transition-colors whitespace-nowrap ${
+                  abLoop.a !== null ? 'bg-[#F59E0B]/15 text-[#F59E0B] font-bold' : 'text-[#8E8E93] hover:text-[#F4F4F5]'
+                }`}
               >
-                ×
+                A
               </button>
+            </CinemaToolHUD>
+            <CinemaToolHUD
+              title="LOOP OUT POINT B"
+              en="Sets A-B loop end pin at current playhead."
+              bn="কীভাবে ব্যবহার করবেন: লুপ শেষ হওয়ার জায়গায় B পিন সেট করতে ক্লিক করুন।"
+              accent="amber"
+              side="top"
+            >
+              <button
+                type="button"
+                onClick={() => onSetAbPoint('b')}
+                data-active={abLoop.b !== null ? 'true' : 'false'}
+                className={`px-1 h-full border-l border-white/[0.07] cursor-pointer transition-colors whitespace-nowrap ${
+                  abLoop.b !== null ? 'bg-[#F59E0B]/15 text-[#F59E0B] font-bold' : 'text-[#8E8E93] hover:text-[#F4F4F5]'
+                }`}
+              >
+                B
+              </button>
+            </CinemaToolHUD>
+            {(abLoop.a !== null || abLoop.b !== null) && (
+              <CinemaToolHUD
+                title="CLEAR A-B LOOP"
+                en="Removes active A and B loop pins."
+                bn="কীভাবে ব্যবহার করবেন: A-B লুপ মুছে ফেলতে × চাপুন।"
+                accent="crimson"
+                side="top"
+              >
+                <button
+                  type="button"
+                  onClick={() => onSetAbPoint('clear')}
+                  className="px-1 h-full border-l border-white/[0.07] text-[#8E8E93] hover:text-[#F4F4F5] hover:bg-white/[0.06] cursor-pointer"
+                >
+                  ×
+                </button>
+              </CinemaToolHUD>
             )}
           </div>
 
           {/* Loop Mode Switcher */}
-          <button
-            type="button"
-            onClick={onCycleLoopMode}
-            className={`px-1.5 h-[16px] rounded border flex items-center gap-1 cursor-pointer transition-colors whitespace-nowrap ${
-              loopMode === 'repeat-one' || loopMode === 'sequence'
-                ? 'border-[#F59E0B]/65 bg-[#F59E0B]/15 text-[#F4F4F5]'
-                : 'border-white/[0.07] bg-[#141417] text-[#8E8E93] hover:text-[#F4F4F5]'
-            }`}
-            title="Cycle Loop Mode: Repeat Shot / Sequence / Play Once"
+          <CinemaToolHUD
+            title="LOOP MODE"
+            en="Cycles repeat-one shot, full sequence loop, or play once."
+            bn="কীভাবে ব্যবহার করবেন: ক্লিক করে LOOP 1, SEQ বা ONCE মোড পরিবর্তন করুন।"
+            accent="amber"
+            side="top"
           >
-            {loopMode === 'repeat-one' ? (
-              <>
-                <Repeat1 className="w-[9px] h-[9px] text-[#F59E0B]" />
-                <span className="hidden xl:inline">LOOP 1</span>
-              </>
-            ) : loopMode === 'sequence' ? (
-              <>
-                <Repeat className="w-[9px] h-[9px] text-[#F59E0B]" />
-                <span className="hidden xl:inline">SEQ</span>
-              </>
-            ) : (
-              <>
-                <ArrowRightToLine className="w-[9px] h-[9px]" />
-                <span className="hidden xl:inline">ONCE</span>
-              </>
-            )}
-          </button>
+            <button
+              type="button"
+              onClick={onCycleLoopMode}
+              data-active={loopMode === 'repeat-one' || loopMode === 'sequence' ? 'true' : 'false'}
+              className="cinema-tile cinema-tile-amber px-1.5 h-[16px] rounded flex items-center gap-1 cursor-pointer whitespace-nowrap"
+            >
+              {loopMode === 'repeat-one' ? (
+                <>
+                  <Repeat1 className="w-[9px] h-[9px] text-[#F59E0B]" />
+                  <span className="hidden xl:inline">LOOP 1</span>
+                </>
+              ) : loopMode === 'sequence' ? (
+                <>
+                  <Repeat className="w-[9px] h-[9px] text-[#F59E0B]" />
+                  <span className="hidden xl:inline">SEQ</span>
+                </>
+              ) : (
+                <>
+                  <ArrowRightToLine className="w-[9px] h-[9px]" />
+                  <span className="hidden xl:inline">ONCE</span>
+                </>
+              )}
+            </button>
+          </CinemaToolHUD>
 
           {/* Speed Popover */}
           <div className="relative">
-            <button
-              type="button"
-              onClick={() => {
-                setIsSpeedOpen((o) => !o);
-                setIsAspectOpen(false);
-              }}
-              className="px-1.5 h-[16px] rounded border border-white/[0.07] bg-[#141417] hover:border-[#F59E0B]/60 text-[#F4F4F5] font-bold tabular-nums cursor-pointer whitespace-nowrap"
-              title="Playback Speed (0.25x - 4x)"
+            <CinemaToolHUD
+              title="PLAYBACK SPEED"
+              en="Adjusts preview playback multiplier (0.25x to 4x)."
+              bn="কীভাবে ব্যবহার করবেন: ক্লিক করে স্লো-মোশন বা ফাস্ট প্লেব্যাক স্পিড বাছুন।"
+              accent="cyan"
+              side="top"
             >
-              {playbackSpeed}x
-            </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSpeedOpen((o) => !o);
+                  setIsAspectOpen(false);
+                }}
+                className="cinema-tile cinema-tile-cyan px-1.5 h-[16px] rounded font-bold tabular-nums cursor-pointer whitespace-nowrap"
+              >
+                {playbackSpeed}x
+              </button>
+            </CinemaToolHUD>
             {isSpeedOpen && (
               <div className="absolute bottom-full right-0 mb-1.5 py-1 bg-[#0B0B0D] border border-white/[0.07] rounded-md shadow-2xl min-w-[72px] z-50 flex flex-col">
                 {VLC_SPEED_OPTIONS.map((spd) => (
@@ -691,51 +814,69 @@ export const VlcStageBar: React.FC<VlcStageBarProps> = ({
 
           {/* Non-Destructive Reverse Clip Toggle */}
           {onToggleReverse && (
-            <button
-              type="button"
-              data-testid="toggle-reverse-clip-btn"
-              onClick={onToggleReverse}
-              aria-pressed={isReversed}
-              className={`px-1.5 h-[16px] rounded border flex items-center gap-1 cursor-pointer transition-colors whitespace-nowrap font-bold ${
-                isReversed
-                  ? 'border-[#F59E0B] bg-[#F59E0B]/20 text-[#F59E0B] shadow-[0_0_8px_rgba(245,158,11,0.3)]'
-                  : 'border-white/[0.07] bg-[#141417] text-[#8E8E93] hover:text-[#F4F4F5] hover:border-[#F59E0B]/60'
-              }`}
-              title={isReversed ? 'Reverse Clip Active (Click to play Forward)' : 'Reverse Video & Scrubbing (⇄ REVERSE)'}
+            <CinemaToolHUD
+              title="REVERSE CLIP"
+              en="Plays active clip and scrubbing in reverse without re-encoding."
+              bn="কীভাবে ব্যবহার করবেন: ভিডিও উল্টো দিকে চালাতে REVERSE বাটন অন করুন।"
+              accent="amber"
+              side="top"
             >
-              <ArrowLeftRight className="w-[9px] h-[9px]" />
-              <span className="hidden sm:inline">REVERSE</span>
-            </button>
+              <button
+                type="button"
+                data-testid="toggle-reverse-clip-btn"
+                data-active={isReversed ? 'true' : 'false'}
+                onClick={onToggleReverse}
+                aria-pressed={isReversed}
+                className="cinema-tile cinema-tile-amber px-1.5 h-[16px] rounded flex items-center gap-1 cursor-pointer whitespace-nowrap font-bold"
+              >
+                <ArrowLeftRight className="w-[9px] h-[9px]" />
+                <span className="hidden sm:inline">REVERSE</span>
+              </button>
+            </CinemaToolHUD>
           )}
 
           {/* Video Fit Mode (Contain / Cover / Fill) */}
-          <button
-            type="button"
-            onClick={() => {
-              const order: Array<'contain' | 'cover' | 'fill'> = ['contain', 'cover', 'fill'];
-              const next = order[(order.indexOf(fitMode) + 1) % order.length];
-              onChangeFitMode(next);
-            }}
-            className="hidden sm:flex px-1.5 h-[16px] rounded border border-white/[0.07] bg-[#141417] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5] items-center gap-1 cursor-pointer uppercase whitespace-nowrap"
-            title={`Fit Mode: ${fitMode} (Click to cycle)`}
+          <CinemaToolHUD
+            title={`FIT: ${fitMode.toUpperCase()}`}
+            en="Cycles video canvas scaling between Contain, Cover, and Fill."
+            bn="কীভাবে ব্যবহার করবেন: স্ক্রিনে ভিডিও ফিট বা জুম করতে ক্লিক করুন।"
+            accent="cyan"
+            side="top"
           >
-            <Monitor className="w-[9px] h-[9px] text-[#8E8E93]" />
-            <span className="hidden xl:inline">{fitMode}</span>
-          </button>
-
-          {/* Compact Mobile/Tablet Aspect Ratio Fallback (hidden on lg+ where Center Telemetry Bridge displays Aspect Scope) */}
-          <div className="relative hidden sm:block lg:hidden">
             <button
               type="button"
               onClick={() => {
-                setIsAspectOpen((o) => !o);
-                setIsSpeedOpen(false);
+                const order: Array<'contain' | 'cover' | 'fill'> = ['contain', 'cover', 'fill'];
+                const next = order[(order.indexOf(fitMode) + 1) % order.length];
+                onChangeFitMode(next);
               }}
-              className="px-1.5 h-[16px] rounded border border-white/[0.07] bg-[#141417] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5] cursor-pointer whitespace-nowrap tabular-nums"
-              title="Aspect Ratio Override"
+              className="cinema-tile cinema-tile-cyan hidden sm:flex px-1.5 h-[16px] rounded items-center gap-1 cursor-pointer uppercase whitespace-nowrap"
             >
-              {aspectRatio}
+              <Monitor className="w-[9px] h-[9px]" />
+              <span className="hidden xl:inline">{fitMode}</span>
             </button>
+          </CinemaToolHUD>
+
+          {/* Compact Mobile/Tablet Aspect Ratio Fallback (hidden on lg+ where Center Telemetry Bridge displays Aspect Scope) */}
+          <div className="relative hidden sm:block lg:hidden">
+            <CinemaToolHUD
+              title="ASPECT RATIO"
+              en="Switches stage aspect matte override."
+              bn="কীভাবে ব্যবহার করবেন: ক্লিক করে ফ্রেম অনুপাত বদলান।"
+              accent="amber"
+              side="top"
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setIsAspectOpen((o) => !o);
+                  setIsSpeedOpen(false);
+                }}
+                className="cinema-tile cinema-tile-amber px-1.5 h-[16px] rounded cursor-pointer whitespace-nowrap tabular-nums"
+              >
+                {aspectRatio}
+              </button>
+            </CinemaToolHUD>
             {isAspectOpen && (
               <div className="absolute bottom-full right-0 mb-1.5 py-1 bg-[#0B0B0D] border border-white/[0.07] rounded-md shadow-2xl min-w-[82px] z-50 flex flex-col">
                 {VLC_ASPECT_OPTIONS.map((r) => (
@@ -758,82 +899,120 @@ export const VlcStageBar: React.FC<VlcStageBarProps> = ({
           </div>
 
           {/* Snapshot PNG */}
-          <button
-            type="button"
-            onClick={onCaptureSnapshot}
-            className="w-[16px] h-[16px] rounded border border-white/[0.07] bg-[#141417] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5] flex items-center justify-center cursor-pointer"
-            title="Take Snapshot PNG (Current Frame)"
-            aria-label="Take Snapshot"
+          <CinemaToolHUD
+            title="CAPTURE PNG"
+            en="Saves the current composite stage frame as a PNG still."
+            bn="কীভাবে ব্যবহার করবেন: বর্তমান ফ্রেমের ছবি সেভ করতে ক্যামেরা আইকনে ক্লিক করুন।"
+            accent="emerald"
+            side="top"
           >
-            <Camera className="w-[9px] h-[9px]" />
-          </button>
+            <button
+              type="button"
+              onClick={onCaptureSnapshot}
+              className="cinema-tile cinema-tile-emerald w-[16px] h-[16px] rounded flex items-center justify-center cursor-pointer"
+              aria-label="Take Snapshot"
+            >
+              <Camera className="w-[9px] h-[9px]" />
+            </button>
+          </CinemaToolHUD>
 
           {/* Upload/Open File */}
           {onUploadMedia && (
-            <button
-              type="button"
-              onClick={onUploadMedia}
-              className="w-[16px] h-[16px] rounded border border-white/[0.07] bg-[#141417] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5] flex items-center justify-center cursor-pointer"
-              title="Open Local Video / Image"
-              aria-label="Open Media File"
+            <CinemaToolHUD
+              title="IMPORT MEDIA"
+              en="Loads a local video or image file into the active shot."
+              bn="কীভাবে ব্যবহার করবেন: ফোন বা পিসি থেকে ভিডিও/ছবি আনতে আপলোড চাপুন।"
+              accent="cyan"
+              side="top"
             >
-              <Upload className="w-[9px] h-[9px]" />
-            </button>
+              <button
+                type="button"
+                onClick={onUploadMedia}
+                className="cinema-tile cinema-tile-cyan w-[16px] h-[16px] rounded flex items-center justify-center cursor-pointer"
+                aria-label="Open Media File"
+              >
+                <Upload className="w-[9px] h-[9px]" />
+              </button>
+            </CinemaToolHUD>
           )}
 
           {/* Titles Toggle */}
           {onToggleTitles && (
-            <button
-              type="button"
-              onClick={onToggleTitles}
-              className={`w-[16px] h-[16px] rounded border flex items-center justify-center cursor-pointer ${
-                isTitlesActive
-                  ? 'border-[#F59E0B]/65 bg-[#F59E0B]/15 text-[#F59E0B]'
-                  : 'border-white/[0.07] bg-[#141417] text-[#8E8E93] hover:text-[#F4F4F5] hover:border-[#F59E0B]/60'
-              }`}
-              title="Toggle Titles / Subtitles (T)"
-              aria-label="Toggle Titles"
+            <CinemaToolHUD
+              title="TOGGLE TITLES"
+              en="Shows or hides kinetic stage titles and Bangla subtitles."
+              bn="কীভাবে ব্যবহার করবেন: টাইটেল দেখাতে বা লুকাতে T চাপুন বা এখানে ক্লিক করুন।"
+              shortcut="T"
+              accent="amber"
+              side="top"
             >
-              <Subtitles className="w-[9px] h-[9px]" />
-            </button>
+              <button
+                type="button"
+                data-active={isTitlesActive ? 'true' : 'false'}
+                onClick={onToggleTitles}
+                className="cinema-tile cinema-tile-amber w-[16px] h-[16px] rounded flex items-center justify-center cursor-pointer"
+                aria-label="Toggle Titles"
+              >
+                <Subtitles className="w-[9px] h-[9px]" />
+              </button>
+            </CinemaToolHUD>
           )}
 
           {/* Playlist Queue Drawer */}
-          <button
-            type="button"
-            onClick={() => setIsPlaylistOpen((o) => !o)}
-            className={`w-[16px] h-[16px] rounded border flex items-center justify-center cursor-pointer ${
-              isPlaylistOpen
-                ? 'border-[#F59E0B]/65 bg-[#F59E0B]/15 text-[#F59E0B]'
-                : 'border-white/[0.07] bg-[#141417] text-[#8E8E93] hover:text-[#F4F4F5] hover:border-[#F59E0B]/60'
-            }`}
-            title="Toggle Playlist Queue"
-            aria-label="Toggle Playlist"
+          <CinemaToolHUD
+            title="SHOT QUEUE"
+            en="Opens shot playlist drawer for instant frame jumping."
+            bn="কীভাবে ব্যবহার করবেন: সব শটের তালিকা দেখতে ও সরাসরি জাম্প করতে ক্লিক করুন।"
+            accent="amber"
+            side="top"
           >
-            <ListVideo className="w-[9px] h-[9px]" />
-          </button>
+            <button
+              type="button"
+              data-active={isPlaylistOpen ? 'true' : 'false'}
+              onClick={() => setIsPlaylistOpen((o) => !o)}
+              className="cinema-tile cinema-tile-amber w-[16px] h-[16px] rounded flex items-center justify-center cursor-pointer"
+              aria-label="Toggle Playlist"
+            >
+              <ListVideo className="w-[9px] h-[9px]" />
+            </button>
+          </CinemaToolHUD>
 
           {/* Cinema Player / Fullscreen */}
           {onOpenCinemaPlayer && (
-            <button
-              type="button"
-              onClick={onOpenCinemaPlayer}
-              className="hidden lg:flex px-1.5 h-[16px] rounded border border-white/[0.07] bg-[#141417] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5] items-center gap-1 cursor-pointer whitespace-nowrap"
-              title="Open Dedicated Theater Player"
+            <CinemaToolHUD
+              title="THEATER PLAYER"
+              en="Launches dedicated distraction-free theater screening player."
+              bn="কীভাবে ব্যবহার করবেন: সিনেমা থিয়েটার মুডে পুরো মুভি দেখতে ক্লিক করুন।"
+              accent="amber"
+              side="top"
             >
-              THEATER
-            </button>
+              <button
+                type="button"
+                onClick={onOpenCinemaPlayer}
+                className="cinema-tile cinema-tile-amber hidden lg:flex px-1.5 h-[16px] rounded items-center gap-1 cursor-pointer whitespace-nowrap font-black"
+              >
+                THEATER
+              </button>
+            </CinemaToolHUD>
           )}
 
-          <button
-            type="button"
-            onClick={onToggleFullscreen}
-            className="w-[16px] h-[16px] rounded border border-white/[0.07] bg-[#141417] hover:border-[#F59E0B]/60 text-[#8E8E93] hover:text-[#F4F4F5] flex items-center justify-center cursor-pointer"
-            title={isFullscreen ? 'Exit Fullscreen (F)' : 'Fullscreen (F)'}
-            aria-label="Toggle Fullscreen"
+          <CinemaToolHUD
+            title={isFullscreen ? 'EXIT FULLSCREEN' : 'FULLSCREEN'}
+            en="Toggles fullscreen monitor screening."
+            bn="কীভাবে ব্যবহার করবেন: ফুল-স্ক্রিন মোড অন বা অফ করতে F চাপুন বা ক্লিক করুন।"
+            shortcut="F"
+            accent="amber"
+            side="top"
           >
-            {isFullscreen ? <Minimize2 className="w-[9px] h-[9px] text-[#F59E0B]" /> : <Maximize2 className="w-[9px] h-[9px]" />}
-          </button>
+            <button
+              type="button"
+              onClick={onToggleFullscreen}
+              className="cinema-tile cinema-tile-amber w-[16px] h-[16px] rounded flex items-center justify-center cursor-pointer"
+              aria-label="Toggle Fullscreen"
+            >
+              {isFullscreen ? <Minimize2 className="w-[9px] h-[9px] text-[#F59E0B]" /> : <Maximize2 className="w-[9px] h-[9px]" />}
+            </button>
+          </CinemaToolHUD>
         </div>
       </div>
     </div>

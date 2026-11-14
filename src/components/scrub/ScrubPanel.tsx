@@ -85,6 +85,7 @@ import {
   ChevronDown,
   ChevronUp
 } from 'lucide-react';
+import { CinemaBadgeHeader, CinemaToolHUD } from '../ui/CinemaToolHUD';
 
 export type ScrubEditToolMode = 'SELECT' | 'SLIP' | 'ROLL';
 export type ShuttleRate = -4 | -2 | -1 | 0 | 1 | 2 | 4;
@@ -1123,42 +1124,52 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
                 {nleFeedback}
               </span>
             )}
-            <button
-              type="button"
-              onClick={() => setIsHoverScrubEnabled((h) => !h)}
-              className={`px-2 py-0.5 border text-[10px] font-bold cursor-pointer whitespace-nowrap transition-colors ${
-                isHoverScrubEnabled
-                  ? 'bg-amber-500/20 border-[#F5A623]/60 text-[#F5A623]'
-                  : 'bg-white/5 border-white/10 text-zinc-400 hover:text-white'
-              }`}
-              title="Toggle Hover-to-Scrub directly over the video canvas"
+            <CinemaToolHUD
+              title="HOVER SCRUB"
+              en="Move mouse across preview frame to scrub video smoothly."
+              bn="ভিডিওর উপর মাউস নাড়িয়েই সাথে সাথে স্ক্রাব প্রিভিউ দেখুন।"
+              accent="amber"
             >
-              HOVER SCRUB {isHoverScrubEnabled ? 'ON' : 'OFF'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsMagneticSnap((m) => !m)}
-              className={`px-2 py-0.5 border text-[10px] font-bold flex items-center gap-1 cursor-pointer whitespace-nowrap ${
-                isMagneticSnap
-                  ? 'bg-white/10 border-[#F5A623]/50 text-[#F5A623]'
-                  : 'bg-white/5 border-white/10 text-zinc-500'
-              }`}
-              title="Magnetic 1-Frame Snapping"
+              <button
+                type="button"
+                data-active={isHoverScrubEnabled ? 'true' : 'false'}
+                onClick={() => setIsHoverScrubEnabled((h) => !h)}
+                className="px-2 py-0.5 rounded cinema-tile cinema-tile-amber text-[10px] font-black cursor-pointer whitespace-nowrap"
+              >
+                SCRUB {isHoverScrubEnabled ? 'ON' : 'OFF'}
+              </button>
+            </CinemaToolHUD>
+            <CinemaToolHUD
+              title="1F MAGNETIC SNAP"
+              en="Snap cuts and trim handles cleanly to 1-frame boundaries."
+              bn="১-ফ্রেম নিখুঁতভাবে কাট ও ট্রিম লক করতে এটি অন রাখুন।"
+              accent="amber"
             >
-              <Magnet className="w-3 h-3" />
-              <span>SNAP 1F</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => onSelectPlaybackMode(playbackMode === 'sequence' ? 'solo' : 'sequence')}
-              className={`px-2 py-0.5 border text-[10px] font-bold cursor-pointer whitespace-nowrap ${
-                playbackMode === 'sequence'
-                  ? 'bg-emerald-950/50 border-emerald-500/40 text-emerald-300'
-                  : 'bg-amber-950/50 border-amber-500/40 text-[#F5A623]'
-              }`}
+              <button
+                type="button"
+                data-active={isMagneticSnap ? 'true' : 'false'}
+                onClick={() => setIsMagneticSnap((m) => !m)}
+                className="px-2 py-0.5 rounded cinema-tile cinema-tile-amber text-[10px] font-black flex items-center gap-1 cursor-pointer whitespace-nowrap"
+              >
+                <Magnet className="w-3 h-3 cinema-tile-icon" />
+                <span>SNAP 1F</span>
+              </button>
+            </CinemaToolHUD>
+            <CinemaToolHUD
+              title="PLAYBACK SCOPE"
+              en="Switch between sequential sequence playback and single-shot loop."
+              bn="সব শট একসাথে প্লে (SEQ) বা শুধু একটি শট লুপ (SOLO) বদলান।"
+              accent="emerald"
             >
-              {playbackMode === 'sequence' ? 'SEQ' : 'SOLO'}
-            </button>
+              <button
+                type="button"
+                data-active={playbackMode === 'sequence' ? 'true' : 'false'}
+                onClick={() => onSelectPlaybackMode(playbackMode === 'sequence' ? 'solo' : 'sequence')}
+                className="px-2 py-0.5 rounded cinema-tile cinema-tile-emerald text-[10px] font-black cursor-pointer whitespace-nowrap"
+              >
+                {playbackMode === 'sequence' ? 'SEQ' : 'SOLO'}
+              </button>
+            </CinemaToolHUD>
           </div>
         </div>
 
@@ -1236,14 +1247,17 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
             ) : (
               <div className="flex flex-col items-center justify-center gap-2 text-zinc-500">
                 <Film className="w-8 h-8 opacity-40" />
-                <span className="text-[11px] tracking-widest uppercase">NO MEDIA BOUND TO SHOT {String(safeIndex + 1).padStart(3, '0')}</span>
-                <button
-                  type="button"
-                  onClick={(e) => handleTriggerUpload(safeIndex, e)}
-                  className="px-3 py-1 bg-[#F5A623] text-black text-[11px] font-black cursor-pointer"
-                >
-                  + INGEST CLIP
-                </button>
+                <span className="text-[11px] font-black tracking-widest uppercase">SH{String(safeIndex + 1).padStart(3, '0')} EMPTY</span>
+                <CinemaToolHUD title="INGEST CLIP" en="Upload a video or photo plate for this shot." bn="এই শটে নতুন ভিডিও বা ছবি আপলোড করতে চাপুন।" accent="amber">
+                  <button
+                    type="button"
+                    data-active="true"
+                    onClick={(e) => handleTriggerUpload(safeIndex, e)}
+                    className="px-3 py-1 rounded cinema-tile cinema-tile-amber text-[11px] font-black cursor-pointer"
+                  >
+                    + INGEST
+                  </button>
+                </CinemaToolHUD>
               </div>
             )}
 
@@ -1278,18 +1292,20 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
 
             {/* Top-Right Alt+Hover Hint & Upload Replace */}
             <div className="absolute top-2 right-2 flex items-center gap-1.5 z-30">
-              <span className="hidden md:inline-flex items-center gap-1 px-1.5 py-0.5 bg-black/75 border border-white/10 text-[9px] text-zinc-400 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
+              <span className="hidden md:inline-flex items-center gap-1 px-1.5 py-0.5 bg-black/75 border border-white/10 text-[9px] font-bold text-zinc-400 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
                 <Crosshair className="w-2.5 h-2.5 text-cyan-400" />
-                ALT+HOVER 2X LOUPE
+                ALT 2X
               </span>
-              <button
-                type="button"
-                onClick={(e) => handleTriggerUpload(safeIndex, e)}
-                className="px-2 py-0.5 bg-black/85 border border-white/20 text-[10px] text-zinc-200 hover:text-[#F5A623] flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-              >
-                <Upload className="w-3 h-3" />
-                <span>REPLACE</span>
-              </button>
+              <CinemaToolHUD title="REPLACE MEDIA" en="Swap current shot media with a new local file." bn="বর্তমান শটের ফাইল বদলাতে নতুন মিডিয়া দিন।" accent="amber">
+                <button
+                  type="button"
+                  onClick={(e) => handleTriggerUpload(safeIndex, e)}
+                  className="px-2 py-0.5 rounded cinema-tile cinema-tile-amber text-[10px] font-black flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                >
+                  <Upload className="w-3 h-3 cinema-tile-icon" />
+                  <span>REPLACE</span>
+                </button>
+              </CinemaToolHUD>
             </div>
 
             {/* Interactive Bezier Velocity Ramp Overlay Drawer */}
@@ -1428,150 +1444,178 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
       <div className="min-h-[40px] px-2.5 py-1 bg-[#0B0C10] border-y border-white/15 flex flex-wrap items-center justify-between gap-1 shrink-0 z-30">
         {/* Left: Edit Modes (`SELECT [V]`, `SLIP [Y]`, `ROLL [N]`) + Cutting Ops */}
         <div className="flex items-center gap-1">
-          <div className="flex items-center bg-black/70 border border-white/10 p-0.5 mr-1">
+          <div className="flex items-center bg-black/70 border border-white/10 p-0.5 mr-1 gap-0.5">
             {([
-              { id: 'SELECT', label: 'V', title: 'Select & Edge Trim [V]' },
-              { id: 'SLIP', label: 'Y SLIP', title: 'Slip Interior Source Window [Y]' },
-              { id: 'ROLL', label: 'N ROLL', title: 'Roll Adjacent Cut Seam [N]' }
+              { id: 'SELECT', label: 'V', title: 'SELECT & TRIM [V]', en: 'Standard edge trim & scrub pointer.', bn: 'ক্লিপ সিলেক্ট ও দুই পাশ ট্রিম করার টুল।' },
+              { id: 'SLIP', label: 'Y SLIP', title: 'SLIP SOURCE [Y]', en: 'Slip source in/out window without moving clip.', bn: 'ক্লিপের জায়গা না বদলে ভেতরের দৃশ্য সামনে-পিছনে নিন।' },
+              { id: 'ROLL', label: 'N ROLL', title: 'ROLL SEAM [N]', en: 'Roll shared edit cut between adjacent clips.', bn: 'পাশাপাশি দুটি ক্লিপের জয়েন্ট কাট একসাথে স্লাইড করুন।' }
             ] as const).map((tool) => (
-              <button
-                key={tool.id}
-                type="button"
-                data-testid={`scrub-tool-${tool.id.toLowerCase()}`}
-                onClick={() => setEditToolMode(tool.id)}
-                title={tool.title}
-                className={`px-1.5 py-0.5 text-[9px] font-black cursor-pointer whitespace-nowrap ${
-                  editToolMode === tool.id
-                    ? 'bg-cyan-400 text-black'
-                    : 'text-zinc-400 hover:text-white'
-                }`}
-              >
-                {tool.label}
-              </button>
+              <CinemaToolHUD key={tool.id} title={tool.title} en={tool.en} bn={tool.bn} accent="cyan">
+                <button
+                  type="button"
+                  data-testid={`scrub-tool-${tool.id.toLowerCase()}`}
+                  data-active={editToolMode === tool.id ? 'true' : 'false'}
+                  onClick={() => setEditToolMode(tool.id)}
+                  className="px-1.5 py-0.5 rounded cinema-tile cinema-tile-cyan text-[9px] font-black cursor-pointer whitespace-nowrap"
+                >
+                  {tool.label}
+                </button>
+              </CinemaToolHUD>
             ))}
           </div>
 
-          <button
-            type="button"
-            data-testid="scrub-split-btn"
-            onClick={handleSplitAtPlayhead}
-            className="px-2 py-1 bg-[#F5A623] hover:bg-amber-400 text-black text-[10px] font-black tracking-wider flex items-center gap-1 cursor-pointer whitespace-nowrap"
-            title="Razor Split at Playhead (S / Ctrl+B)"
+          <CinemaToolHUD
+            title="RAZOR SPLIT [S]"
+            en="Split active shot at the playhead frame."
+            bn="প্লেহেডের জায়গায় শটটি দুই টুকরো করতে চাপুন।"
+            accent="amber"
           >
-            <Scissors className="w-3 h-3" />
-            <span>SPLIT [S]</span>
-          </button>
+            <button
+              type="button"
+              data-testid="scrub-split-btn"
+              data-active="true"
+              onClick={handleSplitAtPlayhead}
+              className="px-2 py-1 rounded cinema-tile cinema-tile-amber text-[10px] font-black tracking-wider flex items-center gap-1 cursor-pointer whitespace-nowrap"
+            >
+              <Scissors className="w-3 h-3 cinema-tile-icon" />
+              <span>SPLIT</span>
+            </button>
+          </CinemaToolHUD>
 
-          <button
-            type="button"
-            data-testid="scrub-trim-q-btn"
-            onClick={handleTrimStartQ}
-            className="px-2 py-1 bg-white/5 hover:bg-white/15 border border-white/15 text-zinc-200 hover:text-[#F5A623] text-[10px] font-bold flex items-center gap-1 cursor-pointer whitespace-nowrap"
-            title="Trim Start to Playhead (Q)"
+          <CinemaToolHUD
+            title="TRIM START [Q]"
+            en="Ripple-trim clip start point cleanly to playhead."
+            bn="প্লেহেডের বাম পাশের বাড়তি অংশ এক চাপে কেটে ফেলুন।"
+            accent="amber"
           >
-            <ArrowLeftToLine className="w-3 h-3 text-[#F5A623]" />
-            <span>IN [Q]</span>
-          </button>
+            <button
+              type="button"
+              data-testid="scrub-trim-q-btn"
+              onClick={handleTrimStartQ}
+              className="px-2 py-1 rounded cinema-tile cinema-tile-amber text-[10px] font-black flex items-center gap-1 cursor-pointer whitespace-nowrap"
+            >
+              <ArrowLeftToLine className="w-3 h-3 cinema-tile-icon" />
+              <span>IN [Q]</span>
+            </button>
+          </CinemaToolHUD>
 
-          <button
-            type="button"
-            data-testid="scrub-trim-w-btn"
-            onClick={handleTrimEndW}
-            className="px-2 py-1 bg-white/5 hover:bg-white/15 border border-white/15 text-zinc-200 hover:text-[#F5A623] text-[10px] font-bold flex items-center gap-1 cursor-pointer whitespace-nowrap"
-            title="Trim End to Playhead (W)"
+          <CinemaToolHUD
+            title="TRIM END [W]"
+            en="Ripple-trim clip end point cleanly to playhead."
+            bn="প্লেহেডের ডান পাশের বাড়তি অংশ এক চাপে কেটে ফেলুন।"
+            accent="amber"
           >
-            <span>OUT [W]</span>
-            <ArrowRightToLine className="w-3 h-3 text-[#F5A623]" />
-          </button>
+            <button
+              type="button"
+              data-testid="scrub-trim-w-btn"
+              onClick={handleTrimEndW}
+              className="px-2 py-1 rounded cinema-tile cinema-tile-amber text-[10px] font-black flex items-center gap-1 cursor-pointer whitespace-nowrap"
+            >
+              <span>OUT [W]</span>
+              <ArrowRightToLine className="w-3 h-3 cinema-tile-icon" />
+            </button>
+          </CinemaToolHUD>
 
-          <button
-            type="button"
-            data-testid="scrub-ripple-delete-btn"
-            onClick={handleRippleDelete}
-            disabled={slides.length <= 1}
-            className="px-1.5 py-1 bg-[#E50914]/15 hover:bg-[#E50914]/35 border border-[#E50914]/45 text-rose-200 text-[10px] font-bold flex items-center gap-1 cursor-pointer disabled:opacity-35 whitespace-nowrap"
-            title="Ripple Delete Active Shot (Del)"
+          <CinemaToolHUD
+            title="RIPPLE DELETE"
+            en="Delete active shot and close timeline gap."
+            bn="বর্তমান শট ডিলিট করে টাইমলাইনের ফাঁকা জায়গা বন্ধ করুন।"
+            accent="crimson"
           >
-            <Trash2 className="w-3 h-3" />
-            <span className="hidden xl:inline">DEL</span>
-          </button>
+            <button
+              type="button"
+              data-testid="scrub-ripple-delete-btn"
+              onClick={handleRippleDelete}
+              disabled={slides.length <= 1}
+              className="px-1.5 py-1 rounded cinema-tile cinema-tile-crimson text-[10px] font-black flex items-center gap-1 cursor-pointer disabled:opacity-35 whitespace-nowrap"
+            >
+              <Trash2 className="w-3 h-3 cinema-tile-icon" />
+              <span className="hidden xl:inline">DEL</span>
+            </button>
+          </CinemaToolHUD>
 
-          {/* 1-Click Snap Playhead to Nearest Audio Beat Transient */}
-          <button
-            type="button"
-            data-testid="scrub-snap-transient-btn"
-            onClick={handleSnapToTransient}
-            className="px-2 py-1 bg-amber-500/15 hover:bg-amber-500/30 border border-amber-400/50 text-amber-200 text-[10px] font-bold flex items-center gap-1 cursor-pointer whitespace-nowrap"
-            title="Snap Playhead to Nearest Audio Transient Beat"
+          <CinemaToolHUD
+            title="SNAP TO BEAT"
+            en="Jump playhead to nearest transient beat marker."
+            bn="অডিওর কাছের বিট পয়েন্টে প্লেহেড নিয়ে যেতে চাপুন।"
+            accent="amber"
           >
-            <Activity className="w-3 h-3 text-amber-400" />
-            <span>SNAP BEAT</span>
-          </button>
+            <button
+              type="button"
+              data-testid="scrub-snap-transient-btn"
+              onClick={handleSnapToTransient}
+              className="px-2 py-1 rounded cinema-tile cinema-tile-amber text-[10px] font-black flex items-center gap-1 cursor-pointer whitespace-nowrap"
+            >
+              <Activity className="w-3 h-3 cinema-tile-icon" />
+              <span>BEAT</span>
+            </button>
+          </CinemaToolHUD>
         </div>
 
         {/* Center: J/K/L Shuttle, Frame-Steppers & Transport */}
         <div className="flex items-center gap-1">
-          <div className="hidden sm:flex items-center bg-black/70 border border-white/10 p-0.5 mr-0.5">
-            <button
-              type="button"
-              onClick={handleShuttleReverse}
-              className={`px-1.5 py-0.5 text-[9px] font-black cursor-pointer ${
-                shuttleRate < 0 ? 'bg-rose-600 text-white' : 'text-zinc-400 hover:text-white'
-              }`}
-              title="Shuttle Reverse (-1x / -2x / -4x) [J]"
-            >
-              J {shuttleRate < 0 ? `${shuttleRate}x` : '◀'}
-            </button>
-            <button
-              type="button"
-              onClick={handleShuttleFreeze}
-              className={`px-1.5 py-0.5 text-[9px] font-black cursor-pointer ${
-                shuttleRate === 0 && !isPlaying ? 'bg-white/15 text-white' : 'text-zinc-400 hover:text-white'
-              }`}
-              title="Freeze Shuttle [K]"
-            >
-              K
-            </button>
-            <button
-              type="button"
-              onClick={handleShuttleForward}
-              className={`px-1.5 py-0.5 text-[9px] font-black cursor-pointer ${
-                shuttleRate > 0 ? 'bg-cyan-500 text-black' : 'text-zinc-400 hover:text-white'
-              }`}
-              title="Shuttle Forward (+1x / +2x / +4x) [L]"
-            >
-              L {shuttleRate > 0 ? `+${shuttleRate}x` : '▶'}
-            </button>
+          <div className="hidden sm:flex items-center bg-black/70 border border-white/10 p-0.5 mr-0.5 gap-0.5">
+            <CinemaToolHUD title="SHUTTLE REV [J]" en="Shuttle reverse at -1x / -2x / -4x speed." bn="পিছনের দিকে দ্রুত রিওয়াইন্ড স্পিড বাড়ান [J]।" accent="crimson">
+              <button
+                type="button"
+                data-active={shuttleRate < 0 ? 'true' : 'false'}
+                onClick={handleShuttleReverse}
+                className="px-1.5 py-0.5 rounded cinema-tile cinema-tile-crimson text-[9px] font-black cursor-pointer"
+              >
+                J {shuttleRate < 0 ? `${shuttleRate}x` : '◀'}
+              </button>
+            </CinemaToolHUD>
+            <CinemaToolHUD title="PAUSE DECK [K]" en="Stop J/K/L deck shuttling immediately." bn="প্লেব্যাক ও শাটল সাথে সাথে থামান [K]।" accent="amber">
+              <button
+                type="button"
+                data-active={shuttleRate === 0 && !isPlaying ? 'true' : 'false'}
+                onClick={handleShuttleFreeze}
+                className="px-1.5 py-0.5 rounded cinema-tile cinema-tile-amber text-[9px] font-black cursor-pointer"
+              >
+                K
+              </button>
+            </CinemaToolHUD>
+            <CinemaToolHUD title="SHUTTLE FWD [L]" en="Shuttle forward at +1x / +2x / +4x speed." bn="সামনের দিকে ফাস্ট-ফরওয়ার্ড স্পিড বাড়ান [L]।" accent="cyan">
+              <button
+                type="button"
+                data-active={shuttleRate > 0 ? 'true' : 'false'}
+                onClick={handleShuttleForward}
+                className="px-1.5 py-0.5 rounded cinema-tile cinema-tile-cyan text-[9px] font-black cursor-pointer"
+              >
+                L {shuttleRate > 0 ? `+${shuttleRate}x` : '▶'}
+              </button>
+            </CinemaToolHUD>
           </div>
 
-          <button
-            type="button"
-            onClick={() => onStepFrame(false)}
-            className="px-1.5 py-1 bg-white/5 hover:bg-white/15 border border-white/10 text-[10px] font-bold text-[#F5A623] cursor-pointer whitespace-nowrap"
-            title="Step Back 1 Frame"
-          >
-            -1F
-          </button>
-          <button
-            type="button"
-            onClick={onTogglePlay}
-            className={`px-2.5 py-1 font-black text-[10px] flex items-center gap-1 border cursor-pointer whitespace-nowrap ${
-              isPlaying
-                ? 'bg-[#E50914] border-[#E50914] text-white'
-                : 'bg-[#1a1308] border-[#F5A623] text-[#F5A623]'
-            }`}
-          >
-            {isPlaying ? <Pause className="w-3 h-3 fill-current" /> : <Play className="w-3 h-3 fill-current" />}
-            <span>{isPlaying ? 'PAUSE' : 'PLAY'}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => onStepFrame(true)}
-            className="px-1.5 py-1 bg-white/5 hover:bg-white/15 border border-white/10 text-[10px] font-bold text-[#F5A623] cursor-pointer whitespace-nowrap"
-            title="Step Forward 1 Frame"
-          >
-            +1F
-          </button>
+          <CinemaToolHUD title="STEP -1 FRAME" en="Step backward by 1 frame." bn="ঠিক ১ ফ্রেম পিছনে যান।" accent="amber">
+            <button
+              type="button"
+              onClick={() => onStepFrame(false)}
+              className="px-1.5 py-1 rounded cinema-tile cinema-tile-amber text-[10px] font-black cursor-pointer whitespace-nowrap"
+            >
+              -1F
+            </button>
+          </CinemaToolHUD>
+          <CinemaToolHUD title={isPlaying ? 'PAUSE' : 'PLAY'} en="Toggle Scrub NLE playback." bn="ভিডিও চালু বা বিরতি দিতে চাপুন।" accent="amber">
+            <button
+              type="button"
+              data-active={isPlaying ? 'true' : 'false'}
+              onClick={onTogglePlay}
+              className="px-2.5 py-1 rounded cinema-tile cinema-tile-amber font-black text-[10px] flex items-center gap-1 cursor-pointer whitespace-nowrap"
+            >
+              {isPlaying ? <Pause className="w-3 h-3 fill-current cinema-tile-icon" /> : <Play className="w-3 h-3 fill-current cinema-tile-icon" />}
+              <span>{isPlaying ? 'PAUSE' : 'PLAY'}</span>
+            </button>
+          </CinemaToolHUD>
+          <CinemaToolHUD title="STEP +1 FRAME" en="Step forward by 1 frame." bn="ঠিক ১ ফ্রেম সামনে যান।" accent="amber">
+            <button
+              type="button"
+              onClick={() => onStepFrame(true)}
+              className="px-1.5 py-1 rounded cinema-tile cinema-tile-amber text-[10px] font-black cursor-pointer whitespace-nowrap"
+            >
+              +1F
+            </button>
+          </CinemaToolHUD>
 
           <CadenceSelectorPill
             durationSec={activeSlideDurationSec}
@@ -1590,95 +1634,100 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
           <div className="hidden xl:flex items-center gap-0.5 bg-black/60 border border-white/10 px-1 py-0.5">
             <Gauge className="w-3 h-3 text-cyan-400 mr-0.5" />
             {SCRUB_SPEED_OPTIONS.map((spd) => (
-              <button
-                key={spd}
-                type="button"
-                onClick={() => {
-                  handleClipSpeedChange(spd);
-                  onChangePlaybackSpeed?.(spd);
-                }}
-                className={`px-1 py-0.5 font-bold cursor-pointer whitespace-nowrap ${
-                  Math.abs(currentWindow.speed - spd) < 0.05
-                    ? 'bg-cyan-400 text-black'
-                    : 'text-zinc-400 hover:text-white'
-                }`}
-              >
-                {spd}x
-              </button>
+              <CinemaToolHUD key={spd} title={`SPEED ${spd}X`} en={`Set clip playback rate to ${spd}x.`} bn={`ক্লিপের গতি ${spd}x করতে চাপুন।`} accent="cyan">
+                <button
+                  type="button"
+                  data-active={Math.abs(currentWindow.speed - spd) < 0.05 ? 'true' : 'false'}
+                  onClick={() => {
+                    handleClipSpeedChange(spd);
+                    onChangePlaybackSpeed?.(spd);
+                  }}
+                  className="px-1 py-0.5 rounded cinema-tile cinema-tile-cyan font-black cursor-pointer whitespace-nowrap"
+                >
+                  {spd}x
+                </button>
+              </CinemaToolHUD>
             ))}
           </div>
 
-          <button
-            type="button"
-            onClick={() => setIsRampCurveOpen((o) => !o)}
-            className={`px-2 py-1 border text-[9px] font-black flex items-center gap-1 cursor-pointer whitespace-nowrap ${
-              isRampCurveOpen || currentSlide?.speedRampKeyframes?.length
-                ? 'bg-amber-500/20 border-[#F5A623] text-[#F5A623]'
-                : 'bg-white/5 border-white/15 text-zinc-300 hover:text-white'
-            }`}
-            title="Toggle Interactive Bezier Speed-Ramp Keyframe Curve"
+          <CinemaToolHUD
+            title="SPEED CURVE"
+            en="Open interactive Bezier speed-ramp keyframe editor."
+            bn="স্মুথ স্লো-মোশন ও স্পিড-র‍্যাম্প কার্ভ সেট করতে চাপুন।"
+            accent="amber"
           >
-            <Zap className="w-3 h-3" />
-            <span>CURVE</span>
-          </button>
+            <button
+              type="button"
+              data-active={isRampCurveOpen || Boolean(currentSlide?.speedRampKeyframes?.length) ? 'true' : 'false'}
+              onClick={() => setIsRampCurveOpen((o) => !o)}
+              className="px-2 py-1 rounded cinema-tile cinema-tile-amber text-[9px] font-black flex items-center gap-1 cursor-pointer whitespace-nowrap"
+            >
+              <Zap className="w-3 h-3 cinema-tile-icon" />
+              <span>CURVE</span>
+            </button>
+          </CinemaToolHUD>
 
-          <button
-            type="button"
-            data-testid="scrub-optical-flow-btn"
-            onClick={handleCycleOpticalFlow}
-            className={`px-2 py-1 border text-[9px] font-bold flex items-center gap-1 cursor-pointer whitespace-nowrap ${
-              opticalFlowMode !== 'NONE'
-                ? 'bg-purple-500/20 border-purple-400 text-purple-200'
-                : 'bg-white/5 border-white/15 text-zinc-400 hover:text-white'
-            }`}
-            title="Cycle Optical Flow / Frame-Blend Slow-Motion Interpolation"
+          <CinemaToolHUD
+            title="OPTICAL FLOW"
+            en="Cycle Optical Flow or Frame-Blend slow-motion smoothing."
+            bn="স্লো-মোশন ফ্রেম স্মুথ করতে Optical Flow চালু করুন।"
+            accent="cyan"
           >
-            <Sparkles className="w-3 h-3" />
-            <span>{opticalFlowMode === 'OPTICAL_FLOW' ? 'FLOW' : opticalFlowMode === 'FRAME_BLEND' ? 'BLEND' : 'OPTICAL'}</span>
-          </button>
+            <button
+              type="button"
+              data-testid="scrub-optical-flow-btn"
+              data-active={opticalFlowMode !== 'NONE' ? 'true' : 'false'}
+              onClick={handleCycleOpticalFlow}
+              className="px-2 py-1 rounded cinema-tile cinema-tile-cyan text-[9px] font-black flex items-center gap-1 cursor-pointer whitespace-nowrap"
+            >
+              <Sparkles className="w-3 h-3 cinema-tile-icon" />
+              <span>{opticalFlowMode === 'OPTICAL_FLOW' ? 'FLOW' : opticalFlowMode === 'FRAME_BLEND' ? 'BLEND' : 'OPTICAL'}</span>
+            </button>
+          </CinemaToolHUD>
 
           <div className="flex items-center gap-0.5 bg-black/60 border border-white/10 px-1 py-0.5">
-            <button
-              type="button"
-              onClick={() => setTimelineZoom((z) => Math.max(0.5, Number((z - 0.5).toFixed(1))))}
-              className="p-0.5 text-zinc-400 hover:text-white cursor-pointer"
-              title="Zoom Out Filmstrip"
-            >
-              <ZoomOut className="w-3 h-3" />
-            </button>
+            <CinemaToolHUD title="ZOOM OUT" en="Zoom out filmstrip track." bn="টাইমলাইন জুম আউট করুন।" accent="amber">
+              <button
+                type="button"
+                onClick={() => setTimelineZoom((z) => Math.max(0.5, Number((z - 0.5).toFixed(1))))}
+                className="p-0.5 rounded cinema-tile cinema-tile-amber cursor-pointer"
+              >
+                <ZoomOut className="w-3 h-3 cinema-tile-icon" />
+              </button>
+            </CinemaToolHUD>
             <span className="text-zinc-300 font-bold tabular-nums w-6 text-center">{timelineZoom.toFixed(1)}x</span>
-            <button
-              type="button"
-              onClick={() => setTimelineZoom((z) => Math.min(4.0, Number((z + 0.5).toFixed(1))))}
-              className="p-0.5 text-zinc-400 hover:text-white cursor-pointer"
-              title="Zoom In Filmstrip"
-            >
-              <ZoomIn className="w-3 h-3" />
-            </button>
+            <CinemaToolHUD title="ZOOM IN" en="Zoom in filmstrip track." bn="টাইমলাইন জুম ইন করুন।" accent="amber">
+              <button
+                type="button"
+                onClick={() => setTimelineZoom((z) => Math.min(4.0, Number((z + 0.5).toFixed(1))))}
+                className="p-0.5 rounded cinema-tile cinema-tile-amber cursor-pointer"
+              >
+                <ZoomIn className="w-3 h-3 cinema-tile-icon" />
+              </button>
+            </CinemaToolHUD>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setIsCardDrawerOpen((o) => !o)}
-            className={`px-2 py-1 border text-[10px] font-bold flex items-center gap-1 cursor-pointer whitespace-nowrap ${
-              isCardDrawerOpen
-                ? 'bg-[#F5A623] border-[#F5A623] text-black'
-                : 'bg-white/5 border-white/15 text-zinc-200 hover:border-white/30'
-            }`}
-            title="Toggle Collapsible Shot Cards & Metadata Drawer"
-          >
-            {isCardDrawerOpen ? <PanelBottomClose className="w-3 h-3" /> : <PanelBottomOpen className="w-3 h-3" />}
-            <span>CARDS ({activeSlides.length})</span>
-          </button>
+          <CinemaToolHUD title="SHOT CARDS" en="Toggle collapsible shot cards drawer." bn="সব শটের কার্ড ও টাইটেল ড্রয়ার খুলুন।" accent="amber">
+            <button
+              type="button"
+              data-active={isCardDrawerOpen ? 'true' : 'false'}
+              onClick={() => setIsCardDrawerOpen((o) => !o)}
+              className="px-2 py-1 rounded cinema-tile cinema-tile-amber text-[10px] font-black flex items-center gap-1 cursor-pointer whitespace-nowrap"
+            >
+              {isCardDrawerOpen ? <PanelBottomClose className="w-3 h-3 cinema-tile-icon" /> : <PanelBottomOpen className="w-3 h-3 cinema-tile-icon" />}
+              <span>CARDS ({activeSlides.length})</span>
+            </button>
+          </CinemaToolHUD>
 
-          <button
-            type="button"
-            onClick={() => setIsTimelineCollapsed((c) => !c)}
-            className="px-1.5 py-1 bg-white/5 hover:bg-white/15 border border-white/15 text-zinc-300 text-[9px] font-bold flex items-center gap-0.5 cursor-pointer whitespace-nowrap"
-            title={isTimelineCollapsed ? 'Expand Filmstrip Timeline' : 'Collapse Filmstrip to Maximize Viewport'}
-          >
-            {isTimelineCollapsed ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-          </button>
+          <CinemaToolHUD title="TRACK VISIBILITY" en="Collapse or expand bottom filmstrip track." bn="নিচের ফিল্মস্ট্রিপ ট্র্যাক ছোট বা বড় করুন।" accent="amber">
+            <button
+              type="button"
+              onClick={() => setIsTimelineCollapsed((c) => !c)}
+              className="px-1.5 py-1 rounded cinema-tile cinema-tile-amber text-[9px] font-black flex items-center gap-0.5 cursor-pointer whitespace-nowrap"
+            >
+              {isTimelineCollapsed ? <ChevronUp className="w-3 h-3 cinema-tile-icon" /> : <ChevronDown className="w-3 h-3 cinema-tile-icon" />}
+            </button>
+          </CinemaToolHUD>
         </div>
       </div>
 
@@ -1694,46 +1743,51 @@ export const ScrubPanel: React.FC<ScrubPanelProps> = ({
             className="h-7 px-3 flex items-center justify-between text-[10px] text-zinc-400 hover:text-white cursor-pointer bg-[#090A0F]"
           >
             <span className="font-bold tracking-wider uppercase">
-              TIMELINE COLLAPSED · SH{String(safeIndex + 1).padStart(3, '0')}/{activeSlides.length} · {totalDurationSec.toFixed(1)}S TOTAL
+              TRACK · SH{String(safeIndex + 1).padStart(3, '0')}/{activeSlides.length} · {totalDurationSec.toFixed(1)}S
             </span>
-            <span className="text-[#F5A623] font-bold uppercase">EXPAND TRACK ▲</span>
+            <span className="text-[#F5A623] font-black uppercase">EXPAND ▲</span>
           </div>
         )}
 
         {/* Optional Collapsible Card Drawer */}
         {isCardDrawerOpen && !isTimelineCollapsed && (
           <div className="fixed inset-x-0 bottom-0 h-[230px] z-50 bg-[#08090C] border-t border-[#F5A623]/50 flex flex-col overflow-hidden shadow-2xl">
-            <div className="h-8 px-3 bg-[#0D0E14] border-b border-white/10 flex items-center justify-between gap-2 shrink-0 text-[10px]">
+            <div className="h-9 px-3 bg-[#0D0E14] border-b border-white/10 flex items-center justify-between gap-2 shrink-0 text-[10px]">
               <div className="flex items-center gap-2">
-                <span className="text-[#F5A623] font-black tracking-wider">SHOT CARDS DRAWER</span>
+                <CinemaBadgeHeader label="SHOT CARDS" accent="amber" />
                 <div className="relative">
                   <Search className="w-3 h-3 text-zinc-500 absolute left-2 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
-                    placeholder="Filter shots..."
+                    placeholder="Filter..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="bg-black/70 border border-white/15 pl-6 pr-2 py-0.5 text-[10px] text-white placeholder-zinc-500 focus:outline-none focus:border-[#F5A623] w-40"
+                    className="bg-black/70 border border-white/15 pl-6 pr-2 py-0.5 text-[10px] text-white placeholder-zinc-500 focus:outline-none focus:border-[#F5A623] w-36"
                   />
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={onAddSlide}
-                  className="px-2 py-0.5 bg-[#F5A623] text-black font-black text-[10px] flex items-center gap-1 cursor-pointer whitespace-nowrap"
-                >
-                  <Plus className="w-3 h-3" />
-                  <span>ADD 12S SHOT</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsCardDrawerOpen(false)}
-                  className="px-2 py-0.5 bg-white/10 text-zinc-200 hover:text-white text-[10px] font-bold cursor-pointer"
-                >
-                  COLLAPSE
-                </button>
+                <CinemaToolHUD title="ADD 12S SHOT" en="Append a new 12-second shot card to timeline." bn="টাইমলাইনে নতুন ১২ সেকেন্ডের শট যোগ করুন।" accent="amber">
+                  <button
+                    type="button"
+                    data-active="true"
+                    onClick={onAddSlide}
+                    className="px-2.5 py-1 rounded cinema-tile cinema-tile-amber font-black text-[10px] flex items-center gap-1 cursor-pointer whitespace-nowrap"
+                  >
+                    <Plus className="w-3 h-3 cinema-tile-icon" />
+                    <span>+12S SHOT</span>
+                  </button>
+                </CinemaToolHUD>
+                <CinemaToolHUD title="CLOSE DRAWER" en="Collapse shot cards drawer." bn="শট কার্ড ড্রয়ার বন্ধ করুন।" accent="amber">
+                  <button
+                    type="button"
+                    onClick={() => setIsCardDrawerOpen(false)}
+                    className="px-2.5 py-1 rounded cinema-tile cinema-tile-amber text-[10px] font-black cursor-pointer"
+                  >
+                    CLOSE
+                  </button>
+                </CinemaToolHUD>
               </div>
             </div>
 

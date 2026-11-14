@@ -32,6 +32,7 @@ import {
 import { dispatchToExternalApp } from '../../utils/interchangeExport';
 import { EditInAppStrip } from '../bridge/EditInAppStrip';
 import { launchExternalEdit, ExternalEditApp } from '../../services/editInBridge';
+import { CinemaToolHUD, CinemaBadgeHeader } from '../ui/CinemaToolHUD';
 
 interface DirectorCockpitModalProps {
   isOpen: boolean;
@@ -230,21 +231,33 @@ export const DirectorCockpitModal: React.FC<DirectorCockpitModalProps> = ({
         {/* Header Bar */}
         <div className="h-12 px-4 border-b border-white/10 bg-[#0d0e16] flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="w-3 h-3 rounded-full bg-amber-400 animate-pulse shadow-[0_0_8px_#fbbf24]" />
-            <h2 className="text-xs sm:text-sm font-black tracking-widest text-white uppercase">
-              THE DIRECTOR'S COCKPIT // EXTERNAL PIPELINE BRIDGES
-            </h2>
-            <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 border border-amber-500/40 text-amber-300 font-bold">
-              {isTauri ? 'TAURI NLE SILICON' : 'BROWSER VIRTUAL BRIDGE'}
+            <CinemaBadgeHeader
+              icon={<Zap className="w-4 h-4 text-amber-400" strokeWidth={2.2} />}
+              label="COCKPIT BRIDGE"
+              accent="amber"
+            />
+            <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/40 text-amber-300 font-black uppercase">
+              {isTauri ? 'NATIVE' : 'VIRTUAL'}
             </span>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1 rounded hover:bg-white/10 text-zinc-400 hover:text-white cursor-pointer transition-colors"
+          <CinemaToolHUD
+            title="CLOSE COCKPIT"
+            en="Close the Director Cockpit pipeline bridge modal."
+            bn="কীভাবে ব্যবহার করবেন: ককপিট বন্ধ করতে ক্লিক করুন।"
+            shortcut="ESC"
+            accent="crimson"
+            side="left"
           >
-            <X className="w-4 h-4" />
-          </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="cinema-tile cinema-tile-crimson min-h-[36px] px-2.5 flex items-center gap-1"
+              aria-label="Close Cockpit"
+            >
+              <X className="w-4 h-4" strokeWidth={2.2} />
+              <span className="font-black tracking-wider text-[10px] uppercase">CLOSE</span>
+            </button>
+          </CinemaToolHUD>
         </div>
 
         {/* Status / Telemetry Feedback Strip */}
@@ -254,333 +267,211 @@ export const DirectorCockpitModal: React.FC<DirectorCockpitModalProps> = ({
               <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
               <span className="font-bold tracking-wider">{dispatchStatus}</span>
             </div>
-            <span className="text-[10px] text-zinc-400">// PIPELINE DISPATCH ACTIVE</span>
+            <span className="text-[10px] font-black text-amber-400 uppercase">ACTIVE</span>
           </div>
         )}
 
         {/* Tab Navigation */}
-        <div className="flex items-center border-b border-white/10 bg-black/60 px-4 text-xs font-bold">
-          <button
-            type="button"
-            onClick={() => setActiveTab('bridges')}
-            className={`py-2.5 px-3 border-b-2 flex items-center gap-1.5 transition-colors cursor-pointer ${
-              activeTab === 'bridges'
-                ? 'border-amber-400 text-amber-300'
-                : 'border-transparent text-zinc-400 hover:text-white'
-            }`}
-          >
-            <Zap className="w-3.5 h-3.5" />
-            <span>EXTERNAL DISPATCH DOCK</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('interchange')}
-            className={`py-2.5 px-3 border-b-2 flex items-center gap-1.5 transition-colors cursor-pointer ${
-              activeTab === 'interchange'
-                ? 'border-amber-400 text-amber-300'
-                : 'border-transparent text-zinc-400 hover:text-white'
-            }`}
-          >
-            <Film className="w-3.5 h-3.5" />
-            <span>NLE INTERCHANGE & CAPCUT</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('watcher')}
-            className={`py-2.5 px-3 border-b-2 flex items-center gap-1.5 transition-colors cursor-pointer ${
-              activeTab === 'watcher'
-                ? 'border-amber-400 text-amber-300'
-                : 'border-transparent text-zinc-400 hover:text-white'
-            }`}
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            <span>LIVE ASSET WATCHER</span>
-          </button>
+        <div className="flex items-center gap-1.5 border-b border-white/10 bg-black/60 px-4 py-2">
+          {[
+            { id: 'bridges', label: 'DISPATCH', icon: Zap, accent: 'amber' as const, title: 'EXTERNAL APP DISPATCH', en: 'Send shot assets directly to Photoshop, Premiere, Illustrator, or CapCut.', bn: 'কীভাবে ব্যবহার করবেন: বাইরের অ্যাপে শট পাঠাতে ক্লিক করুন।' },
+            { id: 'interchange', label: 'NLE PACKS', icon: Film, accent: 'cyan' as const, title: 'NLE INTERCHANGE & CAPCUT', en: 'Export FCPXML, CMX 3600 EDL, or CapCut ZIP quick-packs.', bn: 'কীভাবে ব্যবহার করবেন: টাইমলাইন প্যাক এক্সপোর্ট করতে ক্লিক করুন।' },
+            { id: 'watcher', label: 'WATCHER', icon: RefreshCw, accent: 'emerald' as const, title: 'LIVE ASSET WATCHER', en: 'Monitor modified local shot plates and test hot-reloads.', bn: 'কীভাবে ব্যবহার করবেন: অটো-সিঙ্ক ও হট-রিলোড দেখতে ক্লিক করুন।' },
+          ].map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <CinemaToolHUD key={tab.id} title={tab.title} en={tab.en} bn={tab.bn} accent={tab.accent} side="bottom">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab(tab.id as typeof activeTab)}
+                  data-active={activeTab === tab.id ? 'true' : 'false'}
+                  className={`cinema-tile cinema-tile-${tab.accent} min-h-[38px] px-3 py-1.5 flex items-center gap-1.5`}
+                >
+                  <Icon className="w-3.5 h-3.5" strokeWidth={2.2} />
+                  <span className="font-black tracking-wider text-[10px] sm:text-[11px] uppercase">{tab.label}</span>
+                </button>
+              </CinemaToolHUD>
+            );
+          })}
         </div>
 
         {/* Modal Body */}
         <div className="p-4 sm:p-6 overflow-y-auto max-h-[70vh] space-y-5">
-          
           {/* TAB 1: EXTERNAL APP DISPATCH */}
           {activeTab === 'bridges' && (
             <div className="space-y-4">
               <div className="p-3 bg-[#0d0e15] border border-white/10 rounded-xl flex flex-wrap items-center justify-between gap-2.5">
-                <div>
-                  <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">ACTIVE TARGET SHOT</span>
-                  <div className="text-sm font-bold text-white flex items-center gap-2 mt-0.5">
-                    <span className="px-1.5 py-0.2 rounded bg-amber-500 text-black font-black text-xs">
-                      SHOT {activeShot.shotNumber}
-                    </span>
-                    <span>{activeShot.titleEn}</span>
-                    <span className="text-zinc-500 text-xs font-bangla">// {activeShot.titleBn}</span>
-                  </div>
+                <div className="text-sm font-bold text-white flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded bg-amber-500 text-black font-black text-xs">
+                    SHOT {activeShot.shotNumber}
+                  </span>
+                  <span>{activeShot.titleEn}</span>
                 </div>
                 <EditInAppStrip shotIndex={activeShotIndex} variant="drawer" />
               </div>
 
               {/* 4 Direct Zero-Prompt External App Bridges */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                {/* 1. Photoshop */}
-                <div className="p-3.5 rounded-xl border border-sky-500/35 bg-[#09111c] hover:border-sky-400 transition-all flex flex-col justify-between space-y-3">
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-[#001E36] text-[#31A8FF] border border-[#31A8FF]/50">
-                        PHOTOSHOP
-                      </span>
-                      <span className="text-[9px] text-zinc-500">LIVE SYNC</span>
-                    </div>
-                    <h3 className="text-xs font-bold text-white tracking-wide">[ PS // PAINT-OVER ]</h3>
-                    <p className="text-[10.5px] text-zinc-400 mt-1 leading-relaxed">
-                      Writes scratch raster plate and opens Adobe Photoshop directly with instant Ctrl+S auto-reload.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleDispatch('photoshop')}
-                    disabled={isProcessing}
-                    className="w-full py-2 rounded-lg bg-[#31A8FF] hover:bg-sky-300 text-black font-black text-xs tracking-wider flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all shadow-md"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    <span>OPEN IN PS</span>
-                  </button>
-                </div>
-
-                {/* 2. Premiere Pro */}
-                <div className="p-3.5 rounded-xl border border-indigo-400/35 bg-[#0b0a1c] hover:border-indigo-300 transition-all flex flex-col justify-between space-y-3">
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-[#00005B] text-[#9999FF] border border-[#9999FF]/50">
-                        PREMIERE PRO
-                      </span>
-                      <span className="text-[9px] text-zinc-500">NLE SYNC</span>
-                    </div>
-                    <h3 className="text-xs font-bold text-white tracking-wide">[ PR // TIMELINE ]</h3>
-                    <p className="text-[10.5px] text-zinc-400 mt-1 leading-relaxed">
-                      Dispatches active clip/slate directly to Adobe Premiere Pro with live file-watcher sync.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleDispatch('premiere')}
-                    disabled={isProcessing}
-                    className="w-full py-2 rounded-lg bg-[#9999FF] hover:bg-indigo-200 text-black font-black text-xs tracking-wider flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all shadow-md"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    <span>OPEN IN PR</span>
-                  </button>
-                </div>
-
-                {/* 3. Illustrator */}
-                <div className="p-3.5 rounded-xl border border-orange-500/35 bg-[#190c06] hover:border-orange-400 transition-all flex flex-col justify-between space-y-3">
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-[#330000] text-[#FF9A00] border border-[#FF9A00]/50">
-                        ILLUSTRATOR
-                      </span>
-                      <span className="text-[9px] text-zinc-500">GFX SYNC</span>
-                    </div>
-                    <h3 className="text-xs font-bold text-white tracking-wide">[ AI // TITLE GFX ]</h3>
-                    <p className="text-[10.5px] text-zinc-400 mt-1 leading-relaxed">
-                      Exports plate for vector typography/title overlays in Adobe Illustrator with live save sync.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleDispatch('illustrator')}
-                    disabled={isProcessing}
-                    className="w-full py-2 rounded-lg bg-[#FF9A00] hover:bg-amber-300 text-black font-black text-xs tracking-wider flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all shadow-md"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    <span>OPEN IN AI</span>
-                  </button>
-                </div>
-
-                {/* 4. CapCut */}
-                <div className="p-3.5 rounded-xl border border-zinc-400/35 bg-[#111216] hover:border-white transition-all flex flex-col justify-between space-y-3">
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-[#0A0A0C] text-white border border-white/30">
-                        CAPCUT DESKTOP
-                      </span>
-                      <span className="text-[9px] text-zinc-500">REEL SYNC</span>
-                    </div>
-                    <h3 className="text-xs font-bold text-white tracking-wide">[ CC // REEL EDIT ]</h3>
-                    <p className="text-[10.5px] text-zinc-400 mt-1 leading-relaxed">
-                      Sends bound shot media directly into CapCut Desktop and watches disk saves automatically.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleDispatch('capcut')}
-                    disabled={isProcessing}
-                    className="w-full py-2 rounded-lg bg-white hover:bg-zinc-200 text-black font-black text-xs tracking-wider flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all shadow-md"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    <span>OPEN CAPCUT</span>
-                  </button>
-                </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {[
+                  { target: 'photoshop' as CockpitDispatchTarget, label: 'PHOTOSHOP', accent: 'cyan' as const, icon: Layers, title: 'OPEN IN PHOTOSHOP', en: 'Write scratch raster plate and launch Adobe Photoshop with live Ctrl+S auto-sync.', bn: 'কীভাবে ব্যবহার করবেন: ফটোশপে পেইন্ট-ওভার করতে ক্লিক করুন।', shortcut: 'Ctrl+Shift+P' },
+                  { target: 'premiere' as CockpitDispatchTarget, label: 'PREMIERE PRO', accent: 'cyan' as const, icon: Film, title: 'OPEN IN PREMIERE PRO', en: 'Dispatch active shot directly to Adobe Premiere Pro with file-watcher sync.', bn: 'কীভাবে ব্যবহার করবেন: প্রিমিয়ার প্রোতে পাঠাতে ক্লিক করুন।' },
+                  { target: 'illustrator' as CockpitDispatchTarget, label: 'ILLUSTRATOR', accent: 'amber' as const, icon: Sparkles, title: 'OPEN IN ILLUSTRATOR', en: 'Export frame plate for vector title design in Adobe Illustrator.', bn: 'কীভাবে ব্যবহার করবেন: ইলাস্ট্রেটরে টাইটেল বানাতে ক্লিক করুন।' },
+                  { target: 'capcut' as CockpitDispatchTarget, label: 'CAPCUT', accent: 'emerald' as const, icon: Zap, title: 'OPEN IN CAPCUT', en: 'Send shot media directly to CapCut Desktop with auto save-watching.', bn: 'কীভাবে ব্যবহার করবেন: ক্যাপকাট ডেস্কটপে খুলতে ক্লিক করুন।' },
+                ].map((app) => {
+                  const Icon = app.icon;
+                  return (
+                    <CinemaToolHUD key={app.target} title={app.title} en={app.en} bn={app.bn} shortcut={app.shortcut} accent={app.accent} side="top" blockWrapper>
+                      <button
+                        type="button"
+                        onClick={() => handleDispatch(app.target)}
+                        disabled={isProcessing}
+                        className={`cinema-tile cinema-tile-${app.accent} w-full min-h-[76px] p-3 flex flex-col items-center justify-center gap-2`}
+                      >
+                        <Icon className="w-6 h-6" strokeWidth={2.2} />
+                        <span className="font-black tracking-wider text-[10px] sm:text-[11px] uppercase">{app.label}</span>
+                      </button>
+                    </CinemaToolHUD>
+                  );
+                })}
               </div>
 
               {/* Instant Frame Capture Button */}
-              <div className="p-3 bg-neutral-900/80 border border-neutral-700 rounded-xl flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Camera className="w-4 h-4 text-amber-400" />
-                  <div>
-                    <div className="text-xs font-bold text-white">Instant Frame Freeze to Disk</div>
-                    <div className="text-[10px] text-zinc-400">Captures raw stage canvas at full raster scope to ./frames</div>
-                  </div>
-                </div>
+              <CinemaToolHUD
+                title="FREEZE STAGE FRAME"
+                en="Capture raw stage canvas raster frame directly to ./frames disk folder."
+                bn="কীভাবে ব্যবহার করবেন: বর্তমান ফ্রেম PNG হিসেবে সেভ করতে ক্লিক করুন।"
+                shortcut="Shift+S"
+                accent="amber"
+                side="top"
+                blockWrapper
+              >
                 <button
                   type="button"
                   onClick={handleCaptureFrame}
-                  className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-colors"
+                  className="cinema-tile cinema-tile-amber w-full min-h-[48px] px-4 py-2.5 flex items-center justify-center gap-2"
                 >
-                  <Download className="w-3.5 h-3.5 text-amber-400" />
-                  <span>[ 📸 CAPTURE FRAME ]</span>
+                  <Camera className="w-5 h-5" strokeWidth={2.2} />
+                  <span className="font-black tracking-wider text-[10px] sm:text-[11px] uppercase">CAPTURE FRAME</span>
                 </button>
-              </div>
+              </CinemaToolHUD>
             </div>
           )}
 
           {/* TAB 2: NLE INTERCHANGE & CAPCUT QUICK-PACK */}
           {activeTab === 'interchange' && (
             <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                {/* FCPXML v1.9 Exporter */}
-                <div className="p-4 rounded-xl border border-white/15 bg-[#0b0c12] space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-white uppercase tracking-wider">UNIVERSAL FCPXML (v1.9)</span>
-                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-500/40">
-                      PREMIERE / DAVINCI
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-zinc-400 leading-relaxed">
-                    Compiles the entire 14-shot sequence with exact in/out clip frames, master audio floor synchronized to 00:00:00, and dynamic title markers.
-                  </p>
-                  <div className="text-[10px] text-zinc-500 font-mono">
-                    Total Runtime: {allShots.reduce((a, s) => a + (s.outPoint - s.inPoint), 0).toFixed(1)}s • 24.0 FPS
-                  </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <CinemaToolHUD
+                  title="EXPORT UNIVERSAL FCPXML"
+                  en="Compile all shots, synced audio track, and timecode markers into FCPXML v1.9."
+                  bn="কীভাবে ব্যবহার করবেন: Premiere বা DaVinci-র জন্য .fcpxml ডাউনলোড করতে চাপুন।"
+                  shortcut="Ctrl+Shift+X"
+                  accent="emerald"
+                  side="top"
+                  blockWrapper
+                >
                   <button
                     type="button"
                     onClick={handleExportFcpxml}
-                    className="w-full py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-white font-bold text-xs border border-white/20 flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                    className="cinema-tile cinema-tile-emerald w-full min-h-[64px] p-4 flex items-center justify-center gap-2.5"
                   >
-                    <Download className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>EXPORT FCPXML SEQUENCE</span>
+                    <Download className="w-5 h-5" strokeWidth={2.2} />
+                    <span className="font-black tracking-wider text-[11px] uppercase">EXPORT FCPXML</span>
                   </button>
-                </div>
+                </CinemaToolHUD>
 
-                {/* CMX 3600 EDL Exporter */}
-                <div className="p-4 rounded-xl border border-white/15 bg-[#0b0c12] space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-white uppercase tracking-wider">CMX 3600 EDL</span>
-                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-400 border border-cyan-500/40">
-                      HOLLYWOOD STANDARD
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-zinc-400 leading-relaxed">
-                    Generates clean, battle-tested SMPTE CMX 3600 Edit Decision List for professional conform in DaVinci Resolve, Avid Media Composer, or Flame.
-                  </p>
-                  <div className="text-[10px] text-zinc-500 font-mono">
-                    14 Events • 00:00:00:00 Start Timecode
-                  </div>
+                <CinemaToolHUD
+                  title="EXPORT CMX 3600 EDL"
+                  en="Generate SMPTE CMX 3600 Edit Decision List for DaVinci Resolve, Avid, and Flame."
+                  bn="কীভাবে ব্যবহার করবেন: .edl ফাইল ডাউনলোড করতে ক্লিক করুন।"
+                  accent="cyan"
+                  side="top"
+                  blockWrapper
+                >
                   <button
                     type="button"
                     onClick={handleExportEdl}
-                    className="w-full py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-white font-bold text-xs border border-white/20 flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                    className="cinema-tile cinema-tile-cyan w-full min-h-[64px] p-4 flex items-center justify-center gap-2.5"
                   >
-                    <FileText className="w-3.5 h-3.5 text-cyan-400" />
-                    <span>EXPORT CMX 3600 EDL</span>
+                    <FileText className="w-5 h-5" strokeWidth={2.2} />
+                    <span className="font-black tracking-wider text-[11px] uppercase">EXPORT EDL</span>
                   </button>
-                </div>
+                </CinemaToolHUD>
               </div>
 
-              {/* CapCut Full Bundle Box */}
-              <div className="p-4 rounded-xl border border-amber-500/40 bg-gradient-to-br from-[#120e06] via-[#090a0f] to-[#090a0f] space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-amber-400" />
-                    <span className="text-xs font-bold text-white uppercase tracking-wider">CAPCUT QUICK-PACK BUNDLE (ZIP)</span>
-                  </div>
-                  <span className="text-[9px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 font-black">
-                    HOTKEY: Ctrl+Shift+C
-                  </span>
-                </div>
-                <p className="text-[11px] text-zinc-400 leading-relaxed">
-                  Creates a high-velocity ZIP bundle containing: <code className="text-amber-300">manifest.json</code>, <code className="text-amber-300">CAPCUT_DIRECTOR_SHEET.txt</code> with exact lighting notes and Bangla/English kinetic typography cues, plus reference frames.
-                </p>
+              <CinemaToolHUD
+                title="CAPCUT QUICK-PACK ZIP"
+                en="Bundle manifest.json, director cue sheet, bilingual captions, and reference frames into a ZIP."
+                bn="কীভাবে ব্যবহার করবেন: ৩ সেকেন্ডে ক্যাপকাট বান্ডেল জিপ ডাউনলোড করতে চাপুন।"
+                shortcut="Ctrl+Shift+C"
+                accent="amber"
+                side="top"
+                blockWrapper
+              >
                 <button
                   type="button"
                   onClick={handleExportCapCutPack}
-                  className="w-full py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-black text-xs tracking-wider flex items-center justify-center gap-2 cursor-pointer shadow-lg active:scale-95 transition-all"
+                  className="cinema-tile cinema-tile-amber w-full min-h-[56px] py-3 px-4 flex items-center justify-center gap-2"
                 >
-                  <Download className="w-4 h-4" />
-                  <span>[ ⚡ EXPORT CAPCUT BUNDLE IN 3 SECONDS ]</span>
+                  <Download className="w-5 h-5" strokeWidth={2.2} />
+                  <span className="font-black tracking-wider text-[11px] uppercase">CAPCUT BUNDLE</span>
                 </button>
-              </div>
+              </CinemaToolHUD>
             </div>
           )}
 
           {/* TAB 3: LIVE ASSET WATCHER */}
           {activeTab === 'watcher' && (
             <div className="space-y-4">
-              <div className="p-3.5 rounded-xl border border-emerald-500/40 bg-[#08120d] flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
-                  <div>
-                    <div className="text-xs font-bold text-white uppercase">Automated Asset Watcher Active</div>
-                    <div className="text-[10px] text-emerald-300 font-mono">
-                      Monitoring directory: <code className="bg-black/50 px-1 py-0.5 rounded">./frames/shot_*.png</code>
-                    </div>
-                  </div>
-                </div>
-                <span className="text-[9px] px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/40 font-bold">
+              <div className="p-3 rounded-xl border border-emerald-500/40 bg-[#08120d] flex items-center justify-between">
+                <CinemaBadgeHeader
+                  icon={<RefreshCw className="w-4 h-4 text-emerald-400 animate-spin" strokeWidth={2.2} />}
+                  label="ASSET WATCHER"
+                  accent="emerald"
+                />
+                <span className="text-[9px] px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/40 font-black uppercase">
                   LIVE SYNC
                 </span>
               </div>
 
-              <div className="space-y-2">
-                <div className="text-xs font-bold text-zinc-300 uppercase">Watched Shot Frames</div>
-                <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                  {allShots.map((s) => {
-                    const isWatched = Boolean(watchedFrames[s.shotNumber]);
-                    return (
-                      <div
-                        key={s.shotNumber}
-                        className="p-2 rounded-lg bg-white/[0.03] border border-white/10 flex items-center justify-between text-xs font-mono"
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="px-1.5 py-0.2 rounded bg-white/10 text-zinc-300 font-bold text-[10px]">
-                            SH {s.shotNumber}
-                          </span>
-                          <span className="text-white font-medium">{s.titleEn}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-[10px]">
-                          <span className="text-zinc-500">shot_{String(s.shotNumber).padStart(2, '0')}_master.png</span>
-                          {isWatched ? (
-                            <span className="flex items-center gap-1 text-emerald-400 font-bold">
-                              <CheckCircle2 className="w-3 h-3" />
-                              <span>WATCHED</span>
-                            </span>
-                          ) : (
-                            <span className="text-zinc-600">IDLE</span>
-                          )}
-                        </div>
+              <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                {allShots.map((s) => {
+                  const isWatched = Boolean(watchedFrames[s.shotNumber]);
+                  return (
+                    <div
+                      key={s.shotNumber}
+                      className="p-2 rounded-lg bg-white/[0.03] border border-white/10 flex items-center justify-between text-xs font-mono"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="px-1.5 py-0.2 rounded bg-white/10 text-zinc-300 font-bold text-[10px]">
+                          SH {s.shotNumber}
+                        </span>
+                        <span className="text-white font-medium">{s.titleEn}</span>
                       </div>
-                    );
-                  })}
-                </div>
+                      {isWatched ? (
+                        <span className="flex items-center gap-1 text-emerald-400 font-black text-[10px]">
+                          <CheckCircle2 className="w-3 h-3" />
+                          <span>WATCHED</span>
+                        </span>
+                      ) : (
+                        <span className="text-zinc-600 text-[10px] font-bold">IDLE</span>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
 
-              {/* Hot-Reload Asset Modification Simulation Drop / Input */}
-              <div className="p-3.5 border border-dashed border-zinc-700 hover:border-amber-400 rounded-xl bg-black/40 text-center space-y-2 transition-colors">
-                <div className="text-xs font-bold text-zinc-300">Test External Editor Paint-Over / Hot-Reload</div>
-                <p className="text-[10.5px] text-zinc-500 max-w-md mx-auto">
-                  Select or drop a modified PNG/plate to instantly invalidate Shot {activeShot.shotNumber}'s thumbnail cache and repaint the master stage canvas in real-time.
-                </p>
-                <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-white font-bold text-xs cursor-pointer border border-white/20 transition-colors">
-                  <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
-                  <span>HOT-RELOAD FRAME FILE</span>
+              <CinemaToolHUD
+                title="HOT-RELOAD SHOT PLATE"
+                en={`Replace Shot ${activeShot.shotNumber} media file to simulate live disk paint-over reload.`}
+                bn="কীভাবে ব্যবহার করবেন: নতুন ছবি বা ভিডিও ফাইল দিয়ে সরাসরি শট আপডেট করতে চাপুন।"
+                accent="amber"
+                side="top"
+                blockWrapper
+              >
+                <label className="cinema-tile cinema-tile-amber w-full min-h-[48px] px-4 py-2.5 flex items-center justify-center gap-2 cursor-pointer">
+                  <RefreshCw className="w-4 h-4" strokeWidth={2.2} />
+                  <span className="font-black tracking-wider text-[10px] sm:text-[11px] uppercase">HOT-RELOAD FILE</span>
                   <input
                     type="file"
                     accept="image/*,video/*"
@@ -588,20 +479,9 @@ export const DirectorCockpitModal: React.FC<DirectorCockpitModalProps> = ({
                     className="hidden"
                   />
                 </label>
-              </div>
+              </CinemaToolHUD>
             </div>
           )}
-
-          {/* Keyboard Accelerators Bar */}
-          <div className="pt-3 border-t border-white/10 flex flex-wrap items-center justify-between gap-2 text-[10px] text-zinc-500 font-mono">
-            <span>SHORTCUTS:</span>
-            <div className="flex flex-wrap items-center gap-3">
-              <span><kbd className="px-1 py-0.5 rounded bg-white/10 text-zinc-300">Ctrl</kbd>+<kbd className="px-1 py-0.5 rounded bg-white/10 text-zinc-300">Shift</kbd>+<kbd className="px-1 py-0.5 rounded bg-white/10 text-zinc-300">P</kbd> Photoshop</span>
-              <span><kbd className="px-1 py-0.5 rounded bg-white/10 text-zinc-300">Ctrl</kbd>+<kbd className="px-1 py-0.5 rounded bg-white/10 text-zinc-300">Shift</kbd>+<kbd className="px-1 py-0.5 rounded bg-white/10 text-zinc-300">X</kbd> NLE XML</span>
-              <span><kbd className="px-1 py-0.5 rounded bg-white/10 text-zinc-300">Ctrl</kbd>+<kbd className="px-1 py-0.5 rounded bg-white/10 text-zinc-300">Shift</kbd>+<kbd className="px-1 py-0.5 rounded bg-white/10 text-zinc-300">C</kbd> CapCut Pack</span>
-              <span><kbd className="px-1 py-0.5 rounded bg-white/10 text-zinc-300">Shift</kbd>+<kbd className="px-1 py-0.5 rounded bg-white/10 text-zinc-300">S</kbd> Freeze PNG</span>
-            </div>
-          </div>
         </div>
 
       </div>

@@ -16,6 +16,7 @@ import { useStudioStore } from '../../core/store';
 import { DepthLayerMode } from '../../services/depthOcclusionService';
 import { AudioPunchMode, transientPunchEngine } from '../../services/transientPunchEngine';
 import { AutonomousKineticPreset } from '../../services/kineticTypographyStyles';
+import { CinemaBadgeHeader, CinemaToolHUD } from '../ui/CinemaToolHUD';
 
 export interface BrutalistKineticHudStripProps {
   compact?: boolean;
@@ -91,11 +92,11 @@ export const BrutalistKineticHudStrip: React.FC<BrutalistKineticHudStripProps> =
       : 'MINIMAL';
 
   const layerShortLabel =
-    kineticOcclusion.layerMode === 'BEHIND_SUBJECT' ? 'BEHIND SUBJECT' : 'FOREGROUND';
+    kineticOcclusion.layerMode === 'BEHIND_SUBJECT' ? 'BEHIND' : 'FRONT';
 
   return (
     <div
-      className={`group/hud relative bg-[#07080C] hover:bg-[#0B0D14] focus-within:bg-[#0B0D14] border border-[#272732] hover:border-[#F5A623]/60 focus-within:border-[#F5A623]/60 rounded-[2px] font-mono text-[10px] text-[#EDEDED] tabular-nums select-none transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+      className={`group/hud relative bg-[#07080C] hover:bg-[#0B0D14] focus-within:bg-[#0B0D14] border border-[#26282E] hover:border-amber-500/50 focus-within:border-amber-500/50 rounded-lg font-mono text-[10px] text-[#E5E7EB] tabular-nums select-none transition-all duration-200 ${
         compact ? 'p-2' : 'p-3'
       } ${className}`}
     >
@@ -109,132 +110,153 @@ export const BrutalistKineticHudStrip: React.FC<BrutalistKineticHudStripProps> =
 
       {/* Top Brutalist Header Bar */}
       <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-white/10">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <Layers className="w-3 h-3 text-[#F5A623] shrink-0" />
-          <span className="font-bold tracking-widest uppercase text-[#F5A623] truncate">
-            [ 3D OCCLUSION // KINETIC ENGINE ]
-          </span>
-        </div>
+        <CinemaBadgeHeader
+          icon={<Layers className="w-3.5 h-3.5" strokeWidth={2.2} />}
+          label="3D OCCLUSION"
+          accent="amber"
+        />
 
         <div className="flex items-center gap-1.5 shrink-0">
-          <span className="hidden sm:inline text-[9px] text-zinc-500 group-hover/hud:text-zinc-300 transition-colors duration-150">
-            {layerShortLabel} / {kineticOcclusion.audioPunchMode} / {presetShortLabel}
+          <span className="hidden sm:inline text-[9px] font-bold text-zinc-500 tracking-wider uppercase">
+            {layerShortLabel} · {kineticOcclusion.audioPunchMode} · {presetShortLabel}
           </span>
-          <button
-            type="button"
-            onClick={() => setKineticOcclusionEnabled(!kineticOcclusion.enabled)}
-            className={`px-1.5 py-0.5 rounded-[2px] border text-[9px] font-bold tracking-wider uppercase cursor-pointer transition-colors duration-150 ${
-              kineticOcclusion.enabled
-                ? 'bg-[#F5A623] text-black border-[#F5A623]'
-                : 'bg-black text-zinc-400 border-[#272732] hover:text-white hover:border-zinc-500'
-            }`}
-            title="Toggle Autonomous 3-Layer Offscreen Canvas Occlusion Compositor"
+          <CinemaToolHUD
+            title="3D DEPTH COMPOSITOR"
+            en="Toggles the 3-layer offscreen depth occlusion title compositor."
+            bn="সাবজেক্টের পেছনে বা সামনে ৩ডি টাইটেল রেন্ডার চালু বা বন্ধ করতে চাপুন।"
+            accent="amber"
           >
-            {kineticOcclusion.enabled ? 'ACTIVE' : 'BYPASS'}
-          </button>
+            <button
+              type="button"
+              onClick={() => setKineticOcclusionEnabled(!kineticOcclusion.enabled)}
+              data-active={kineticOcclusion.enabled ? 'true' : 'false'}
+              className="cinema-tile cinema-tile-amber px-2 py-0.5 rounded-[4px] text-[9px] font-black tracking-wider uppercase cursor-pointer"
+            >
+              {kineticOcclusion.enabled ? 'ACTIVE' : 'BYPASS'}
+            </button>
+          </CinemaToolHUD>
         </div>
       </div>
 
-      {/* Core Brutalist Control Matrix */}
+      {/* Core Control Matrix */}
       <div className="pt-2 flex flex-col gap-1.5">
-        {/* 1. [ LAYER: BEHIND SUBJECT / FOREGROUND ] */}
-        <div className="flex flex-wrap items-center justify-between gap-1.5 bg-black/50 border border-white/5 group-hover/hud:border-white/10 px-2 py-1 rounded-[2px] transition-colors duration-150">
-          <span className="text-[9px] font-bold tracking-widest text-zinc-400 uppercase flex items-center gap-1">
-            <span>[ LAYER:</span>
+        {/* 1. LAYER */}
+        <div className="flex flex-wrap items-center justify-between gap-1.5 bg-[#111215]/70 border border-[#26282E] px-2 py-1 rounded-md">
+          <span className="text-[9px] font-black tracking-wider text-zinc-400 uppercase flex items-center gap-1">
+            <Layers className="w-3 h-3 text-amber-400" strokeWidth={2.2} />
+            <span>LAYER</span>
           </span>
           <div className="flex items-center gap-1 ml-auto">
-            <button
-              type="button"
-              onClick={() => handleSelectLayer('BEHIND_SUBJECT')}
-              className={`px-2 py-0.5 rounded-[2px] border text-[9px] font-bold tracking-wider uppercase cursor-pointer transition-all duration-150 ${
-                kineticOcclusion.layerMode === 'BEHIND_SUBJECT'
-                  ? 'bg-[#F5A623] text-black border-[#F5A623]'
-                  : 'bg-[#0D0F16] text-zinc-400 border-[#272732] hover:text-white hover:border-zinc-500'
-              }`}
+            <CinemaToolHUD
+              title="BEHIND SUBJECT LAYER"
+              en="Renders kinetic typography occluded behind detected foreground subject."
+              bn="টাইটেলকে মানুষ বা মূল সাবজেক্টের পেছনে রাখতে BEHIND চাপুন।"
+              accent="amber"
             >
-              BEHIND SUBJECT
-            </button>
-            <span className="text-zinc-600">/</span>
-            <button
-              type="button"
-              onClick={() => handleSelectLayer('FOREGROUND')}
-              className={`px-2 py-0.5 rounded-[2px] border text-[9px] font-bold tracking-wider uppercase cursor-pointer transition-all duration-150 ${
-                kineticOcclusion.layerMode === 'FOREGROUND'
-                  ? 'bg-[#EDEDED] text-[#07080C] border-[#EDEDED]'
-                  : 'bg-[#0D0F16] text-zinc-400 border-[#272732] hover:text-white hover:border-zinc-500'
-              }`}
+              <button
+                type="button"
+                onClick={() => handleSelectLayer('BEHIND_SUBJECT')}
+                data-active={kineticOcclusion.layerMode === 'BEHIND_SUBJECT' ? 'true' : 'false'}
+                className="cinema-tile cinema-tile-amber px-2 py-0.5 rounded-[4px] text-[9px] font-black tracking-wider uppercase cursor-pointer"
+              >
+                BEHIND
+              </button>
+            </CinemaToolHUD>
+            <CinemaToolHUD
+              title="FOREGROUND LAYER"
+              en="Places kinetic titles cleanly on top of the video frame."
+              bn="টাইটেলকে ভিডিওর একদম ওপরে স্পষ্টভাবে দেখাতে FRONT চাপুন।"
+              accent="amber"
             >
-              FOREGROUND
-            </button>
-            <span className="text-[9px] font-bold text-zinc-400">]</span>
+              <button
+                type="button"
+                onClick={() => handleSelectLayer('FOREGROUND')}
+                data-active={kineticOcclusion.layerMode === 'FOREGROUND' ? 'true' : 'false'}
+                className="cinema-tile cinema-tile-amber px-2 py-0.5 rounded-[4px] text-[9px] font-black tracking-wider uppercase cursor-pointer"
+              >
+                FRONT
+              </button>
+            </CinemaToolHUD>
           </div>
         </div>
 
-        {/* 2. [ AUDIO PUNCH: KICK / VOCAL / OFF ] */}
-        <div className="flex flex-wrap items-center justify-between gap-1.5 bg-black/50 border border-white/5 group-hover/hud:border-white/10 px-2 py-1 rounded-[2px] transition-colors duration-150">
-          <span className="text-[9px] font-bold tracking-widest text-zinc-400 uppercase flex items-center gap-1">
-            <Activity className="w-2.5 h-2.5 text-[#F5A623]" />
-            <span>[ AUDIO PUNCH:</span>
+        {/* 2. AUDIO PUNCH */}
+        <div className="flex flex-wrap items-center justify-between gap-1.5 bg-[#111215]/70 border border-[#26282E] px-2 py-1 rounded-md">
+          <span className="text-[9px] font-black tracking-wider text-zinc-400 uppercase flex items-center gap-1">
+            <Activity className="w-3 h-3 text-emerald-400" strokeWidth={2.2} />
+            <span>PUNCH</span>
           </span>
           <div className="flex items-center gap-1 ml-auto">
-            {(['KICK', 'VOCAL', 'OFF'] as const).map((mode, idx) => {
+            {(['KICK', 'VOCAL', 'OFF'] as const).map((mode) => {
               const isSelected = kineticOcclusion.audioPunchMode === mode;
               return (
-                <React.Fragment key={mode}>
-                  {idx > 0 && <span className="text-zinc-600">/</span>}
+                <CinemaToolHUD
+                  key={mode}
+                  title={`AUDIO PUNCH: ${mode}`}
+                  en={
+                    mode === 'KICK'
+                      ? 'Reacts title scale & pulse to <120Hz kick & 808 bass transients.'
+                      : mode === 'VOCAL'
+                        ? 'Reacts word pop intensity to 1kHz–5kHz vocal/snare hits.'
+                        : 'Disables real-time audio transient scaling on titles.'
+                  }
+                  bn={
+                    mode === 'KICK'
+                      ? 'ড্রাম বা বেইজ বিটের তালে টাইটেল জাম্প করাতে KICK চাপুন।'
+                      : mode === 'VOCAL'
+                        ? 'কথা বা ভোকালের তালে শব্দগুলো পপ করাতে VOCAL বাছুন।'
+                        : 'অডিও বিট অ্যানিমেশন বন্ধ রাখতে OFF চাপুন।'
+                  }
+                  accent="emerald"
+                >
                   <button
                     type="button"
                     onClick={() => handleSelectPunch(mode)}
-                    className={`px-2 py-0.5 rounded-[2px] border text-[9px] font-bold tracking-wider uppercase cursor-pointer transition-all duration-150 ${
-                      isSelected
-                        ? mode === 'OFF'
-                          ? 'bg-zinc-300 text-black border-zinc-300'
-                          : 'bg-[#F5A623] text-black border-[#F5A623]'
-                        : 'bg-[#0D0F16] text-zinc-400 border-[#272732] hover:text-white hover:border-zinc-500'
-                    }`}
+                    data-active={isSelected ? 'true' : 'false'}
+                    className="cinema-tile cinema-tile-emerald px-2 py-0.5 rounded-[4px] text-[9px] font-black tracking-wider uppercase cursor-pointer"
                   >
                     {mode}
                   </button>
-                </React.Fragment>
+                </CinemaToolHUD>
               );
             })}
-            <span className="text-[9px] font-bold text-zinc-400">]</span>
           </div>
         </div>
 
-        {/* 3. [ PRESET: RAP CHOPPER / AD TITAN / MINIMAL ] */}
-        <div className="flex flex-wrap items-center justify-between gap-1.5 bg-black/50 border border-white/5 group-hover/hud:border-white/10 px-2 py-1 rounded-[2px] transition-colors duration-150">
-          <span className="text-[9px] font-bold tracking-widest text-zinc-400 uppercase flex items-center gap-1">
-            <Type className="w-2.5 h-2.5 text-[#F5A623]" />
-            <span>[ PRESET:</span>
+        {/* 3. PRESET */}
+        <div className="flex flex-wrap items-center justify-between gap-1.5 bg-[#111215]/70 border border-[#26282E] px-2 py-1 rounded-md">
+          <span className="text-[9px] font-black tracking-wider text-zinc-400 uppercase flex items-center gap-1">
+            <Type className="w-3 h-3 text-cyan-400" strokeWidth={2.2} />
+            <span>PRESET</span>
           </span>
           <div className="flex items-center gap-1 ml-auto">
             {(
               [
-                { id: 'CHOPPER_RAP_PUNCH', label: 'RAP CHOPPER' },
-                { id: 'COMMERCIAL_TITAN_DROP', label: 'AD TITAN' },
-                { id: 'MINIMAL', label: 'MINIMAL' }
+                { id: 'CHOPPER_RAP_PUNCH', label: 'RAP CHOPPER', en: 'Single-word snap pop with fast tracking impulse.', bn: 'র‍্যাপ গানের তালে প্রতিটি শব্দ আলাদাভাবে পপ করাতে চাপুন।' },
+                { id: 'COMMERCIAL_TITAN_DROP', label: 'AD TITAN', en: 'High-impact commercial typography slam with glow pass.', bn: 'বিজ্ঞাপনের মতো শক্তিশালী টাইটেল ড্রপ ব্যবহার করতে চাপুন।' },
+                { id: 'MINIMAL', label: 'MINIMAL', en: 'Clean understated console typography profile.', bn: 'সাধারণ ও পরিচ্ছন্ন টাইটেল ডিজাইনের জন্য MINIMAL চাপুন।' }
               ] as const
-            ).map((opt, idx) => {
+            ).map((opt) => {
               const isSelected = kineticOcclusion.preset === opt.id;
               return (
-                <React.Fragment key={opt.id}>
-                  {idx > 0 && <span className="text-zinc-600">/</span>}
+                <CinemaToolHUD
+                  key={opt.id}
+                  title={opt.label}
+                  en={opt.en}
+                  bn={opt.bn}
+                  accent="cyan"
+                >
                   <button
                     type="button"
                     onClick={() => handleSelectPreset(opt.id)}
-                    className={`px-2 py-0.5 rounded-[2px] border text-[9px] font-bold tracking-wider uppercase cursor-pointer transition-all duration-150 ${
-                      isSelected
-                        ? 'bg-[#F5A623] text-black border-[#F5A623]'
-                        : 'bg-[#0D0F16] text-zinc-400 border-[#272732] hover:text-white hover:border-zinc-500'
-                    }`}
+                    data-active={isSelected ? 'true' : 'false'}
+                    className="cinema-tile cinema-tile-cyan px-2 py-0.5 rounded-[4px] text-[9px] font-black tracking-wider uppercase cursor-pointer"
                   >
                     {opt.label}
                   </button>
-                </React.Fragment>
+                </CinemaToolHUD>
               );
             })}
-            <span className="text-[9px] font-bold text-zinc-400">]</span>
           </div>
         </div>
       </div>
@@ -248,13 +270,13 @@ export const BrutalistKineticHudStrip: React.FC<BrutalistKineticHudStripProps> =
         }`}
       >
         <div className="pt-2 border-t border-white/10 flex flex-col gap-2">
-          {/* [ IMPACT : 0.0 to 2.0 ] Slider */}
+          {/* IMPACT Slider */}
           <div className="flex items-center gap-2.5">
             <label
               htmlFor={compact ? 'kinetic-impact-compact' : 'kinetic-impact-drawer'}
-              className="text-[9px] font-bold tracking-widest text-[#F5A623] uppercase shrink-0"
+              className="text-[9px] font-black tracking-wider text-amber-400 uppercase shrink-0"
             >
-              [ IMPACT : {kineticOcclusion.impact.toFixed(2)} ]
+              IMPACT · {kineticOcclusion.impact.toFixed(2)}
             </label>
             <input
               id={compact ? 'kinetic-impact-compact' : 'kinetic-impact-drawer'}
@@ -266,41 +288,58 @@ export const BrutalistKineticHudStrip: React.FC<BrutalistKineticHudStripProps> =
               onChange={(e) => setKineticImpact(parseFloat(e.target.value))}
               className="w-full h-1 bg-zinc-800 accent-[#F5A623] cursor-pointer rounded-[1px]"
             />
-            <span className="text-[8.5px] text-zinc-500 shrink-0">0.0–2.0</span>
           </div>
 
           {/* Client-Side AudioBufferSourceNode Ingest & Transient Audition Triggers */}
           <div className="flex items-center justify-between gap-1.5">
-            <button
-              type="button"
-              onClick={() => audioInputRef.current?.click()}
-              className="px-2 py-0.5 rounded-[2px] bg-[#0D0F16] hover:bg-white/10 border border-[#272732] hover:border-[#F5A623]/50 text-[8.5px] text-zinc-300 hover:text-white flex items-center gap-1 cursor-pointer transition-colors duration-150 truncate"
-              title="Decode local audio file into client-side Web Audio API AudioBufferSourceNode"
+            <CinemaToolHUD
+              title="LOAD AUDIO BUFFER"
+              en="Decodes a local audio file via Web Audio API for beat transient sync."
+              bn="ফোন বা পিসি থেকে অডিও ফাইল লোড করে বিট ডিটেক্ট করতে চাপুন।"
+              accent="emerald"
             >
-              <Upload className="w-2.5 h-2.5 text-[#F5A623] shrink-0" />
-              <span className="truncate">
-                {loadedAudioLabel ? `BUFFER: ${loadedAudioLabel}` : '[ LOAD AUDIO BUFFER ]'}
-              </span>
-            </button>
+              <button
+                type="button"
+                onClick={() => audioInputRef.current?.click()}
+                className="cinema-tile cinema-tile-emerald px-2 py-1 rounded-[4px] text-[9px] font-black tracking-wider uppercase flex items-center gap-1 cursor-pointer truncate"
+              >
+                <Upload className="w-3 h-3 cinema-tile-icon shrink-0" strokeWidth={2.2} />
+                <span className="truncate">
+                  {loadedAudioLabel ? loadedAudioLabel : 'AUDIO'}
+                </span>
+              </button>
+            </CinemaToolHUD>
 
             <div className="flex items-center gap-1 shrink-0">
-              <button
-                type="button"
-                onClick={() => transientPunchEngine.emitKickPunch(0.95)}
-                className="px-1.5 py-0.5 rounded-[2px] bg-[#0D0F16] hover:bg-[#F5A623]/20 border border-[#272732] hover:border-[#F5A623]/60 text-[8.5px] text-zinc-400 hover:text-[#F5A623] flex items-center gap-1 cursor-pointer transition-colors duration-150"
-                title="Trigger <120Hz 808/Kick transient impulse"
+              <CinemaToolHUD
+                title="808 KICK IMPULSE"
+                en="Triggers a manual <120Hz 808 kick transient test pulse."
+                bn="টাইটেলে ৮০৮ বেইজ জাম্প টেস্ট করতে চাপুন।"
+                accent="amber"
               >
-                <Zap className="w-2.5 h-2.5" />
-                <span>808 HIT</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => transientPunchEngine.emitVocalHit(0.95)}
-                className="px-1.5 py-0.5 rounded-[2px] bg-[#0D0F16] hover:bg-[#F5A623]/20 border border-[#272732] hover:border-[#F5A623]/60 text-[8.5px] text-zinc-400 hover:text-[#F5A623] cursor-pointer transition-colors duration-150"
-                title="Trigger 1kHz–5kHz Vocal/Snare word pop transient"
+                <button
+                  type="button"
+                  onClick={() => transientPunchEngine.emitKickPunch(0.95)}
+                  className="cinema-tile cinema-tile-amber px-2 py-1 rounded-[4px] text-[9px] font-black tracking-wider uppercase flex items-center gap-1 cursor-pointer"
+                >
+                  <Zap className="w-3 h-3 cinema-tile-icon" strokeWidth={2.2} />
+                  <span>808 HIT</span>
+                </button>
+              </CinemaToolHUD>
+              <CinemaToolHUD
+                title="VOCAL POP IMPULSE"
+                en="Triggers a 1kHz–5kHz vocal word-pop transient test pulse."
+                bn="ভোকালের তালে শব্দ পপ ইফেক্ট টেস্ট করতে চাপুন।"
+                accent="amber"
               >
-                <span>VOCAL POP</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => transientPunchEngine.emitVocalHit(0.95)}
+                  className="cinema-tile cinema-tile-amber px-2 py-1 rounded-[4px] text-[9px] font-black tracking-wider uppercase cursor-pointer"
+                >
+                  <span>VOCAL POP</span>
+                </button>
+              </CinemaToolHUD>
             </div>
           </div>
         </div>

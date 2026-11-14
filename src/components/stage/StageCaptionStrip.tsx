@@ -15,6 +15,7 @@ import {
 import { ComponentVisibility } from '../ComponentsMatrixPopover';
 import { DopamineShotConfig } from '../../types/anthology';
 import { playbackClock } from '../../utils/playbackClock';
+import { CinemaToolHUD } from '../ui/CinemaToolHUD';
 
 export interface StageCaptionStripProps {
   shotIndex: number;
@@ -160,19 +161,25 @@ export const StageCaptionStrip: React.FC<StageCaptionStripProps> = ({
       {/* Right: Merged Hardware Pipeline, Calibration, Runtime, Preset & Quick Triggers */}
       <div className="flex items-center gap-1.5 shrink-0 uppercase text-[8.5px] leading-none tabular-nums">
         {onToggleWebCodecs && (
-          <button
-            type="button"
-            onClick={onToggleWebCodecs}
-            className={`px-1 py-0 rounded border text-[8px] font-bold flex items-center gap-0.5 transition-colors duration-200 cursor-pointer leading-none ${
-              isWebCodecsEngineActive
-                ? 'bg-[#141417] border-white/[0.07] text-[#8E8E93] group-hover:bg-[#F59E0B] group-hover:text-[#0B0B0D] group-hover:border-[#F59E0B]'
-                : 'bg-[#141417] border-white/[0.07] text-[#8E8E93] group-hover:text-[#F4F4F5] group-hover:border-[#F59E0B]/40'
-            }`}
-            title="Toggle WebCodecs 24fps WebGL2 Ping-Pong Engine"
+          <CinemaToolHUD
+            title={isWebCodecsEngineActive ? 'WEBCODECS ON' : 'NATIVE ENGINE'}
+            en="Toggle 16-bit WebCodecs WebGL2 hardware render pipeline."
+            bn="১৬-বিট ওয়েবকোডেক্স রেন্ডার ইঞ্জিন চালু বা বন্ধ করতে চাপুন।"
+            accent="amber"
           >
-            <Zap className="w-2 h-2 text-current" />
-            <span>{isWebCodecsEngineActive ? 'WEBCODECS' : 'NATIVE'}</span>
-          </button>
+            <button
+              type="button"
+              onClick={onToggleWebCodecs}
+              className={`px-1 py-0 rounded border text-[8px] font-bold flex items-center gap-0.5 transition-colors duration-200 cursor-pointer leading-none ${
+                isWebCodecsEngineActive
+                  ? 'bg-[#141417] border-white/[0.07] text-[#8E8E93] group-hover:bg-[#F59E0B] group-hover:text-[#0B0B0D] group-hover:border-[#F59E0B]'
+                  : 'bg-[#141417] border-white/[0.07] text-[#8E8E93] group-hover:text-[#F4F4F5] group-hover:border-[#F59E0B]/40'
+              }`}
+            >
+              <Zap className="w-2 h-2 text-current" />
+              <span>{isWebCodecsEngineActive ? 'WEBCODECS' : 'NATIVE'}</span>
+            </button>
+          </CinemaToolHUD>
         )}
 
         <span className="hidden md:inline text-white/15 group-hover:text-white/25">·</span>
@@ -183,14 +190,14 @@ export const StageCaptionStrip: React.FC<StageCaptionStripProps> = ({
 
         <span className="hidden md:inline text-white/15 group-hover:text-white/25">·</span>
         <span className="hidden md:inline text-[#8E8E93] group-hover:text-[#F4F4F5] whitespace-nowrap transition-colors duration-200">
-          16-BIT ARRI
+          16-BIT
         </span>
 
         {totalRuntimeTimecode && (
           <>
             <span className="hidden lg:inline text-white/15 group-hover:text-white/25">·</span>
             <span className="hidden lg:inline text-[#8E8E93] group-hover:text-[#F4F4F5] whitespace-nowrap tabular-nums transition-colors duration-200">
-              RUNTIME: {totalRuntimeTimecode}
+              {totalRuntimeTimecode}
               {typeof totalShotsCount === 'number' ? `/${totalShotsCount}S` : ''}
             </span>
           </>
@@ -203,37 +210,57 @@ export const StageCaptionStrip: React.FC<StageCaptionStripProps> = ({
         </span>
 
         {onToggleTitles && (
-          <button
-            type="button"
-            onClick={onToggleTitles}
-            className="px-1 rounded border bg-[#141417] border-white/[0.07] text-[#8E8E93] group-hover:text-[#F4F4F5] group-hover:border-white/[0.14] hover:!text-[#F59E0B] flex items-center gap-0.5 cursor-pointer transition-colors duration-200 text-[8.5px] leading-tight"
-            title={isTitlesActive ? 'Hide Stage Cinema Title Overlay' : 'Show Stage Cinema Title Overlay'}
+          <CinemaToolHUD
+            title="STAGE TITLES"
+            en="Toggle cinema title overlay visibility."
+            bn="স্টেজে টাইটেল দেখাতে বা লুকাতে চাপুন।"
+            shortcut="T"
+            accent="amber"
           >
-            {isTitlesActive ? <Eye className="w-2.5 h-2.5" /> : <EyeOff className="w-2.5 h-2.5" />}
-            <span>{isTitlesActive ? 'ON' : 'OFF'}</span>
-          </button>
+            <button
+              type="button"
+              onClick={onToggleTitles}
+              className="px-1 rounded border bg-[#141417] border-white/[0.07] text-[#8E8E93] group-hover:text-[#F4F4F5] group-hover:border-white/[0.14] hover:!text-[#F59E0B] flex items-center gap-0.5 cursor-pointer transition-colors duration-200 text-[8.5px] leading-tight"
+            >
+              {isTitlesActive ? <Eye className="w-2.5 h-2.5" /> : <EyeOff className="w-2.5 h-2.5" />}
+              <span>{isTitlesActive ? 'ON' : 'OFF'}</span>
+            </button>
+          </CinemaToolHUD>
         )}
 
         {onUploadMedia && (
-          <button
-            type="button"
-            onClick={onUploadMedia}
-            className="p-0.5 rounded bg-[#141417] border border-white/[0.07] text-[#8E8E93] group-hover:text-[#F4F4F5] hover:!text-[#F59E0B] transition-colors duration-200 cursor-pointer"
-            title="Upload / Replace Media Plate"
+          <CinemaToolHUD
+            title="UPLOAD MEDIA"
+            en="Upload or replace video/image plate for active shot."
+            bn="বর্তমান শটে ভিডিও বা ছবি আপলোড করতে চাপুন।"
+            accent="amber"
           >
-            <Upload className="w-2.5 h-2.5" />
-          </button>
+            <button
+              type="button"
+              onClick={onUploadMedia}
+              className="p-0.5 rounded bg-[#141417] border border-white/[0.07] text-[#8E8E93] group-hover:text-[#F4F4F5] hover:!text-[#F59E0B] transition-colors duration-200 cursor-pointer"
+            >
+              <Upload className="w-2.5 h-2.5" />
+            </button>
+          </CinemaToolHUD>
         )}
 
         {onToggleFullscreen && (
-          <button
-            type="button"
-            onClick={onToggleFullscreen}
-            className="p-0.5 rounded bg-[#141417] border border-white/[0.07] text-[#8E8E93] group-hover:text-[#F4F4F5] hover:!text-[#F59E0B] transition-colors duration-200 cursor-pointer"
-            title="Toggle Stage Fullscreen"
+          <CinemaToolHUD
+            title="FULLSCREEN"
+            en="Expand cinema viewport to full display."
+            bn="সিনেমা স্ক্রিন ফুল-স্ক্রিনে বড় করতে চাপুন।"
+            shortcut="F"
+            accent="cyan"
           >
-            <Maximize2 className="w-2.5 h-2.5" />
-          </button>
+            <button
+              type="button"
+              onClick={onToggleFullscreen}
+              className="p-0.5 rounded bg-[#141417] border border-white/[0.07] text-[#8E8E93] group-hover:text-[#F4F4F5] hover:!text-[#F59E0B] transition-colors duration-200 cursor-pointer"
+            >
+              <Maximize2 className="w-2.5 h-2.5" />
+            </button>
+          </CinemaToolHUD>
         )}
       </div>
     </div>

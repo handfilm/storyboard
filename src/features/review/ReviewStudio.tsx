@@ -19,6 +19,7 @@ import {
   Trash2,
   User
 } from 'lucide-react';
+import { CinemaToolHUD, CinemaBadgeHeader } from '../../components/ui/CinemaToolHUD';
 
 interface CommentPin {
   id: string;
@@ -119,40 +120,68 @@ export const ReviewStudio: React.FC = () => {
       {/* Left Review Canvas Viewport */}
       <div className="flex-1 flex flex-col border-r border-[#D4AF37]/20 overflow-hidden">
         {/* Header */}
-        <div className="h-12 border-b border-[#D4AF37]/20 bg-[#0B0B0B] px-4 flex items-center justify-between text-xs shrink-0">
-          <div className="flex items-center gap-2">
-            <MessageSquare className="w-4 h-4 text-[#D4AF37]" />
-            <span className="font-bold text-[#FFE066]">REVIEW & COLLABORATION ROUND</span>
-            <span className="text-[#8A8A8A]">| SHOT #{String(activeShotIndex + 1).padStart(3, '0')}</span>
+        <div className="h-14 border-b border-[#D4AF37]/20 bg-[#0B0B0B] px-4 flex items-center justify-between gap-2 text-xs shrink-0 overflow-x-auto no-scrollbar">
+          <div className="flex items-center gap-2 shrink-0">
+            <CinemaBadgeHeader icon={<MessageSquare className="w-3.5 h-3.5" />} label="REVIEW ROUND" accent="amber" />
+            <span className="text-[10px] font-black tracking-wider uppercase text-zinc-400">
+              SH{String(activeShotIndex + 1).padStart(3, '0')}
+            </span>
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="flex bg-[#121212] p-0.5 rounded border border-[#D4AF37]/20 text-xs">
-              <button
-                onClick={() => setActiveTab('comments')}
-                className={`px-3 py-1 rounded transition-colors ${activeTab === 'comments' ? 'bg-[#D4AF37] text-black font-bold' : 'text-[#8A8A8A]'}`}
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-1.5">
+              <CinemaToolHUD
+                title="REVISION PINS"
+                en="Click anywhere on the frame to drop a pinned director note"
+                bn="কীভাবে ব্যবহার করবেন: ফ্রেমের যেকোনো জায়গায় ক্লিক করে রিভিশন পিন বসাতে চাপুন।"
+                accent="cyan"
               >
-                PINS ({shotComments.length})
-              </button>
-              <button
-                onClick={() => setActiveTab('draw')}
-                className={`px-3 py-1 rounded transition-colors ${activeTab === 'draw' ? 'bg-[#D4AF37] text-black font-bold' : 'text-[#8A8A8A]'}`}
+                <button
+                  onClick={() => setActiveTab('comments')}
+                  data-active={activeTab === 'comments' ? 'true' : 'false'}
+                  className="cinema-tile cinema-tile-cyan px-3 py-1.5 min-h-[36px] flex items-center gap-1.5 cursor-pointer"
+                >
+                  <MessageSquare className="w-3.5 h-3.5" strokeWidth={2.2} />
+                  <span className="font-black tracking-wider text-[10px] sm:text-[11px] uppercase">
+                    PINS ({shotComments.length})
+                  </span>
+                </button>
+              </CinemaToolHUD>
+              <CinemaToolHUD
+                title="MARKUP PEN"
+                en="Switch to annotation markup overlay mode"
+                bn="কীভাবে ব্যবহার করবেন: ফ্রেমের উপর মার্কআপ আঁকতে বা চিহ্ন দিতে চাপুন।"
+                accent="amber"
               >
-                MARKUP PEN
-              </button>
+                <button
+                  onClick={() => setActiveTab('draw')}
+                  data-active={activeTab === 'draw' ? 'true' : 'false'}
+                  className="cinema-tile cinema-tile-amber px-3 py-1.5 min-h-[36px] flex items-center gap-1.5 cursor-pointer"
+                >
+                  <PenTool className="w-3.5 h-3.5" strokeWidth={2.2} />
+                  <span className="font-black tracking-wider text-[10px] sm:text-[11px] uppercase">PEN</span>
+                </button>
+              </CinemaToolHUD>
             </div>
 
             {/* Approval Status */}
-            <select
-              value={approvalStatus}
-              onChange={(e) => handleStatusChange(e.target.value as any)}
-              className="bg-[#121212] border border-[#D4AF37]/30 text-[#FFE066] rounded px-2 py-1 text-xs font-bold"
+            <CinemaToolHUD
+              title="APPROVAL STATUS"
+              en="Update shot review state (Draft, Review, Approved, Re-shoot)"
+              bn="কীভাবে ব্যবহার করবেন: শটের অনুমোদন অবস্থা পরিবর্তন করতে বাছুন।"
+              accent="emerald"
             >
-              <option value="Draft">DRAFT</option>
-              <option value="In Review">IN REVIEW</option>
-              <option value="Approved">APPROVED</option>
-              <option value="Re-shoot">RE-SHOOT</option>
-            </select>
+              <select
+                value={approvalStatus}
+                onChange={(e) => handleStatusChange(e.target.value as any)}
+                className="cinema-tile cinema-tile-emerald px-2.5 py-1.5 min-h-[36px] text-[10px] font-black tracking-wider uppercase cursor-pointer"
+              >
+                <option value="Draft">DRAFT</option>
+                <option value="In Review">IN REVIEW</option>
+                <option value="Approved">APPROVED</option>
+                <option value="Re-shoot">RE-SHOOT</option>
+              </select>
+            </CinemaToolHUD>
           </div>
         </div>
 
@@ -218,51 +247,74 @@ export const ReviewStudio: React.FC = () => {
 
       {/* Right Comments & Feedback List */}
       <div className="w-full md:w-80 bg-[#0B0B0B] p-4 flex flex-col gap-4 text-xs overflow-y-auto custom-scrollbar">
-        <div className="flex items-center justify-between border-b border-[#D4AF37]/20 pb-2">
-          <h3 className="font-bold text-[#FFE066] uppercase">Reviewer Comments</h3>
-          <select
-            value={userRole}
-            onChange={(e) => setUserRole(e.target.value as any)}
-            className="bg-[#121212] border border-[#D4AF37]/20 text-[10px] text-[#8A8A8A] rounded px-1.5 py-0.5"
+        <div className="flex items-center justify-between border-b border-[#D4AF37]/20 pb-2 gap-2">
+          <CinemaBadgeHeader icon={<User className="w-3.5 h-3.5" />} label="NOTES" accent="amber" />
+          <CinemaToolHUD
+            title="REVIEWER ROLE"
+            en="Switch active reviewer identity for new pins"
+            bn="কীভাবে ব্যবহার করবেন: ডিরেক্টর, প্রডিউসার বা ক্লায়েন্ট ভূমিকা বেছে নিন।"
+            accent="amber"
           >
-            <option value="Director">Role: Director</option>
-            <option value="Producer">Role: Producer</option>
-            <option value="Client">Role: Client</option>
-          </select>
+            <select
+              value={userRole}
+              onChange={(e) => setUserRole(e.target.value as any)}
+              className="cinema-tile cinema-tile-amber px-2 py-1 text-[10px] font-black tracking-wider uppercase cursor-pointer"
+            >
+              <option value="Director">DIRECTOR</option>
+              <option value="Producer">PRODUCER</option>
+              <option value="Client">CLIENT</option>
+            </select>
+          </CinemaToolHUD>
         </div>
 
         {/* Pin Creation Box */}
         {pinCoords ? (
           <div className="p-3 bg-[#121212] border border-[#00FFCC]/40 rounded-lg flex flex-col gap-2">
-            <span className="text-[10px] text-[#00FFCC] font-bold">
-              Pin placed at ({pinCoords.x}%, {pinCoords.y}%)
+            <span className="text-[10px] text-[#00FFCC] font-black tracking-wider uppercase">
+              PIN {pinCoords.x}%, {pinCoords.y}%
             </span>
             <textarea
               rows={3}
               value={newCommentText}
               onChange={(e) => setNewCommentText(e.target.value)}
-              placeholder="Type revision notes or feedback..."
+              placeholder="Note..."
               className="w-full bg-[#050505] border border-[#D4AF37]/30 rounded p-2 text-xs text-[#EDEDED] focus:outline-none focus:border-[#D4AF37] resize-none"
             />
             <div className="flex gap-2">
-              <button
-                onClick={handleAddComment}
-                className="flex-1 py-1.5 bg-[#D4AF37] hover:bg-[#FFE066] text-black font-bold rounded text-xs transition-colors flex items-center justify-center gap-1.5"
+              <CinemaToolHUD
+                title="POST PIN NOTE"
+                en="Attach this revision note to the selected frame coordinate"
+                bn="কীভাবে ব্যবহার করবেন: নোট লিখে ফ্রেমে সেভ করতে POST চাপুন।"
+                accent="emerald"
+                blockWrapper
               >
-                <Send className="w-3 h-3" />
-                <span>POST COMMENT</span>
-              </button>
-              <button
-                onClick={() => setPinCoords(null)}
-                className="px-2 py-1.5 bg-[#050505] border border-[#D4AF37]/20 rounded text-[#8A8A8A]"
+                <button
+                  onClick={handleAddComment}
+                  className="cinema-tile cinema-tile-emerald w-full py-2 min-h-[38px] flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Send className="w-3.5 h-3.5" strokeWidth={2.2} />
+                  <span className="font-black tracking-wider text-[10px] sm:text-[11px] uppercase">POST</span>
+                </button>
+              </CinemaToolHUD>
+              <CinemaToolHUD
+                title="CANCEL PIN"
+                en="Discard current draft pin placement"
+                bn="কীভাবে ব্যবহার করবেন: ড্রাফট পিন বাতিল করতে চাপুন।"
+                accent="crimson"
               >
-                CANCEL
-              </button>
+                <button
+                  onClick={() => setPinCoords(null)}
+                  className="cinema-tile cinema-tile-crimson px-3 py-2 min-h-[38px] font-black tracking-wider text-[10px] uppercase cursor-pointer"
+                >
+                  CANCEL
+                </button>
+              </CinemaToolHUD>
             </div>
           </div>
         ) : (
-          <div className="p-3 bg-[#121212] border border-[#D4AF37]/20 rounded-lg text-center text-[#8A8A8A] text-[11px]">
-            Click anywhere on the preview frame to drop a revision pin!
+          <div className="p-2.5 bg-[#121212] border border-[#D4AF37]/20 rounded-lg flex items-center justify-center gap-1.5 text-[#8A8A8A] text-[10px] font-black tracking-wider uppercase">
+            <AlertCircle className="w-3.5 h-3.5 text-[#D4AF37]" />
+            <span>TAP FRAME TO PIN</span>
           </div>
         )}
 

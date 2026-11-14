@@ -11,6 +11,7 @@ import { toBengaliNumerals, calculateMultiLayerZoom } from '../../utils/engine';
 import { Sliders, Crop, Volume2, VolumeX, Upload, MoveVertical, Play, Pause, Video, Pin, PinOff, X, Sparkles, Type, ZoomIn } from 'lucide-react';
 import { TechnicalJargonOverlay } from '../../components/TechnicalJargonOverlay';
 import { MultiLayerZoomControls } from '../../components/optics/MultiLayerZoomControls';
+import { CinemaToolHUD } from '../../components/ui/CinemaToolHUD';
 
 const sampleCinemaImages = [
   "https://images.unsplash.com/photo-1507499739999-097706ad8914?auto=format&fit=crop&w=1920&q=80",
@@ -311,28 +312,34 @@ export const CinemaStage: React.FC = () => {
               onMouseEnter={() => setActiveCorner('tl')}
               onMouseLeave={() => setActiveCorner(null)}
             >
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setPinnedCorner(p => p === 'tl' ? null : 'tl');
-                }}
-                className={`flex items-center gap-2 px-2.5 py-1 rounded-full font-mono text-[9px] sm:text-[9.5px] backdrop-blur-xl border transition-all duration-200 shadow-xl cursor-pointer select-none ${
-                  (activeCorner === 'tl' || pinnedCorner === 'tl')
-                    ? 'bg-[#12131A] border-[#D4AF37] text-white shadow-[0_0_15px_rgba(212,175,55,0.35)]'
-                    : 'bg-[#090A0F]/80 hover:bg-[#0E0E14]/95 border-white/10 hover:border-[#D4AF37]/50 text-white/80'
-                }`}
-                title="Click to pin or hover for playback & sensor telemetry"
+              <CinemaToolHUD
+                title="SENSOR TELEMETRY"
+                en="Click to pin or hover for ARRI sensor & timecode specs"
+                bn="কীভাবে ব্যবহার করবেন: ক্যামেরা সেন্সর ও টাইমকোড তথ্য পিন করতে ক্লিক করুন।"
+                accent="amber"
               >
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-[#E5A919] shadow-[0_0_8px_#E5A919]" />
-                </span>
-                <span className="font-bold tracking-wider text-[#FFE066]">REC // SH{epNumStr}</span>
-                {pinnedCorner === 'tl' && <Pin className="w-2.5 h-2.5 text-[#E5A919]" />}
-              </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPinnedCorner(p => p === 'tl' ? null : 'tl');
+                  }}
+                  className={`flex items-center gap-2 px-2.5 py-1 rounded-full font-mono text-[9px] sm:text-[9.5px] backdrop-blur-xl border transition-all duration-200 shadow-xl cursor-pointer select-none ${
+                    (activeCorner === 'tl' || pinnedCorner === 'tl')
+                      ? 'bg-[#12131A] border-[#D4AF37] text-white shadow-[0_0_15px_rgba(212,175,55,0.35)]'
+                      : 'bg-[#090A0F]/80 hover:bg-[#0E0E14]/95 border-white/10 hover:border-[#D4AF37]/50 text-white/80'
+                  }`}
+                >
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-[#E5A919] shadow-[0_0_8px_#E5A919]" />
+                  </span>
+                  <span className="font-black tracking-wider text-[#FFE066]">REC // SH{epNumStr}</span>
+                  {pinnedCorner === 'tl' && <Pin className="w-2.5 h-2.5 text-[#E5A919]" />}
+                </button>
+              </CinemaToolHUD>
 
-              {/* Huge Details Popover */}
+              {/* Details Popover */}
               <div 
                 onClick={(e) => e.stopPropagation()}
                 className={`absolute top-full left-0 mt-2 w-80 sm:w-96 bg-[#07080C]/95 backdrop-blur-2xl border border-[#D4AF37]/40 rounded-lg p-3.5 shadow-[0_20px_50px_rgba(0,0,0,0.95)] transition-all duration-200 origin-top-left z-50 text-left font-mono ${
@@ -344,14 +351,16 @@ export const CinemaStage: React.FC = () => {
                 <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-white/10">
                   <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-[#E5A919] shadow-[0_0_8px_#E5A919] animate-pulse" />
-                    <span className="text-[10px] font-bold text-white tracking-wider uppercase">PLAYBACK TELEMETRY & SENSOR CORE</span>
+                    <span className="text-[10px] font-black text-white tracking-wider uppercase">SENSOR CORE</span>
                   </div>
-                  <button 
-                    onClick={() => setPinnedCorner(p => p === 'tl' ? null : 'tl')}
-                    className="p-1 rounded text-white/50 hover:text-white hover:bg-white/10 transition-colors"
-                  >
-                    {pinnedCorner === 'tl' ? <PinOff className="w-3 h-3 text-[#E5A919]" /> : <Pin className="w-3 h-3" />}
-                  </button>
+                  <CinemaToolHUD title="PIN HUD" en="Pin or unpin corner telemetry card" bn="কীভাবে ব্যবহার করবেন: এই কার্ড স্ক্রিনে লক বা আনলক করতে চাপুন।" accent="amber">
+                    <button 
+                      onClick={() => setPinnedCorner(p => p === 'tl' ? null : 'tl')}
+                      className="p-1 rounded text-white/50 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                    >
+                      {pinnedCorner === 'tl' ? <PinOff className="w-3 h-3 text-[#E5A919]" /> : <Pin className="w-3 h-3" />}
+                    </button>
+                  </CinemaToolHUD>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 text-[8.5px] leading-tight">
@@ -396,28 +405,34 @@ export const CinemaStage: React.FC = () => {
               onMouseEnter={() => setActiveCorner('tr')}
               onMouseLeave={() => setActiveCorner(null)}
             >
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setPinnedCorner(p => p === 'tr' ? null : 'tr');
-                }}
-                className={`flex items-center gap-2 px-2.5 py-1 rounded-full font-mono text-[9px] sm:text-[9.5px] backdrop-blur-xl border transition-all duration-200 shadow-xl cursor-pointer select-none ${
-                  (activeCorner === 'tr' || pinnedCorner === 'tr')
-                    ? 'bg-[#12131A] border-emerald-400 text-white shadow-[0_0_15px_rgba(52,211,153,0.35)]'
-                    : 'bg-[#090A0F]/80 hover:bg-[#0E0E14]/95 border-white/10 hover:border-emerald-400/50 text-white/80'
-                }`}
-                title="Click to pin or hover for cloud node archive details"
+              <CinemaToolHUD
+                title="NODE TELEMETRY"
+                en="Click to pin or hover for cloud vault node specs"
+                bn="কীভাবে ব্যবহার করবেন: ক্লাউড নোড ও এনক্রিপশন তথ্য পিন করতে ক্লিক করুন।"
+                accent="emerald"
               >
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400 shadow-[0_0_8px_#34d399]" />
-                </span>
-                <span className="font-bold tracking-wider text-emerald-300">NODE // DHAKA_01</span>
-                {pinnedCorner === 'tr' && <Pin className="w-2.5 h-2.5 text-emerald-400" />}
-              </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPinnedCorner(p => p === 'tr' ? null : 'tr');
+                  }}
+                  className={`flex items-center gap-2 px-2.5 py-1 rounded-full font-mono text-[9px] sm:text-[9.5px] backdrop-blur-xl border transition-all duration-200 shadow-xl cursor-pointer select-none ${
+                    (activeCorner === 'tr' || pinnedCorner === 'tr')
+                      ? 'bg-[#12131A] border-emerald-400 text-white shadow-[0_0_15px_rgba(52,211,153,0.35)]'
+                      : 'bg-[#090A0F]/80 hover:bg-[#0E0E14]/95 border-white/10 hover:border-emerald-400/50 text-white/80'
+                  }`}
+                >
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400 shadow-[0_0_8px_#34d399]" />
+                  </span>
+                  <span className="font-black tracking-wider text-emerald-300">NODE // DHAKA_01</span>
+                  {pinnedCorner === 'tr' && <Pin className="w-2.5 h-2.5 text-emerald-400" />}
+                </button>
+              </CinemaToolHUD>
 
-              {/* Huge Details Popover */}
+              {/* Details Popover */}
               <div 
                 onClick={(e) => e.stopPropagation()}
                 className={`absolute top-full right-0 mt-2 w-80 sm:w-96 bg-[#07080C]/95 backdrop-blur-2xl border border-emerald-500/40 rounded-lg p-3.5 shadow-[0_20px_50px_rgba(0,0,0,0.95)] transition-all duration-200 origin-top-right z-50 text-left font-mono ${
@@ -429,14 +444,16 @@ export const CinemaStage: React.FC = () => {
                 <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-white/10">
                   <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399] animate-pulse" />
-                    <span className="text-[10px] font-bold text-white tracking-wider uppercase">SECURE ARCHIVE & CLUSTER TELEMETRY</span>
+                    <span className="text-[10px] font-black text-white tracking-wider uppercase">CLOUD VAULT</span>
                   </div>
-                  <button 
-                    onClick={() => setPinnedCorner(p => p === 'tr' ? null : 'tr')}
-                    className="p-1 rounded text-white/50 hover:text-white hover:bg-white/10 transition-colors"
-                  >
-                    {pinnedCorner === 'tr' ? <PinOff className="w-3 h-3 text-emerald-400" /> : <Pin className="w-3 h-3" />}
-                  </button>
+                  <CinemaToolHUD title="PIN HUD" en="Pin or unpin node telemetry card" bn="কীভাবে ব্যবহার করবেন: নোড কার্ড লক বা আনলক করতে চাপুন।" accent="emerald">
+                    <button 
+                      onClick={() => setPinnedCorner(p => p === 'tr' ? null : 'tr')}
+                      className="p-1 rounded text-white/50 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                    >
+                      {pinnedCorner === 'tr' ? <PinOff className="w-3 h-3 text-emerald-400" /> : <Pin className="w-3 h-3" />}
+                    </button>
+                  </CinemaToolHUD>
                 </div>
 
                 <div className="space-y-1.5 text-[8px] text-white/70">
@@ -466,28 +483,34 @@ export const CinemaStage: React.FC = () => {
               onMouseEnter={() => setActiveCorner('bl')}
               onMouseLeave={() => setActiveCorner(null)}
             >
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setPinnedCorner(p => p === 'bl' ? null : 'bl');
-                }}
-                className={`flex items-center gap-2 px-2.5 py-1 rounded-full font-mono text-[9px] sm:text-[9.5px] backdrop-blur-xl border transition-all duration-200 shadow-xl cursor-pointer select-none ${
-                  (activeCorner === 'bl' || pinnedCorner === 'bl')
-                    ? 'bg-[#12131A] border-[#D4AF37] text-white shadow-[0_0_15px_rgba(212,175,55,0.35)]'
-                    : 'bg-[#090A0F]/80 hover:bg-[#0E0E14]/95 border-white/10 hover:border-[#D4AF37]/50 text-white/80'
-                }`}
-                title="Click to pin or hover for optical DOF specs"
+              <CinemaToolHUD
+                title="OPTICAL DOF"
+                en="Click to pin or hover for depth-of-field & lens optics"
+                bn="কীভাবে ব্যবহার করবেন: লেন্স ও ডেপথ-অফ-ফিল্ড তথ্য দেখতে ক্লিক করুন।"
+                accent="amber"
               >
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#D4AF37] opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-[#D4AF37] shadow-[0_0_8px_#d4af37]" />
-                </span>
-                <span className="font-bold tracking-wider text-[#FFE066]">DOF // T1.2</span>
-                {pinnedCorner === 'bl' && <Pin className="w-2.5 h-2.5 text-[#E5A919]" />}
-              </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPinnedCorner(p => p === 'bl' ? null : 'bl');
+                  }}
+                  className={`flex items-center gap-2 px-2.5 py-1 rounded-full font-mono text-[9px] sm:text-[9.5px] backdrop-blur-xl border transition-all duration-200 shadow-xl cursor-pointer select-none ${
+                    (activeCorner === 'bl' || pinnedCorner === 'bl')
+                      ? 'bg-[#12131A] border-[#D4AF37] text-white shadow-[0_0_15px_rgba(212,175,55,0.35)]'
+                      : 'bg-[#090A0F]/80 hover:bg-[#0E0E14]/95 border-white/10 hover:border-[#D4AF37]/50 text-white/80'
+                  }`}
+                >
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#D4AF37] opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-[#D4AF37] shadow-[0_0_8px_#d4af37]" />
+                  </span>
+                  <span className="font-black tracking-wider text-[#FFE066]">DOF // T1.2</span>
+                  {pinnedCorner === 'bl' && <Pin className="w-2.5 h-2.5 text-[#E5A919]" />}
+                </button>
+              </CinemaToolHUD>
 
-              {/* Huge Details Popover with Deep DOF Jargon */}
+              {/* Details Popover */}
               <div 
                 onClick={(e) => e.stopPropagation()}
                 className={`absolute bottom-full left-0 mb-2 w-80 sm:w-96 bg-[#07080C]/95 backdrop-blur-2xl border border-[#D4AF37]/40 rounded-lg p-3.5 shadow-[0_20px_50px_rgba(0,0,0,0.95)] transition-all duration-200 origin-bottom-left z-50 text-left font-mono ${
@@ -499,14 +522,16 @@ export const CinemaStage: React.FC = () => {
                 <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-white/10">
                   <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-[#D4AF37] shadow-[0_0_8px_#d4af37] animate-pulse" />
-                    <span className="text-[10px] font-bold text-white tracking-wider uppercase">OPTICAL BENCH & DEPTH OF FIELD</span>
+                    <span className="text-[10px] font-black text-white tracking-wider uppercase">OPTICAL BENCH</span>
                   </div>
-                  <button 
-                    onClick={() => setPinnedCorner(p => p === 'bl' ? null : 'bl')}
-                    className="p-1 rounded text-white/50 hover:text-white hover:bg-white/10 transition-colors"
-                  >
-                    {pinnedCorner === 'bl' ? <PinOff className="w-3 h-3 text-[#E5A919]" /> : <Pin className="w-3 h-3" />}
-                  </button>
+                  <CinemaToolHUD title="PIN HUD" en="Pin or unpin optical DOF specs" bn="কীভাবে ব্যবহার করবেন: অপটিক্যাল কার্ড লক বা আনলক করতে চাপুন।" accent="amber">
+                    <button 
+                      onClick={() => setPinnedCorner(p => p === 'bl' ? null : 'bl')}
+                      className="p-1 rounded text-white/50 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                    >
+                      {pinnedCorner === 'bl' ? <PinOff className="w-3 h-3 text-[#E5A919]" /> : <Pin className="w-3 h-3" />}
+                    </button>
+                  </CinemaToolHUD>
                 </div>
 
                 <div className="space-y-1.5 text-[8px] text-white/70">
@@ -540,28 +565,34 @@ export const CinemaStage: React.FC = () => {
               onMouseEnter={() => setActiveCorner('br')}
               onMouseLeave={() => setActiveCorner(null)}
             >
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setPinnedCorner(p => p === 'br' ? null : 'br');
-                }}
-                className={`flex items-center gap-2 px-2.5 py-1 rounded-full font-mono text-[9px] sm:text-[9.5px] backdrop-blur-xl border transition-all duration-200 shadow-xl cursor-pointer select-none ${
-                  (activeCorner === 'br' || pinnedCorner === 'br')
-                    ? 'bg-[#12131A] border-purple-400 text-white shadow-[0_0_15px_rgba(192,132,252,0.35)]'
-                    : 'bg-[#090A0F]/80 hover:bg-[#0E0E14]/95 border-white/10 hover:border-purple-400/50 text-white/80'
-                }`}
-                title="Click to pin or hover for director and screenplay credits"
+              <CinemaToolHUD
+                title="CREW & DIRECTOR"
+                en="Click to pin or hover for director & audio credit specs"
+                bn="কীভাবে ব্যবহার করবেন: ডিরেক্টর ও ক্রেডিট তথ্য পিন করতে ক্লিক করুন।"
+                accent="cyan"
               >
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-400 shadow-[0_0_8px_#c084fc]" />
-                </span>
-                <span className="font-bold tracking-wider text-purple-300">CREW // DIR</span>
-                {pinnedCorner === 'br' && <Pin className="w-2.5 h-2.5 text-purple-400" />}
-              </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPinnedCorner(p => p === 'br' ? null : 'br');
+                  }}
+                  className={`flex items-center gap-2 px-2.5 py-1 rounded-full font-mono text-[9px] sm:text-[9.5px] backdrop-blur-xl border transition-all duration-200 shadow-xl cursor-pointer select-none ${
+                    (activeCorner === 'br' || pinnedCorner === 'br')
+                      ? 'bg-[#12131A] border-purple-400 text-white shadow-[0_0_15px_rgba(192,132,252,0.35)]'
+                      : 'bg-[#090A0F]/80 hover:bg-[#0E0E14]/95 border-white/10 hover:border-purple-400/50 text-white/80'
+                  }`}
+                >
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-400 shadow-[0_0_8px_#c084fc]" />
+                  </span>
+                  <span className="font-black tracking-wider text-purple-300">CREW // DIR</span>
+                  {pinnedCorner === 'br' && <Pin className="w-2.5 h-2.5 text-purple-400" />}
+                </button>
+              </CinemaToolHUD>
 
-              {/* Huge Details Popover with Deep Writer & Director Jargon */}
+              {/* Details Popover */}
               <div 
                 onClick={(e) => e.stopPropagation()}
                 className={`absolute bottom-full right-0 mb-2 w-80 sm:w-96 bg-[#07080C]/95 backdrop-blur-2xl border border-purple-500/40 rounded-lg p-3.5 shadow-[0_20px_50px_rgba(0,0,0,0.95)] transition-all duration-200 origin-bottom-right z-50 text-left font-mono ${
@@ -573,14 +604,16 @@ export const CinemaStage: React.FC = () => {
                 <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-white/10">
                   <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-purple-400 shadow-[0_0_8px_#c084fc] animate-pulse" />
-                    <span className="text-[10px] font-bold text-white tracking-wider uppercase">DIRECTOR SLATE & WRITERS GUILD</span>
+                    <span className="text-[10px] font-black text-white tracking-wider uppercase">DIRECTOR SLATE</span>
                   </div>
-                  <button 
-                    onClick={() => setPinnedCorner(p => p === 'br' ? null : 'br')}
-                    className="p-1 rounded text-white/50 hover:text-white hover:bg-white/10 transition-colors"
-                  >
-                    {pinnedCorner === 'br' ? <PinOff className="w-3 h-3 text-purple-400" /> : <Pin className="w-3 h-3" />}
-                  </button>
+                  <CinemaToolHUD title="PIN HUD" en="Pin or unpin crew slate" bn="কীভাবে ব্যবহার করবেন: স্লেট কার্ড লক বা আনলক করতে চাপুন।" accent="cyan">
+                    <button 
+                      onClick={() => setPinnedCorner(p => p === 'br' ? null : 'br')}
+                      className="p-1 rounded text-white/50 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                    >
+                      {pinnedCorner === 'br' ? <PinOff className="w-3 h-3 text-purple-400" /> : <Pin className="w-3 h-3" />}
+                    </button>
+                  </CinemaToolHUD>
                 </div>
 
                 <div className="space-y-1.5 text-[8px] text-white/70">
@@ -655,57 +688,63 @@ export const CinemaStage: React.FC = () => {
               onMouseLeave={() => setIsCenterHovered(false)}
             >
               {!showCenterExpanded ? (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsCenterPinned(true);
-                  }}
-                  className="group px-3 py-1 bg-black/60 hover:bg-black/90 backdrop-blur-md border border-white/10 hover:border-[#D4AF37]/50 rounded-full font-mono text-[9px] text-white/70 hover:text-white flex items-center gap-2 cursor-pointer transition-all duration-300 shadow-xl"
-                  title="Hover or tap to reveal full shot specs & narrative dialogue"
+                <CinemaToolHUD
+                  title="SHOT TELEMETRY"
+                  en="Hover or tap to reveal full shot specs & narrative dialogue"
+                  bn="কীভাবে ব্যবহার করবেন: শটের লেন্স, LUT এবং সংলাপ দেখতে চাপুন।"
+                  accent="amber"
                 >
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-[#E5A919]" />
-                  </span>
-                  <span className="font-bold text-[#FFE066]">SC01-SH{epNumStr}</span>
-                  <span className="text-white/30">•</span>
-                  <span className="tracking-widest uppercase">TELEMETRY & CAPTIONS</span>
-                  <span className="text-[7.5px] px-1.5 py-0.5 rounded bg-white/10 text-white/60 group-hover:text-[#FFE066] uppercase">
-                    HOVER / TAP
-                  </span>
-                </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsCenterPinned(true);
+                    }}
+                    className="group px-3 py-1 bg-black/60 hover:bg-black/90 backdrop-blur-md border border-white/10 hover:border-[#D4AF37]/50 rounded-full font-mono text-[9px] text-white/70 hover:text-white flex items-center gap-2 cursor-pointer transition-all duration-300 shadow-xl"
+                  >
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-[#E5A919]" />
+                    </span>
+                    <span className="font-black text-[#FFE066]">SC01-SH{epNumStr}</span>
+                    <span className="tracking-widest font-black uppercase">TELEMETRY</span>
+                  </button>
+                </CinemaToolHUD>
               ) : (
                 <div 
                   onClick={(e) => e.stopPropagation()}
                   className="w-full bg-[#07080C]/95 backdrop-blur-2xl border border-[#D4AF37]/40 rounded-xl p-3.5 shadow-2xl animate-fadeIn transition-all duration-300 text-left font-mono"
                 >
                   <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/10">
-                    <div className="flex items-center gap-1.5 text-[9.5px] text-[#FFE066] font-bold uppercase">
+                    <div className="flex items-center gap-1.5 text-[9.5px] text-[#FFE066] font-black uppercase">
                       <Sparkles className="w-3 h-3 text-[#E5A919]" />
-                      <span>SC01-SH{epNumStr} // SHOT SPECS & DIRECTOR'S VISION</span>
+                      <span>SC01-SH{epNumStr} // SPECS</span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => setIsCenterPinned(p => !p)}
-                        className={`px-2 py-0.5 rounded text-[8px] flex items-center gap-1 cursor-pointer transition-colors ${
-                          isCenterPinned ? 'bg-[#D4AF37] text-black font-bold' : 'bg-white/10 text-white/70'
-                        }`}
-                      >
-                        {isCenterPinned ? <PinOff className="w-2.5 h-2.5" /> : <Pin className="w-2.5 h-2.5" />}
-                        <span>{isCenterPinned ? 'PINNED' : 'PIN'}</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsCenterPinned(false);
-                          setIsCenterHovered(false);
-                        }}
-                        className="p-1 rounded text-white/50 hover:text-white hover:bg-white/10 cursor-pointer"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
+                      <CinemaToolHUD title="PIN SPECS" en="Keep shot telemetry expanded" bn="কীভাবে ব্যবহার করবেন: স্পেকস প্যানেল পিন করতে চাপুন।" accent="amber">
+                        <button
+                          type="button"
+                          onClick={() => setIsCenterPinned(p => !p)}
+                          className={`px-2 py-0.5 rounded text-[8px] font-black flex items-center gap-1 cursor-pointer transition-colors ${
+                            isCenterPinned ? 'bg-[#D4AF37] text-black' : 'bg-white/10 text-white/70'
+                          }`}
+                        >
+                          {isCenterPinned ? <PinOff className="w-2.5 h-2.5" /> : <Pin className="w-2.5 h-2.5" />}
+                          <span>{isCenterPinned ? 'PINNED' : 'PIN'}</span>
+                        </button>
+                      </CinemaToolHUD>
+                      <CinemaToolHUD title="CLOSE SPECS" en="Collapse shot telemetry drawer" bn="কীভাবে ব্যবহার করবেন: প্যানেল বন্ধ করতে চাপুন।" accent="crimson">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsCenterPinned(false);
+                            setIsCenterHovered(false);
+                          }}
+                          className="p-1 rounded text-white/50 hover:text-white hover:bg-white/10 cursor-pointer"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </CinemaToolHUD>
                     </div>
                   </div>
 
@@ -747,22 +786,23 @@ export const CinemaStage: React.FC = () => {
         {/* Video Transport Controls Bar */}
         {isVideo && (
           <div className="absolute bottom-3 left-4 right-4 z-40 bg-black/85 backdrop-blur-md px-3 py-1.5 rounded border border-[#D4AF37]/30 flex items-center gap-3 opacity-90 group-hover:opacity-100 transition-opacity">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                if (videoRef.current) {
-                  if (videoRef.current.paused) {
-                    videoRef.current.play().catch(() => {});
-                  } else {
-                    videoRef.current.pause();
+            <CinemaToolHUD title={isVideoPlaying ? 'PAUSE VIDEO' : 'PLAY VIDEO'} en="Play or pause the active shot video plate" bn="কীভাবে ব্যবহার করবেন: শটের ভিডিও প্লে বা পজ করতে চাপুন।" accent="amber">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (videoRef.current) {
+                    if (videoRef.current.paused) {
+                      videoRef.current.play().catch(() => {});
+                    } else {
+                      videoRef.current.pause();
+                    }
                   }
-                }
-              }}
-              className="p-1 hover:text-[#FFE066] text-[#EDEDED] transition-colors"
-              title={isVideoPlaying ? "Pause Video" : "Play Video"}
-            >
-              {isVideoPlaying ? <Pause className="w-3.5 h-3.5 text-[#D4AF37]" /> : <Play className="w-3.5 h-3.5 text-[#D4AF37]" />}
-            </button>
+                }}
+                className="p-1 hover:text-[#FFE066] text-[#EDEDED] transition-colors cursor-pointer"
+              >
+                {isVideoPlaying ? <Pause className="w-3.5 h-3.5 text-[#D4AF37]" /> : <Play className="w-3.5 h-3.5 text-[#D4AF37]" />}
+              </button>
+            </CinemaToolHUD>
             <div 
               className="flex-1 h-1.5 bg-white/20 rounded cursor-pointer relative overflow-hidden"
               onClick={(e) => {
@@ -779,57 +819,63 @@ export const CinemaStage: React.FC = () => {
             <span className="text-[9px] font-mono text-[#8A8A8A]">
               {Math.floor(videoCurrentTime)}s / {Math.floor(videoDuration)}s
             </span>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                if (videoRef.current) {
-                  videoRef.current.muted = !videoRef.current.muted;
-                  setIsVideoMuted(videoRef.current.muted);
-                }
-              }}
-              className="p-1 hover:text-[#FFE066] text-[#EDEDED] transition-colors"
-              title={isVideoMuted ? "Unmute Video" : "Mute Video"}
-            >
-              {isVideoMuted ? <VolumeX className="w-3.5 h-3.5 text-white/60" /> : <Volume2 className="w-3.5 h-3.5 text-[#D4AF37]" />}
-            </button>
-            <span className="text-[9px] font-mono text-[#FFE066] flex items-center gap-1 border-l border-white/10 pl-2">
+            <CinemaToolHUD title={isVideoMuted ? 'UNMUTE CLIP' : 'MUTE CLIP'} en="Toggle video plate audio mute" bn="কীভাবে ব্যবহার করবেন: ক্লিপের অডিও মিউট বা আনমিউট করতে চাপুন।" accent="cyan">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (videoRef.current) {
+                    videoRef.current.muted = !videoRef.current.muted;
+                    setIsVideoMuted(videoRef.current.muted);
+                  }
+                }}
+                className="p-1 hover:text-[#FFE066] text-[#EDEDED] transition-colors cursor-pointer"
+              >
+                {isVideoMuted ? <VolumeX className="w-3.5 h-3.5 text-white/60" /> : <Volume2 className="w-3.5 h-3.5 text-[#D4AF37]" />}
+              </button>
+            </CinemaToolHUD>
+            <span className="text-[9px] font-black font-mono text-[#FFE066] flex items-center gap-1 border-l border-white/10 pl-2">
               <Video className="w-3 h-3 text-[#D4AF37]" />
-              4K VIDEO
+              4K
             </span>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                fileInputRef.current?.click();
-              }}
-              className="px-2 py-0.5 bg-[#1a1a1a] hover:bg-[#2a2a2a] border border-[#D4AF37]/40 text-[9px] text-[#D4AF37] rounded flex items-center gap-1 ml-1 cursor-pointer"
-            >
-              <Upload className="w-2.5 h-2.5" />
-              Replace
-            </button>
+            <CinemaToolHUD title="REPLACE MEDIA" en="Upload a replacement 4K video or image onto this shot" bn="কীভাবে ব্যবহার করবেন: এই শটে নতুন ভিডিও বা ছবি বদলাতে চাপুন।" accent="amber">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  fileInputRef.current?.click();
+                }}
+                className="cinema-tile cinema-tile-amber px-2 py-0.5 text-[9px] font-black tracking-wider uppercase flex items-center gap-1 ml-1 cursor-pointer"
+              >
+                <Upload className="w-2.5 h-2.5" />
+                REPLACE
+              </button>
+            </CinemaToolHUD>
           </div>
         )}
 
         {/* Floating Quick Media Upload & Title Toggle Trigger */}
         <div className="absolute top-3 right-3 z-30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5">
           <div className="relative">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsZoomControlsOpen(prev => !prev);
-              }}
-              className={`px-2.5 py-1 border rounded text-[10px] font-mono flex items-center gap-1.5 shadow-xl backdrop-blur-md cursor-pointer transition-colors ${
-                isZoomControlsOpen
-                  ? 'bg-black/90 border-[#D4AF37] text-[#FFE066] shadow-[0_0_10px_rgba(212,175,55,0.5)]'
-                  : 'bg-black/70 border-white/20 text-white/60 hover:text-white'
-              }`}
-              title="Multi-Layer Zoom: Scale Foreground & Background independently with optical depth perception"
+            <CinemaToolHUD
+              title="MULTI-LAYER ZOOM"
+              en="Scale foreground & background independently for optical vertigo depth"
+              bn="কীভাবে ব্যবহার করবেন: ফোরগ্রাউন্ড ও ব্যাকগ্রাউন্ড আলাদা জুম করতে চাপুন।"
+              accent="amber"
             >
-              <ZoomIn className="w-3 h-3 text-[#D4AF37]" />
-              <span>ZOOM</span>
-              <span className="text-[#FFE066] font-bold tabular-nums">
-                {foregroundZoom.toFixed(1)}x/{backgroundZoom.toFixed(1)}x
-              </span>
-            </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsZoomControlsOpen(prev => !prev);
+                }}
+                data-active={isZoomControlsOpen ? 'true' : 'false'}
+                className="cinema-tile cinema-tile-amber px-2.5 py-1 text-[10px] font-mono font-black tracking-wider flex items-center gap-1.5 shadow-xl backdrop-blur-md cursor-pointer"
+              >
+                <ZoomIn className="w-3 h-3" />
+                <span>ZOOM</span>
+                <span className="tabular-nums">
+                  {foregroundZoom.toFixed(1)}/{backgroundZoom.toFixed(1)}
+                </span>
+              </button>
+            </CinemaToolHUD>
 
             {isZoomControlsOpen && (
               <div 
@@ -842,40 +888,50 @@ export const CinemaStage: React.FC = () => {
               </div>
             )}
           </div>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setVisibilityItem('titlesAll', !visibility.titlesAll);
-            }}
-            className={`px-2.5 py-1 border rounded text-[10px] font-mono flex items-center gap-1.5 shadow-xl backdrop-blur-md cursor-pointer transition-colors ${
-              visibility.titlesAll
-                ? 'bg-black/90 border-[#D4AF37] text-[#FFE066] shadow-[0_0_8px_rgba(212,175,55,0.4)]'
-                : 'bg-black/70 border-white/20 text-white/50 hover:text-white'
-            }`}
-            title="Toggle Master Titles (Hotkey: T)"
+          <CinemaToolHUD
+            title="TOGGLE TITLES"
+            en="Show or hide title overlays on the stage"
+            bn="কীভাবে ব্যবহার করবেন: স্টেজে টাইটেল চালু বা বন্ধ করতে চাপুন।"
+            accent="amber"
+            shortcut="T"
           >
-            <Type className="w-3 h-3" />
-            <span>TITLES: {visibility.titlesAll ? 'ON' : 'OFF'}</span>
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              fileInputRef.current?.click();
-            }}
-            className="px-2.5 py-1 bg-black/85 hover:bg-black border border-[#D4AF37]/50 rounded text-[10px] font-mono text-[#FFE066] flex items-center gap-1.5 shadow-xl backdrop-blur-md cursor-pointer transition-colors"
-            title="Upload 4K Video or Image onto this Shot"
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setVisibilityItem('titlesAll', !visibility.titlesAll);
+              }}
+              data-active={visibility.titlesAll ? 'true' : 'false'}
+              className="cinema-tile cinema-tile-amber px-2.5 py-1 text-[10px] font-mono font-black tracking-wider uppercase flex items-center gap-1.5 shadow-xl backdrop-blur-md cursor-pointer"
+            >
+              <Type className="w-3 h-3" />
+              <span>{visibility.titlesAll ? 'T ON' : 'T OFF'}</span>
+            </button>
+          </CinemaToolHUD>
+          <CinemaToolHUD
+            title="UPLOAD PLATE"
+            en="Upload a 4K video or image onto the active shot"
+            bn="কীভাবে ব্যবহার করবেন: এই শটে ভিডিও বা ছবি আপলোড করতে চাপুন।"
+            accent="cyan"
           >
-            <Upload className="w-3 h-3 text-[#D4AF37]" />
-            Upload Video / Image
-          </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                fileInputRef.current?.click();
+              }}
+              className="cinema-tile cinema-tile-cyan px-2.5 py-1 text-[10px] font-mono font-black tracking-wider uppercase flex items-center gap-1.5 shadow-xl backdrop-blur-md cursor-pointer"
+            >
+              <Upload className="w-3 h-3" />
+              <span>UPLOAD</span>
+            </button>
+          </CinemaToolHUD>
         </div>
 
         {/* Drag Over Overlay */}
         {isDragOver && (
           <div className="absolute inset-0 z-50 bg-[#D4AF37]/10 border-2 border-dashed border-[#D4AF37] flex flex-col items-center justify-center gap-2 pointer-events-none backdrop-blur-xs">
             <Upload className="w-8 h-8 text-[#FFE066] animate-bounce" />
-            <span className="text-xs font-mono text-[#FFE066] font-bold tracking-wider">
-              DROP 4K VIDEO OR IMAGE TO ATTACH TO SHOT #{activeShotIndex + 1}
+            <span className="text-xs font-mono text-[#FFE066] font-black tracking-wider uppercase">
+              DROP MEDIA · SH{activeShotIndex + 1}
             </span>
           </div>
         )}

@@ -8,7 +8,8 @@
 
 import React, { useRef, useEffect, useState } from 'react';
 import { AnthologyFrame } from '../types/anthology';
-import { X, Activity, RefreshCw, Layers } from 'lucide-react';
+import { X, Activity, BarChart3, CircleDot, Waves } from 'lucide-react';
+import { CinemaToolHUD, CinemaBadgeHeader } from './ui/CinemaToolHUD';
 
 interface VideoScopesModalProps {
   isOpen: boolean;
@@ -16,6 +17,30 @@ interface VideoScopesModalProps {
   currentFrame?: AnthologyFrame;
   onClose: () => void;
 }
+
+const SCOPE_META = {
+  waveform: {
+    label: 'WAVEFORM',
+    icon: Waves,
+    title: 'IRE WAVEFORM SCOPE',
+    en: 'Real-time 0-100 IRE luminance monitor.',
+    bn: 'কীভাবে ব্যবহার করবেন: সাদা-কালো এক্সপোজার ও ব্রাইটনেস লেভেল মাপতে WAVEFORM চাপুন।'
+  },
+  parade: {
+    label: 'RGB PARADE',
+    icon: BarChart3,
+    title: 'RGB PARADE SCOPE',
+    en: 'Red, Green, and Blue channel separation histogram.',
+    bn: 'কীভাবে ব্যবহার করবেন: কালার ব্যালেন্স ঠিক করতে লাল-সবুজ-নীল চ্যানেল আলাদাভাবে দেখুন।'
+  },
+  vectorscope: {
+    label: 'VECTORSCOPE',
+    icon: CircleDot,
+    title: 'CHROMA VECTORSCOPE',
+    en: '360-degree chrominance hue and saturation wheel.',
+    bn: 'কীভাবে ব্যবহার করবেন: স্কিন টোন ও কালার স্যাচুরেশন পরীক্ষা করতে VECTORSCOPE চাপুন।'
+  }
+} as const;
 
 export const VideoScopesModal: React.FC<VideoScopesModalProps> = ({
   isOpen,
@@ -41,7 +66,6 @@ export const VideoScopesModal: React.FC<VideoScopesModalProps> = ({
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       if (activeScope === 'waveform') {
-        // Draw IRE Grids
         ctx.strokeStyle = 'rgba(212, 175, 55, 0.2)';
         ctx.lineWidth = 1;
         const ireLevels = [100, 75, 50, 25, 0];
@@ -58,7 +82,6 @@ export const VideoScopesModal: React.FC<VideoScopesModalProps> = ({
           ctx.fillText(`${ire}`, 30, y + 3);
         });
 
-        // Draw Simulated Real-Time IRE Waveform Trace
         const width = canvas.width - 55;
         const traceCount = 180;
         ctx.fillStyle = 'rgba(0, 255, 204, 0.35)';
@@ -72,7 +95,6 @@ export const VideoScopesModal: React.FC<VideoScopesModalProps> = ({
           ctx.fillRect(x, y, 2.5, columnHeight * 0.65);
         }
       } else if (activeScope === 'parade') {
-        // RGB Parade: Red, Green, Blue side-by-side
         const channelWidth = (canvas.width - 60) / 3;
         const colors = [
           { name: 'RED', stroke: 'rgba(255, 75, 75, 0.6)', fill: 'rgba(255, 75, 75, 0.25)' },
@@ -94,7 +116,6 @@ export const VideoScopesModal: React.FC<VideoScopesModalProps> = ({
           }
         });
       } else if (activeScope === 'vectorscope') {
-        // Chrominance Vectorscope circular graph
         const cx = canvas.width / 2;
         const cy = canvas.height / 2;
         const radius = Math.min(cx, cy) - 40;
@@ -108,7 +129,6 @@ export const VideoScopesModal: React.FC<VideoScopesModalProps> = ({
         ctx.arc(cx, cy, radius * 0.5, 0, Math.PI * 2);
         ctx.stroke();
 
-        // Targets: R, Mg, B, Cy, G, Yl
         const targets = [
           { label: 'R', angle: 104, color: '#ff4b4b' },
           { label: 'Mg', angle: 61, color: '#ff4bff' },
@@ -128,7 +148,6 @@ export const VideoScopesModal: React.FC<VideoScopesModalProps> = ({
           ctx.fillText(t.label, tx + 6, ty + 3);
         });
 
-        // Scatter plot points cloud
         ctx.fillStyle = 'rgba(212, 175, 55, 0.6)';
         for (let i = 0; i < 120; i++) {
           const angle = Math.sin(i + time) * Math.PI * 2;
@@ -154,62 +173,89 @@ export const VideoScopesModal: React.FC<VideoScopesModalProps> = ({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-3xl bg-[#09090D] border border-[#D4AF37]/50 rounded-[2px] shadow-2xl overflow-hidden flex flex-col font-mono-tech"
+        className="w-full max-w-3xl bg-[#0B0C10] border border-[#26282E] rounded-lg shadow-2xl overflow-hidden flex flex-col font-mono-tech"
         onClick={e => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="h-12 bg-[#0c0c12] border-b border-white/10 px-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Activity className="w-4 h-4 text-[#D4AF37]" />
-            <h2 className="font-cinzel text-xs sm:text-sm font-bold text-white tracking-widest">
-              HARDWARE VIDEO SCOPES MONITOR
-            </h2>
-            <span className="text-[9px] px-1.5 py-0.5 bg-[#D4AF37]/20 text-[#FFE066] rounded-[1px]">
-              EP {activeFrame?.epNumber || '001'} // {activeFrame?.cameraSpec?.format || '4K ANA'}
+        <div className="min-h-[56px] bg-[#111215] border-b border-[#26282E] px-4 py-2 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5">
+            <CinemaBadgeHeader
+              icon={<Activity className="w-4 h-4" strokeWidth={2.2} />}
+              label="VIDEO SCOPES"
+              accent="amber"
+            />
+            <span className="px-2 py-0.5 rounded bg-[#0B0C10] border border-[#26282E] text-[10px] font-black tracking-wider uppercase text-amber-300">
+              EP {activeFrame?.epNumber || '001'}
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="flex bg-black/60 p-0.5 rounded border border-white/15 text-[10px]">
-              {(['waveform', 'parade', 'vectorscope'] as const).map(scope => (
-                <button
+          <div className="flex items-center gap-1.5">
+            {(['waveform', 'parade', 'vectorscope'] as const).map(scope => {
+              const meta = SCOPE_META[scope];
+              const Icon = meta.icon;
+              return (
+                <CinemaToolHUD
                   key={scope}
-                  onClick={() => setActiveScope(scope)}
-                  className={`px-2.5 py-1 rounded-[1px] uppercase transition-colors cursor-pointer ${
-                    activeScope === scope ? 'bg-[#D4AF37] text-black font-bold' : 'text-white/60 hover:text-white'
-                  }`}
+                  title={meta.title}
+                  en={meta.en}
+                  bn={meta.bn}
+                  accent="cyan"
+                  side="bottom"
                 >
-                  {scope}
-                </button>
-              ))}
-            </div>
+                  <button
+                    type="button"
+                    data-active={activeScope === scope ? 'true' : 'false'}
+                    onClick={() => setActiveScope(scope)}
+                    className="cinema-tile cinema-tile-cyan px-2.5 py-2 min-h-[44px] rounded-md flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Icon className="w-4 h-4 cinema-tile-icon shrink-0" strokeWidth={2.2} />
+                    <span className="font-black tracking-wider text-[10px] sm:text-[11px] uppercase whitespace-nowrap">
+                      {meta.label}
+                    </span>
+                  </button>
+                </CinemaToolHUD>
+              );
+            })}
 
-            <button onClick={onClose} className="p-1 text-white/50 hover:text-white cursor-pointer">
-              <X className="w-4 h-4" />
-            </button>
+            <CinemaToolHUD
+              title="CLOSE SCOPES"
+              en="Close the video scopes monitor."
+              bn="কীভাবে ব্যবহার করবেন: স্কোপ মনিটর বন্ধ করতে X বাটনে চাপুন।"
+              shortcut="ESC"
+              accent="crimson"
+              side="bottom"
+            >
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close"
+                className="cinema-tile cinema-tile-crimson min-h-[44px] min-w-[44px] px-2.5 rounded-md flex items-center justify-center gap-1 cursor-pointer"
+              >
+                <X className="w-4 h-4 cinema-tile-icon" strokeWidth={2.3} />
+                <span className="hidden sm:inline font-black tracking-wider text-[10px] uppercase">CLOSE</span>
+              </button>
+            </CinemaToolHUD>
           </div>
         </div>
 
-        {/* Real-Time Scope Viewport Canvas */}
-        <div className="p-6 bg-black flex items-center justify-center relative">
+        <div className="p-4 sm:p-6 bg-black flex items-center justify-center relative">
           <canvas
             ref={canvasRef}
             width={720}
             height={360}
-            className="w-full h-auto max-h-[50vh] border border-white/15 rounded-[1px] shadow-2xl"
+            className="w-full h-auto max-h-[52vh] border border-[#26282E] rounded shadow-2xl"
           />
         </div>
 
-        {/* Telemetry Footer */}
-        <div className="h-10 bg-[#0c0c12] border-t border-white/10 px-4 flex items-center justify-between text-[10px] text-white/60">
+        <div className="min-h-[44px] bg-[#111215] border-t border-[#26282E] px-4 py-2 flex flex-wrap items-center justify-between gap-2 text-[10px] font-black tracking-wider uppercase text-zinc-400">
           <div className="flex items-center gap-4">
-            <span>PEAK LUMINANCE: <strong className="text-[#FFE066]">96.4 IRE</strong></span>
-            <span>BLACK FLOOR: <strong className="text-emerald-400">1.8 IRE</strong></span>
-            <span>COLOR SPACE: <strong className="text-white">Rec.709 14-BIT</strong></span>
+            <span>PEAK <strong className="text-amber-300">96.4 IRE</strong></span>
+            <span>FLOOR <strong className="text-emerald-400">1.8 IRE</strong></span>
+            <span>REC.709 <strong className="text-white">14-BIT</strong></span>
           </div>
-          <span className="text-[#D4AF37]">RAWx OPTICAL CALIBRATION VERIFIED</span>
+          <span className="text-amber-400">RAWx CALIBRATED</span>
         </div>
       </div>
     </div>
   );
 };
+

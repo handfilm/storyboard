@@ -31,6 +31,7 @@ import {
   getFilmStockMeta
 } from '../../services/cinematicFilterEngine';
 import { studioDraftDb } from '../../services/db';
+import { CinemaBadgeHeader, CinemaToolHUD } from '../ui/CinemaToolHUD';
 
 export interface FilterGradingTrayProps {
   currentFrame: AnthologyFrame;
@@ -115,97 +116,116 @@ export const FilterGradingTray: React.FC<FilterGradingTrayProps> = ({
   };
 
   return (
-    <div className="absolute right-4 top-16 z-40 w-80 sm:w-88 rounded-[6px] bg-[#0A0A12]/96 border border-[#d4af37]/50 shadow-[0_20px_50px_rgba(0,0,0,0.92),0_0_24px_rgba(245,166,35,0.22)] backdrop-blur-2xl p-4 text-xs font-mono text-zinc-300 animate-in fade-in zoom-in-95 duration-150 select-none">
+    <div className="absolute right-4 top-16 z-40 w-80 sm:w-88 rounded-xl bg-[#0A0A12]/96 border border-[#26282E] shadow-[0_20px_50px_rgba(0,0,0,0.92)] backdrop-blur-2xl p-4 text-xs font-mono text-zinc-300 animate-in fade-in zoom-in-95 duration-150 select-none">
       {/* Header */}
       <div className="flex items-center justify-between pb-3 border-b border-white/10">
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-[3px] bg-[#f5a623]/20 border border-[#f5a623]/50 flex items-center justify-center">
-            <Film className="w-3.5 h-3.5 text-[#f5a623]" />
-          </div>
-          <div>
-            <div className="text-[11px] font-bold text-white tracking-wider flex items-center gap-1.5">
-              <span>35MM FILM STOCK DOCK</span>
-              <span className="text-[8.5px] px-1 py-0.5 rounded bg-[#f5a623]/20 text-[#f5a623] font-mono">
-                SH{String(currentIndex + 1).padStart(3, '0')}
-              </span>
-            </div>
-            <div className="text-[9px] text-zinc-400">Zero-latency WebGL color shader pass</div>
-          </div>
+          <CinemaBadgeHeader
+            icon={<Film className="w-3.5 h-3.5" strokeWidth={2.2} />}
+            label="FILM STOCK"
+            accent="amber"
+          />
+          <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/35 text-amber-300 font-black tabular-nums">
+            SH{String(currentIndex + 1).padStart(3, '0')}
+          </span>
         </div>
         {onClose && (
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-6 h-6 rounded flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-            title="Close Grading Tray"
+          <CinemaToolHUD
+            title="CLOSE COLOR TRAY"
+            en="Closes the 35mm film stock and grading tray."
+            bn="ফিল্ম কালার গ্রেডিং প্যানেল বন্ধ করতে চাপুন।"
+            accent="amber"
           >
-            <X className="w-4 h-4" />
-          </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="cinema-tile cinema-tile-amber w-7 h-7 rounded-md flex items-center justify-center cursor-pointer"
+              aria-label="Close Grading Tray"
+            >
+              <X className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+            </button>
+          </CinemaToolHUD>
         )}
       </div>
 
       {/* Film Stock Preset Selectors */}
-      <div className="my-3 space-y-1.5">
-        <div className="text-[9px] text-zinc-400 font-bold uppercase tracking-wider flex items-center justify-between">
-          <span>Film Stocks (Hollywood 35mm)</span>
-          <span className="text-[#f5a623]">{currentMeta.code}</span>
+      <div className="my-3 space-y-2">
+        <div className="flex items-center justify-between">
+          <CinemaBadgeHeader
+            icon={<Sparkles className="w-3 h-3" strokeWidth={2.2} />}
+            label="35MM LUTS"
+            accent="cyan"
+          />
+          <span className="text-[9.5px] font-black text-amber-400 tracking-wider">{currentMeta.code}</span>
         </div>
-        <div className="grid grid-cols-1 gap-1.5">
+        <div className="grid grid-cols-2 gap-1.5">
           {FILM_STOCK_PRESETS.map((stock) => {
             const isSelected = currentLut === stock.id;
             return (
-              <button
+              <CinemaToolHUD
                 key={stock.id}
-                type="button"
-                onClick={() => handleSelectPreset(stock)}
-                className={`w-full px-2.5 py-1.5 rounded-[4px] text-left flex items-center justify-between transition-all cursor-pointer ${
-                  isSelected
-                    ? 'bg-gradient-to-r from-[#241c0e] to-[#120f08] border border-[#f5a623] text-white shadow-[0_0_12px_rgba(245,166,35,0.25)]'
-                    : 'bg-white/5 hover:bg-white/10 border border-white/5 text-zinc-300'
-                }`}
+                title={stock.name.toUpperCase()}
+                en={stock.description}
+                bn={`শটে ${stock.name} সিনেমার কালার লুক দিতে চাপুন।`}
+                accent="amber"
+                blockWrapper
               >
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  data-active={isSelected ? 'true' : 'false'}
+                  onClick={() => handleSelectPreset(stock)}
+                  className="cinema-tile cinema-tile-amber w-full px-2.5 py-2 rounded-lg text-left flex items-center justify-between gap-1.5 cursor-pointer"
+                >
+                  <div className="flex items-center gap-1.5 min-w-0">
                     <span
                       className="w-2 h-2 rounded-full shrink-0"
                       style={{ backgroundColor: stock.accentColor }}
                     />
-                    <span className="font-bold text-[10px] tracking-wide">{stock.name}</span>
+                    <span className="font-black text-[10px] tracking-wider uppercase truncate">{stock.name}</span>
                   </div>
-                  <div className="text-[8px] text-zinc-400 pl-4 truncate">{stock.description}</div>
-                </div>
-                {isSelected && (
-                  <Check className="w-3.5 h-3.5 text-[#f5a623] shrink-0 ml-1.5 drop-shadow-[0_0_4px_rgba(245,166,35,0.8)]" />
-                )}
-              </button>
+                  {isSelected && (
+                    <Check className="w-3.5 h-3.5 text-amber-400 shrink-0" strokeWidth={2.4} />
+                  )}
+                </button>
+              </CinemaToolHUD>
             );
           })}
         </div>
       </div>
 
       {/* Parametric Adjustment Sliders */}
-      <div className="pt-2 pb-3 border-t border-white/10 space-y-2.5">
-        <div className="flex items-center justify-between text-[9px] text-zinc-400 font-bold uppercase tracking-wider">
-          <span>Real-time Grading Parameters</span>
-          <button
-            type="button"
-            onClick={handleResetCurrent}
-            className="flex items-center gap-1 text-zinc-400 hover:text-amber-300 transition-colors cursor-pointer"
-            title="Reset to Stock Defaults"
+      <div className="pt-2.5 pb-3 border-t border-white/10 space-y-2.5">
+        <div className="flex items-center justify-between">
+          <CinemaBadgeHeader
+            icon={<Sliders className="w-3 h-3" strokeWidth={2.2} />}
+            label="GRADE PASS"
+            accent="amber"
+          />
+          <CinemaToolHUD
+            title="RESET GRADE"
+            en="Resets exposure, contrast, glow, and grain to selected film stock defaults."
+            bn="এই শটের কালার এডজাস্টমেন্ট রিসেট করতে চাপুন।"
+            accent="amber"
           >
-            <RotateCcw className="w-2.5 h-2.5" />
-            <span>Reset</span>
-          </button>
+            <button
+              type="button"
+              onClick={handleResetCurrent}
+              className="cinema-tile cinema-tile-amber px-2 py-1 rounded-md flex items-center gap-1 text-[9.5px] font-black tracking-wider uppercase cursor-pointer"
+            >
+              <RotateCcw className="w-3 h-3 cinema-tile-icon" strokeWidth={2.2} />
+              <span>RESET</span>
+            </button>
+          </CinemaToolHUD>
         </div>
 
         {/* Exposure */}
         <div>
-          <div className="flex justify-between text-[9px] mb-1">
+          <div className="flex justify-between text-[9.5px] font-black tracking-wider uppercase mb-1">
             <span className="flex items-center gap-1 text-zinc-300">
               <Sun className="w-3 h-3 text-amber-400" />
-              Exposure
+              EXPOSURE
             </span>
-            <span className="text-[#f5a623] font-bold">
+            <span className="text-[#f5a623]">
               {exposure > 0 ? `+${exposure.toFixed(2)}` : exposure.toFixed(2)} EV
             </span>
           </div>
@@ -222,12 +242,12 @@ export const FilterGradingTray: React.FC<FilterGradingTrayProps> = ({
 
         {/* Contrast */}
         <div>
-          <div className="flex justify-between text-[9px] mb-1">
+          <div className="flex justify-between text-[9.5px] font-black tracking-wider uppercase mb-1">
             <span className="flex items-center gap-1 text-zinc-300">
               <ContrastIcon className="w-3 h-3 text-cyan-400" />
-              Contrast
+              CONTRAST
             </span>
-            <span className="text-[#f5a623] font-bold">{Math.round(contrast)}%</span>
+            <span className="text-[#f5a623]">{Math.round(contrast)}%</span>
           </div>
           <input
             type="range"
@@ -242,13 +262,13 @@ export const FilterGradingTray: React.FC<FilterGradingTrayProps> = ({
 
         {/* Temperature */}
         <div>
-          <div className="flex justify-between text-[9px] mb-1">
+          <div className="flex justify-between text-[9.5px] font-black tracking-wider uppercase mb-1">
             <span className="flex items-center gap-1 text-zinc-300">
               <Flame className="w-3 h-3 text-rose-400" />
-              Temperature
+              TEMP
             </span>
-            <span className="text-[#f5a623] font-bold">
-              {temperature > 0 ? `+${temperature} Warm` : temperature < 0 ? `${temperature} Cool` : '0 Neutral'}
+            <span className="text-[#f5a623]">
+              {temperature > 0 ? `+${temperature}W` : temperature < 0 ? `${temperature}C` : '0'}
             </span>
           </div>
           <input
@@ -264,12 +284,12 @@ export const FilterGradingTray: React.FC<FilterGradingTrayProps> = ({
 
         {/* Anamorphic Glow */}
         <div>
-          <div className="flex justify-between text-[9px] mb-1">
+          <div className="flex justify-between text-[9.5px] font-black tracking-wider uppercase mb-1">
             <span className="flex items-center gap-1 text-zinc-300">
               <Sparkles className="w-3 h-3 text-yellow-300" />
-              Anamorphic Glow
+              GLOW
             </span>
-            <span className="text-[#f5a623] font-bold">{Math.round(glow)}%</span>
+            <span className="text-[#f5a623]">{Math.round(glow)}%</span>
           </div>
           <input
             type="range"
@@ -284,12 +304,12 @@ export const FilterGradingTray: React.FC<FilterGradingTrayProps> = ({
 
         {/* Film Grain */}
         <div>
-          <div className="flex justify-between text-[9px] mb-1">
+          <div className="flex justify-between text-[9.5px] font-black tracking-wider uppercase mb-1">
             <span className="flex items-center gap-1 text-zinc-300">
               <Layers className="w-3 h-3 text-emerald-400" />
-              Film Grain (60fps Noise)
+              GRAIN
             </span>
-            <span className="text-[#f5a623] font-bold">{Math.round(grain)}%</span>
+            <span className="text-[#f5a623]">{Math.round(grain)}%</span>
           </div>
           <input
             type="range"
@@ -305,28 +325,33 @@ export const FilterGradingTray: React.FC<FilterGradingTrayProps> = ({
 
       {/* Ripple to All Shots Action Button */}
       <div className="pt-2 border-t border-white/10">
-        <button
-          type="button"
-          onClick={handleRippleToAllShots}
-          disabled={rippleSuccess}
-          className={`w-full py-2.5 px-3 rounded-[4px] font-bold text-[10px] tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-all ${
-            rippleSuccess
-              ? 'bg-emerald-600 text-white shadow-[0_0_12px_rgba(16,185,129,0.5)]'
-              : 'bg-gradient-to-r from-[#d4af37] via-[#f5a623] to-[#d4af37] text-black hover:brightness-110 shadow-[0_4px_16px_rgba(245,166,35,0.4)] active:translate-y-0.5'
-          }`}
+        <CinemaToolHUD
+          title="SYNC GRADE ALL SHOTS"
+          en={`Applies active LUT and adjustments across all ${totalShots} sequence shots.`}
+          bn="বর্তমান শটের কালার গ্রেড সবগুলো শটে এক ক্লিকে কপি করতে চাপুন।"
+          accent="amber"
+          blockWrapper
         >
-          {rippleSuccess ? (
-            <>
-              <Check className="w-3.5 h-3.5" />
-              <span>APPLIED TO ALL SHOTS (001-{totalShots})</span>
-            </>
-          ) : (
-            <>
-              <Zap className="w-3.5 h-3.5 fill-current" />
-              <span>⚡ APPLY GRADE TO ALL SHOTS (001-{totalShots})</span>
-            </>
-          )}
-        </button>
+          <button
+            type="button"
+            onClick={handleRippleToAllShots}
+            disabled={rippleSuccess}
+            data-active={rippleSuccess ? 'true' : 'false'}
+            className="cinema-tile cinema-tile-amber w-full py-2.5 px-3 rounded-lg font-black text-[10.5px] tracking-wider uppercase flex items-center justify-center gap-2 cursor-pointer"
+          >
+            {rippleSuccess ? (
+              <>
+                <Check className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+                <span>SYNCED ALL</span>
+              </>
+            ) : (
+              <>
+                <Zap className="w-3.5 h-3.5 cinema-tile-icon fill-current" strokeWidth={2.2} />
+                <span>SYNC ALL</span>
+              </>
+            )}
+          </button>
+        </CinemaToolHUD>
       </div>
     </div>
   );

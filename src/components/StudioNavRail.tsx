@@ -47,6 +47,8 @@ import {
 } from 'lucide-react';
 import { eventBus } from '../core/eventBus';
 import { useStudioStore } from '../core/store';
+import { CinemaBadgeHeader, CinemaToolHUD } from './ui/CinemaToolHUD';
+import { CinemaHudAccent } from '../constants/cinemaToolHudMap';
 
 export type StudioModuleId =
   | 'PLAYER'
@@ -130,11 +132,14 @@ type RailButtonKey =
 
 interface FlyoutSubTool {
   id: string;
-  label: string;
-  sub: string;
-  icon: React.ComponentType<{ className?: string }>;
+  shortLabel: string;
+  hudTitle: string;
+  en: string;
+  bn: string;
+  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
   badge?: string;
   shortcut?: string;
+  accent?: CinemaHudAccent;
   isActive?: boolean;
   onSelect: () => void;
 }
@@ -142,14 +147,21 @@ interface FlyoutSubTool {
 interface RailButtonConfig {
   key: RailButtonKey;
   label: string;
-  title: string;
-  why: string;
+  hudId: string;
+  accent: CinemaHudAccent;
   accentHex: string;
-  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
+  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties; strokeWidth?: number }>;
   activeModules: StudioModuleId[];
   onPrimaryClick: () => void;
   subTools: FlyoutSubTool[];
 }
+
+const ACCENT_TILE_CLASS: Record<CinemaHudAccent, string> = {
+  amber: 'cinema-tile-amber',
+  cyan: 'cinema-tile-cyan',
+  crimson: 'cinema-tile-crimson',
+  emerald: 'cinema-tile-emerald'
+};
 
 export const StudioNavRail: React.FC<StudioNavRailProps> = ({
   activeModule,
@@ -242,27 +254,33 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
     {
       key: 'STORY',
       label: 'STORY',
-      title: 'STORY NOTEBOOK & SCRIPT',
-      why: 'Fountain screenplay editor, 3-Act beat matrix, and shot loglines',
-      accentHex: '#F5A623',
+      hudId: 'rail-story',
+      accent: 'amber',
+      accentHex: '#F59E0B',
       icon: BookOpen,
       activeModules: ['STORY', 'PRODUCTION'],
       onPrimaryClick: () => onSelectModule('STORY'),
       subTools: [
         {
           id: 'story-panel',
-          label: 'Story Notebook',
-          sub: 'Screenplay, scene loglines & Story Doctor',
+          shortLabel: 'NOTEBOOK',
+          hudTitle: 'STORY NOTEBOOK',
+          en: 'Fountain screenplay editor, 3-Act beat matrix, and shot loglines.',
+          bn: 'স্ক্রিপ্ট, শট লগলাইন ও সিন বিট লিখতে বা সাজাতে এই প্যানেল ওপেন করুন।',
           icon: BookOpen,
-          badge: `${totalShots} SHOTS`,
+          badge: `${totalShots}`,
+          accent: 'amber',
           isActive: activeModule === 'STORY',
           onSelect: () => onSelectModule('STORY')
         },
         {
           id: 'prod-planner',
-          label: 'Production Call Sheet',
-          sub: 'Day-blocks, talent & gear allocator',
+          shortLabel: 'CALL SHEET',
+          hudTitle: 'PRODUCTION CALL SHEET',
+          en: 'Interactive shoot planner, talent schedule, and gear allocator.',
+          bn: 'শুটিংয়ের শিডিউল, কাস্ট এবং ক্যামেরা গিয়ার লিস্ট সাজাতে এটি ব্যবহার করুন।',
           icon: Clapperboard,
+          accent: 'amber',
           isActive: activeModule === 'PRODUCTION',
           onSelect: () => onSelectModule('PRODUCTION')
         }
@@ -271,27 +289,33 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
     {
       key: 'MEDIA',
       label: 'MEDIA',
-      title: 'MEDIA ASSET VAULT & OPFS BROWSER',
-      why: 'Full Media Asset Vault, OPFS Browser, and Cloudflare R2 edge sync',
-      accentHex: '#38BDF8',
+      hudId: 'rail-media',
+      accent: 'cyan',
+      accentHex: '#06B6D4',
       icon: HardDrive,
       activeModules: ['MEDIA', 'R2_STORAGE'],
       onPrimaryClick: () => onSelectModule('MEDIA'),
       subTools: [
         {
           id: 'media-vault',
-          label: 'Media Asset Vault & OPFS Browser',
-          sub: `Ingest & manage frames (${saveState.toUpperCase()})`,
+          shortLabel: 'MEDIA BIN',
+          hudTitle: 'MEDIA ASSET VAULT',
+          en: `Import and manage local 4K video clips & frames (${saveState.toUpperCase()}).`,
+          bn: 'ডিভাইস থেকে ভিডিও বা ছবি আপলোড করে শটের সাথে যুক্ত করতে এটি চাপুন।',
           icon: HardDrive,
           badge: 'OPFS',
+          accent: 'cyan',
           isActive: activeModule === 'MEDIA',
           onSelect: () => onSelectModule('MEDIA')
         },
         {
           id: 'r2-cloud',
-          label: 'Cloudflare R2 Edge Sync',
-          sub: 'S3 byte-range cloud archive & snapshots',
+          shortLabel: 'CLOUD R2',
+          hudTitle: 'CLOUDFLARE R2 SYNC',
+          en: 'Zero-config S3 byte-range cloud archive and project snapshot sync.',
+          bn: 'ক্লাউডে প্রজেক্ট ব্যাকআপ বা স্ট্রিমিং সিঙ্ক করতে R2 প্যানেল ওপেন করুন।',
           icon: Cloud,
+          accent: 'cyan',
           isActive: activeModule === 'R2_STORAGE',
           onSelect: () => onSelectModule('R2_STORAGE')
         },
@@ -299,10 +323,13 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
           ? [
               {
                 id: 'idb-projects',
-                label: 'Project Vault Manager',
-                sub: 'Switch or clone local IDB anthology vaults',
+                shortLabel: 'VAULT',
+                hudTitle: 'PROJECT VAULT MANAGER',
+                en: 'Switch between or clone IndexedDB anthology project vaults.',
+                bn: 'নতুন প্রজেক্ট তৈরি করতে বা আগের সেভ করা ভল্টে ফিরতে এটি চাপুন।',
                 icon: FolderOpen,
                 badge: 'IDB',
+                accent: 'amber' as CinemaHudAccent,
                 onSelect: () => onOpenVaultMode()
               }
             ]
@@ -312,35 +339,44 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
     {
       key: 'TEXT',
       label: 'TEXT',
-      title: 'SUPER TITLE & SUBTITLE STUDIO',
-      why: 'Per-shot kinetic Bangla & English titles, preset styles, SRT burn-in',
-      accentHex: '#FF6B00',
+      hudId: 'rail-text',
+      accent: 'amber',
+      accentHex: '#F59E0B',
       icon: Type,
       activeModules: ['TEXT'],
       onPrimaryClick: () => onSelectModule('TEXT'),
       subTools: [
         {
           id: 'text-drawer',
-          label: 'Super Title & Subtitle Studio',
-          sub: 'Per-shot Bangla + English kinetic title cards',
+          shortLabel: 'TITLE FX',
+          hudTitle: 'SUPER TITLE STUDIO',
+          en: 'Per-shot Bangla & English kinetic title cards and 9-zone placement.',
+          bn: 'শটের বাংলা ও ইংরেজি টাইটেল এবং পজিশন এডিট করতে টাইটেল স্টুডিও খুলুন।',
           icon: Type,
+          accent: 'amber',
           isActive: activeModule === 'TEXT',
           onSelect: () => onSelectModule('TEXT')
         },
         {
           id: 'pro-ai-captions',
-          label: 'AI Bilingual Captions (Pro)',
-          sub: 'Auto Bangla+English karaoke, bounce & kinetic bars',
+          shortLabel: 'AUTO CAP',
+          hudTitle: 'AI BILINGUAL CAPTIONS',
+          en: 'Auto Bangla & English karaoke captions, bounce, and kinetic bars.',
+          bn: 'স্বয়ংক্রিয় বাংলা ও ইংরেজি ক্যাপশন ও কাইনেটিক এনিমেশন দিতে চাপুন।',
           icon: Sparkles,
-          badge: 'PRO FX',
+          badge: 'PRO',
+          accent: 'cyan',
           onSelect: () => eventBus.emit('studio:open_pro_suite', { tab: 'ai-captions' })
         },
         {
           id: 'toggle-titles',
-          label: 'Toggle Stage Titles Layer',
-          sub: 'Show or hide live kinetic title overlays',
+          shortLabel: 'SHOW TEXT',
+          hudTitle: 'TOGGLE STAGE TITLES',
+          en: 'Show or hide live kinetic title overlays on the stage monitor.',
+          bn: 'স্ক্রিনে টাইটেল ওভারলে চালু বা বন্ধ করতে এই বাটনে চাপুন।',
           icon: Eye,
           shortcut: 'T',
+          accent: 'amber',
           onSelect: () => eventBus.emit('studio:toggle_titles')
         }
       ]
@@ -348,8 +384,8 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
     {
       key: 'AUDIO',
       label: 'AUDIO',
-      title: 'WAVEFORM & SUB-HARMONIC AUDIO MIXER',
-      why: '48kHz DSP mixer, waveform beat detection, scopes & telemetry',
+      hudId: 'rail-audio',
+      accent: 'emerald',
       accentHex: '#10B981',
       icon: Volume2,
       activeModules: ['SOUND'],
@@ -357,9 +393,12 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
       subTools: [
         {
           id: 'sound-studio',
-          label: 'Sound DSP Studio',
-          sub: 'Master stems, beat sync & audio track cueing',
+          shortLabel: 'SOUND DSP',
+          hudTitle: 'PRO AUDIO DSP STUDIO',
+          en: '3-bus stem mixer, beat sync, and Web Audio foley synthesizer.',
+          bn: 'ভয়েস, মিউজিক ও ফোলি সাউন্ড মিক্স করতে সাউন্ড স্টুডিও ওপেন করুন।',
           icon: Volume2,
+          accent: 'emerald',
           isActive: activeModule === 'SOUND',
           onSelect: () => onSelectModule('SOUND')
         },
@@ -367,25 +406,34 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
           ? [
               {
                 id: 'video-scopes',
-                label: 'IRE & RGB Scopes',
-                sub: 'Waveform, RGB parade & vectorscope monitor',
+                shortLabel: 'SCOPES',
+                hudTitle: 'IRE & RGB SCOPES',
+                en: 'Live waveform, RGB parade, and vectorscope broadcast monitor.',
+                bn: 'রিয়েল-টাইম এক্সপোজার ও কালার ওয়েভফর্ম স্কোপ দেখতে এটি চাপুন।',
                 icon: BarChart3,
+                accent: 'emerald' as CinemaHudAccent,
                 onSelect: () => onOpenVideoScopes()
               }
             ]
           : []),
         {
           id: 'spectral-analyzer',
-          label: 'Spectral Energy Visualizer',
-          sub: 'Toggle live multi-band frequency HUD',
+          shortLabel: 'SPECTRUM',
+          hudTitle: 'SPECTRAL VISUALIZER',
+          en: 'Toggle live multi-band audio frequency HUD on the console.',
+          bn: 'অডিওর ফ্রিকোয়েন্সি স্পেকট্রাম মিটার চালু বা বন্ধ করতে এটি চাপুন।',
           icon: Activity,
+          accent: 'emerald',
           onSelect: () => eventBus.emit('cockpit:toggle_spectrum')
         },
         {
           id: 'modular-telemetry',
-          label: 'Modular Telemetry Rack',
-          sub: 'Audio sync, voice cue & 3D LUT rack',
+          shortLabel: 'RACK HUD',
+          hudTitle: 'MODULAR TELEMETRY RACK',
+          en: 'Toggle audio sync, voice cue, and 3D LUT telemetry rack.',
+          bn: 'অডিও সিঙ্ক ও LUT টেলিমেট্রি র‍্যাক স্ক্রিনে দেখাতে চাপুন।',
           icon: SlidersHorizontal,
+          accent: 'cyan',
           onSelect: () => eventBus.emit('cockpit:toggle_telemetry')
         }
       ]
@@ -393,45 +441,57 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
     {
       key: 'CUT',
       label: 'CUT',
-      title: 'PRECISION RAZOR & MULTI-CAM CUT',
-      why: 'Multi-track NLE razor cuts, storyboard grid, and multi-cam desk',
-      accentHex: '#E50914',
+      hudId: 'rail-cut',
+      accent: 'crimson',
+      accentHex: '#EF4444',
       icon: Scissors,
       activeModules: ['EDIT/CUT', 'BOARD', 'PLAYER'],
       onPrimaryClick: () => onSelectModule('EDIT/CUT'),
       subTools: [
         {
           id: 'cut-nle',
-          label: 'Multi-Track Cut NLE',
-          sub: 'Sub-frame trimming & magnetic ripple lanes',
+          shortLabel: 'CUT NLE',
+          hudTitle: 'MULTI-TRACK CUT NLE',
+          en: 'Sub-frame precision trimming, split, and magnetic ripple lanes.',
+          bn: 'প্লেহেড যেখানে আছে সেখান থেকে ক্লিপ কাটতে বা ট্রিম করতে খুলুন।',
           icon: Scissors,
-          badge: '24 FPS',
+          badge: '24P',
           shortcut: 'S',
+          accent: 'crimson',
           isActive: activeModule === 'EDIT/CUT',
           onSelect: () => onSelectModule('EDIT/CUT')
         },
         {
           id: 'board-grid',
-          label: 'Storyboard Grid Matrix',
-          sub: `100-shot contact layout (Shot #${currentShotIndex + 1})`,
+          shortLabel: 'GRID',
+          hudTitle: 'STORYBOARD GRID MATRIX',
+          en: `Inspect all shots in contact sheet layout (Shot #${currentShotIndex + 1}).`,
+          bn: 'সবগুলো শট একসাথে গ্রিড ভিউতে দেখতে ও রি-অর্ডার করতে চাপুন।',
           icon: LayoutGrid,
           shortcut: 'G',
+          accent: 'amber',
           isActive: activeModule === 'BOARD',
           onSelect: () => onSelectModule('BOARD')
         },
         {
           id: 'pro-keyframes-speed',
-          label: 'Keyframes & Speed Ramps (Pro)',
-          sub: 'Cubic keyframes, velocity curves & optical flow',
+          shortLabel: 'KEYFRAME',
+          hudTitle: 'KEYFRAMES & SPEED RAMP',
+          en: 'Cubic keyframes, velocity curves, and optical flow ramps.',
+          bn: 'ক্লিপে কীফ্রেম ও স্মুথ স্পিড র‍্যাম্প বসাতে এটি ওপেন করুন।',
           icon: Zap,
-          badge: 'PRO FX',
+          badge: 'PRO',
+          accent: 'crimson',
           onSelect: () => eventBus.emit('studio:open_pro_suite', { tab: 'keyframes' })
         },
         {
           id: 'stage-player',
-          label: 'Animatic Stage Deck',
-          sub: 'Return to primary tactile stage monitor',
+          shortLabel: 'STAGE',
+          hudTitle: 'ANIMATIC STAGE DECK',
+          en: 'Return to primary tactile stage preview monitor.',
+          bn: 'মূল প্রিভিউ স্টেজ স্ক্রিনে ফিরে যেতে এটি চাপুন।',
           icon: PlaySquare,
+          accent: 'amber',
           isActive: activeModule === 'PLAYER',
           onSelect: () => onSelectModule('PLAYER')
         },
@@ -439,10 +499,13 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
           ? [
               {
                 id: 'multicam-grid',
-                label: 'Multi-Cam Switcher',
-                sub: 'Synchronized multi-angle cutting desk',
+                shortLabel: 'MULTI-CAM',
+                hudTitle: 'MULTI-CAM SWITCHER',
+                en: 'Synchronized multi-angle live cutting desk.',
+                bn: 'একসাথে একাধিক ক্যামেরা অ্যাঙ্গেল দেখে শট বদলাতে এটি চাপুন।',
                 icon: Film,
                 shortcut: 'SHIFT+M',
+                accent: 'cyan' as CinemaHudAccent,
                 onSelect: () => onOpenMultiCam()
               }
             ]
@@ -452,34 +515,43 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
     {
       key: 'CROP',
       label: 'CROP',
-      title: 'ASPECT RATIO & SMART REFRAME',
-      why: 'Aspect ratios, safe composition guides, lens crop & cine body rig',
-      accentHex: '#14B8A6',
+      hudId: 'rail-crop',
+      accent: 'cyan',
+      accentHex: '#06B6D4',
       icon: Crop,
       activeModules: ['OPTICS'],
       onPrimaryClick: () => onSelectModule('OPTICS'),
       subTools: [
         {
           id: 'optics-drawer',
-          label: 'Optics & Crop Inspector',
-          sub: `${currentProfile.body} // ${currentProfile.lens}`,
+          shortLabel: 'REFRAME',
+          hudTitle: 'OPTICS & SMART CROP',
+          en: `${currentProfile.body} — aspect ratio, lens crop, and reframe inspector.`,
+          bn: 'ভিডিওর আসপেক্ট রেশিও (৯:১৬ বা ২.৩৯:১) ও ফ্রেমিং ক্রপ ঠিক করতে চাপুন।',
           icon: Crop,
+          accent: 'cyan',
           isActive: activeModule === 'OPTICS',
           onSelect: () => onSelectModule('OPTICS')
         },
         {
           id: 'toggle-guides',
-          label: 'Safe Composition Guides',
-          sub: 'Toggle rule-of-thirds & center crosshair',
+          shortLabel: 'GUIDES',
+          hudTitle: 'SAFE COMPOSITION GUIDES',
+          en: 'Toggle rule-of-thirds grid and center crosshair.',
+          bn: 'স্ক্রিনে রুল-অব-থার্ডস গ্রিড ও সেফ গাইড চালু বা বন্ধ করুন।',
           icon: Crosshair,
           shortcut: 'C',
+          accent: 'cyan',
           onSelect: () => eventBus.emit('studio:toggle_guides')
         },
         {
           id: 'parallax-zoom',
-          label: 'Multi-Layer Parallax Zoom',
-          sub: 'Scale foreground subject vs. background plate',
+          shortLabel: 'PARALLAX',
+          hudTitle: 'MULTI-LAYER PARALLAX',
+          en: 'Scale foreground subject vs. background plate independently.',
+          bn: 'ফোরগ্রাউন্ড সাবজেক্ট ও ব্যাকগ্রাউন্ড আলাদা জুম করতে এটি চাপুন।',
           icon: ZoomIn,
+          accent: 'cyan',
           onSelect: () => eventBus.emit('cockpit:toggle_zoom')
         }
       ]
@@ -487,26 +559,32 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
     {
       key: 'LIGHT',
       label: 'LIGHT',
-      title: 'TUNGSTEN, EXPOSURE & 34-PRESET LIGHTING RIG',
-      why: '34-preset cinematic lighting rig, exposure, rim lights & volumetric haze',
-      accentHex: '#FACC15',
+      hudId: 'rail-light',
+      accent: 'amber',
+      accentHex: '#F59E0B',
       icon: Lightbulb,
       activeModules: [],
       onPrimaryClick: () => eventBus.emit('lighting:open'),
       subTools: [
         {
           id: 'light-rig-34',
-          label: '34-Preset Lighting Rig',
-          sub: 'Anamorphic flares, rim lights & volumetric haze',
+          shortLabel: 'LIGHT RIG',
+          hudTitle: '34-PRESET LIGHTING RIG',
+          en: 'Interactive KEY/RIM/FILL orbs, cinema gels, and volumetric haze.',
+          bn: 'স্ক্রিনের লাইট বল ড্র্যাগ করে বা ৩৪টি প্রিসেট থেকে সিনেমার আলো সেট করুন।',
           icon: Lightbulb,
-          badge: '34 RIGS',
+          badge: '34',
+          accent: 'amber',
           onSelect: () => eventBus.emit('lighting:open')
         },
         {
           id: 'light-optics-exposure',
-          label: 'Exposure & Lens Calibration',
-          sub: 'Tune optical crop, aperture & camera exposure profile',
+          shortLabel: 'EXPOSURE',
+          hudTitle: 'EXPOSURE & OPTICS',
+          en: 'Tune lens aperture, exposure compensation, and camera body profile.',
+          bn: 'এক্সপোজার, অ্যাপারচার ও ক্যামেরা প্রোফাইল ক্যালিব্রেট করতে এটি চাপুন।',
           icon: SlidersHorizontal,
+          accent: 'cyan',
           isActive: activeModule === 'OPTICS',
           onSelect: () => onSelectModule('OPTICS')
         }
@@ -515,59 +593,77 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
     {
       key: 'FX',
       label: 'FX',
-      title: 'COLOR LUT, HALATION & OPTICAL FX',
-      why: 'Color LUTs, halation/bloom, liquify mesh warp, AI prompts & frame markup',
-      accentHex: '#A855F7',
+      hudId: 'rail-fx',
+      accent: 'crimson',
+      accentHex: '#EF4444',
       icon: Wand2,
       activeModules: ['LIQUIFY', 'LIBRARY', 'BLOOM', 'AI', 'REVIEW'],
       onPrimaryClick: () => onSelectModule('LIBRARY'),
       subTools: [
         {
           id: 'lut-library',
-          label: 'Cinema LUT Registry',
-          sub: '15 Hollywood color film emulations',
+          shortLabel: 'LUT LAB',
+          hudTitle: 'CINEMA LUT REGISTRY',
+          en: 'Apply 15 Hollywood photochemical film emulations & color grades.',
+          bn: '১৫টি হলিউড কালার গ্রেডিং LUT থেকে শটের কালার টোন বাছাই করুন।',
           icon: Library,
+          accent: 'amber',
           isActive: activeModule === 'LIBRARY',
           onSelect: () => onSelectModule('LIBRARY')
         },
         {
           id: 'bloom-stage',
-          label: 'Bloom Interactive Stage',
-          sub: 'Live optical halation & lens bloom canvas',
+          shortLabel: 'HALATION',
+          hudTitle: 'BLOOM & HALATION STAGE',
+          en: 'Interactive optical 35mm halation glow and lens bloom canvas.',
+          bn: 'শটের উজ্জ্বল অংশে ৩৫মিমি ফিল্মের মতো গ্লো ও ব্লুম ইফেক্ট দিন।',
           icon: Sparkles,
+          accent: 'crimson',
           isActive: activeModule === 'BLOOM',
           onSelect: () => onSelectModule('BLOOM')
         },
         {
           id: 'liquify-warp',
-          label: 'Liquify & Mesh Warp',
-          sub: 'Push, twirl & optical speed FX sculptor',
+          shortLabel: 'LIQUIFY',
+          hudTitle: 'LIQUIFY & MESH WARP',
+          en: 'Sculpt, push, twirl, and warp shot frames with live speed FX.',
+          bn: 'ছবি বা ফ্রেমের অংশ ব্রাশ দিয়ে টুইস্ট বা ওয়ার্প করতে চাপুন।',
           icon: Wand2,
           shortcut: 'W',
+          accent: 'crimson',
           isActive: activeModule === 'LIQUIFY',
           onSelect: () => onSelectModule('LIQUIFY')
         },
         {
           id: 'ai-director',
-          label: 'AI Director Prompts',
-          sub: 'Veo / Flow cinematography formulation matrix',
+          shortLabel: 'AI PROMPT',
+          hudTitle: 'AI DIRECTOR PROMPTS',
+          en: 'Veo & Flow cinematography prompt builder and consistency matrix.',
+          bn: 'সিনেমার শট ও স্টাইলের জন্য প্রফেশনাল এআই প্রম্পট তৈরি করুন।',
           icon: Sparkles,
+          accent: 'cyan',
           isActive: activeModule === 'AI',
           onSelect: () => onSelectModule('AI')
         },
         {
           id: 'pro-fx-suite',
-          label: 'Pro FX Suite (Color / Speed / Cutout)',
-          sub: '3-wheel color grade, smart cutout & speed ramps',
+          shortLabel: 'PRO FX',
+          hudTitle: 'PRO FX LAB',
+          en: '3-wheel color grade, smart subject cutout, and velocity speed ramps.',
+          bn: '৩-হুইল কালার, স্মার্ট কাটআউট এবং স্পিড র‍্যাম্প চালাতে ওপেন করুন।',
           icon: Zap,
-          badge: 'PRO FX',
+          badge: 'PRO',
+          accent: 'crimson',
           onSelect: () => eventBus.emit('studio:open_pro_suite', { tab: 'color-fx' })
         },
         {
           id: 'review-pins',
-          label: 'Frame Markup & Review',
-          sub: 'Vector pins & timestamped director notes',
+          shortLabel: 'MARKUP',
+          hudTitle: 'FRAME MARKUP & REVIEW',
+          en: 'Drop timestamped vector pins and director feedback notes.',
+          bn: 'যেকোনো ফ্রেমে পিন ও ডিরেক্টর নোট যোগ করতে রিভিউ প্যানেল খুলুন।',
           icon: MessageSquare,
+          accent: 'amber',
           isActive: activeModule === 'REVIEW',
           onSelect: () => onSelectModule('REVIEW')
         }
@@ -576,20 +672,23 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
     {
       key: 'BRIDGE',
       label: 'BRIDGE',
-      title: 'CAPTURE & INTERCHANGE HUB',
-      why: 'Screen Recorder Studio, Premiere/Resolve XML & CapCut Export',
-      accentHex: '#FB7185',
+      hudId: 'rail-bridge',
+      accent: 'emerald',
+      accentHex: '#10B981',
       icon: Zap,
       activeModules: ['EXPORT'],
       onPrimaryClick: () => eventBus.emit('cockpit:action', { type: 'open_modal' }),
       subTools: [
         {
           id: 'screen-recorder-studio',
-          label: 'Screen Recorder Studio',
-          sub: '4K/60 capture deck + instant .MP4 / Shot inject',
+          shortLabel: 'RECORDER',
+          hudTitle: '4K SCREEN RECORDER',
+          en: '4K/60 capture deck with instant MP4 recording and shot injection.',
+          bn: 'স্ক্রিন বা ক্যামেরা রেকর্ড করে সরাসরি টাইমলাইনে যোগ করতে চাপুন।',
           icon: Video,
           badge: 'REC',
           shortcut: 'ALT+R',
+          accent: 'crimson',
           onSelect: () => {
             if (onOpenRecorder) onOpenRecorder();
             else eventBus.emit('recorder:open');
@@ -597,32 +696,44 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
         },
         {
           id: 'cockpit-hub',
-          label: "Director's Cockpit Hub",
-          sub: 'PS paint-over, PR/Resolve XML & CapCut pack',
+          shortLabel: 'BRIDGE HUB',
+          hudTitle: 'DIRECTOR INTERCHANGE HUB',
+          en: 'Photoshop paint-over, Premiere XML, DaVinci, and CapCut packages.',
+          bn: 'প্রিমিয়ার, ফটোশপ, ডাভিঞ্চি বা ক্যাপকাটে প্রজেক্ট পাঠাতে এটি খুলুন।',
           icon: Zap,
           badge: 'HUB',
+          accent: 'emerald',
           onSelect: () => eventBus.emit('cockpit:action', { type: 'open_modal' })
         },
         {
           id: 'nle-xml',
-          label: 'Export FCPXML Sequence',
-          sub: 'Premiere Pro / DaVinci Resolve v1.9 XML',
+          shortLabel: 'FCPXML',
+          hudTitle: 'EXPORT FCPXML SEQUENCE',
+          en: 'Download Premiere Pro / DaVinci Resolve v1.9 interchange XML.',
+          bn: 'প্রিমিয়ার প্রো বা ডাভিঞ্চি রিজল্ভে খোলার জন্য XML ফাইল ডাউনলোড করুন।',
           icon: FileCode2,
+          accent: 'cyan',
           onSelect: () => eventBus.emit('cockpit:action', { type: 'nle_xml' })
         },
         {
           id: 'capcut-pack',
-          label: 'Build CapCut Quick-Pack',
-          sub: 'Draft timeline JSON + director cue sheet ZIP',
+          shortLabel: 'CAPCUT ZIP',
+          hudTitle: 'CAPCUT QUICK-PACK',
+          en: 'Build CapCut draft timeline JSON and director cue sheet package.',
+          bn: 'ক্যাপকাট অ্যাপের জন্য রেডি ড্রাফট JSON প্যাক ডাউনলোড করতে চাপুন।',
           icon: Download,
+          accent: 'emerald',
           onSelect: () => eventBus.emit('cockpit:action', { type: 'capcut_pack' })
         },
         {
           id: 'publish-export',
-          label: 'Master Export Studio',
-          sub: 'MP4 burn-in, PDF lookbook & RAWX archive',
+          shortLabel: '4K EXPORT',
+          hudTitle: 'MASTER EXPORT STUDIO',
+          en: 'Render burned-in MP4/WebM video, PDF lookbook, or RAWX archive.',
+          bn: '৪কে ভিডিও রেন্ডার বা পিডিএফ লুকবুক আকারে ফাইনাল আউটপুট সেভ করুন।',
           icon: Film,
           shortcut: 'SHIFT+E',
+          accent: 'emerald',
           isActive: activeModule === 'EXPORT',
           onSelect: () => onSelectModule('EXPORT')
         }
@@ -631,9 +742,9 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
     {
       key: 'SYSTEM',
       label: 'SYSTEM',
-      title: 'SETTINGS, SHORTCUTS & RAIL LOCK',
-      why: 'Studio preferences, keyboard shortcuts, telemetry mode & rail lock',
-      accentHex: '#A3E635',
+      hudId: 'rail-system',
+      accent: 'cyan',
+      accentHex: '#06B6D4',
       icon: Settings,
       activeModules: ['SETTINGS'],
       onPrimaryClick: () => {
@@ -645,18 +756,24 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
           ? [
               {
                 id: 'studio-settings',
-                label: 'Studio Settings',
-                sub: 'Audio/video codecs, workspace & quota gauges',
+                shortLabel: 'PREFS',
+                hudTitle: 'STUDIO SETTINGS',
+                en: 'Audio/video codecs, workspace theme, and storage quota gauges.',
+                bn: 'কোডেক, থিম এবং স্টোরেজ সেটিংস পরিবর্তন করতে এটি ওপেন করুন।',
                 icon: Settings,
+                accent: 'cyan' as CinemaHudAccent,
                 onSelect: () => onOpenSettingsModal()
               }
             ]
           : []),
         {
           id: 'settings-drawer',
-          label: 'System Config Drawer',
-          sub: 'Hardware WebGL flags & storage inspection',
+          shortLabel: 'SYS DRAWER',
+          hudTitle: 'SYSTEM TELEMETRY DRAWER',
+          en: 'Inspect WebGL acceleration flags and browser storage quotas.',
+          bn: 'হার্ডওয়্যার অ্যাক্সিলারেশন ও স্টোরেজ ডেটা পরীক্ষা করতে এটি খুলুন।',
           icon: SlidersHorizontal,
+          accent: 'cyan',
           isActive: activeModule === 'SETTINGS',
           onSelect: () => onSelectModule('SETTINGS')
         },
@@ -664,10 +781,13 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
           ? [
               {
                 id: 'pro-mode',
-                label: 'Pro Telemetry Mode',
-                sub: isProMode ? 'Disable focus peaking & HUD scopes' : 'Enable Pro exposure & telemetry',
+                shortLabel: 'TELEMETRY',
+                hudTitle: 'PRO TELEMETRY MODE',
+                en: isProMode ? 'Disable focus peaking & HUD scopes.' : 'Enable Pro exposure & telemetry.',
+                bn: 'স্ক্রিনে প্রো এক্সপোজার ও টেলিমেট্রি ওভারলে চালু বা বন্ধ করুন।',
                 icon: Activity,
                 badge: isProMode ? 'ON' : 'OFF',
+                accent: 'emerald' as CinemaHudAccent,
                 isActive: isProMode,
                 onSelect: () => onToggleProMode()
               }
@@ -675,19 +795,25 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
           : []),
         {
           id: 'toggle-collapse',
-          label: isCollapsed ? 'Expand Left Rail' : 'Collapse Left Rail',
-          sub: isRailLocked ? 'Unlock rail first to resize' : 'Switch compact / wide rail labels',
+          shortLabel: isCollapsed ? 'EXPAND' : 'COMPACT',
+          hudTitle: isCollapsed ? 'EXPAND LEFT RAIL' : 'COLLAPSE LEFT RAIL',
+          en: isRailLocked ? 'Unlock rail first to resize.' : 'Switch compact or wide rail layout.',
+          bn: 'বাম পাশের টুলবার ছোট বা বড় করতে এই বাটনে চাপুন।',
           icon: isCollapsed ? ChevronRight : ChevronLeft,
+          accent: 'amber',
           onSelect: () => {
             if (!isRailLocked) onToggleCollapse();
           }
         },
         {
           id: 'lock-rail',
-          label: isRailLocked ? 'Unlock Rail Position' : 'Lock Rail Position',
-          sub: isRailLocked ? 'Rail layout is locked' : 'Prevent accidental rail resize',
+          shortLabel: isRailLocked ? 'UNLOCK' : 'LOCK RAIL',
+          hudTitle: isRailLocked ? 'UNLOCK RAIL POSITION' : 'LOCK RAIL POSITION',
+          en: isRailLocked ? 'Rail width is currently locked.' : 'Prevent accidental rail resize.',
+          bn: 'টুলবারের সাইজ লক বা আনলক করতে এটি চাপুন।',
           icon: isRailLocked ? Unlock : Lock,
-          badge: isRailLocked ? 'LOCKED' : 'OPEN',
+          badge: isRailLocked ? 'LOCK' : 'OPEN',
+          accent: 'amber',
           isActive: isRailLocked,
           onSelect: () => setIsRailLocked((prev) => !prev)
         },
@@ -695,10 +821,13 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
           ? [
               {
                 id: 'keyboard-shortcuts',
-                label: 'Keyboard Shortcuts',
-                sub: 'J-K-L playback, razor & director hotkeys',
+                shortLabel: 'HOTKEYS',
+                hudTitle: 'KEYBOARD SHORTCUTS',
+                en: 'View J-K-L playback, razor split, and director hotkeys.',
+                bn: 'কীবোর্ডের সব শর্টকাট বাটন তালিকা দেখতে এটি চাপুন।',
                 icon: Keyboard,
                 shortcut: '?',
+                accent: 'cyan' as CinemaHudAccent,
                 onSelect: () => onOpenShortcuts()
               }
             ]
@@ -707,9 +836,12 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
           ? [
               {
                 id: 'self-test',
-                label: 'Hardware Self-Test',
-                sub: 'Benchmark WebGL, IndexedDB I/O & decoders',
+                shortLabel: 'SELF TEST',
+                hudTitle: 'HARDWARE SELF-TEST',
+                en: 'Benchmark WebGL, IndexedDB I/O, and video decoders.',
+                bn: 'ব্রাউজারের রেন্ডারিং ও ডিকোডার পারফরম্যান্স টেস্ট করতে চাপুন।',
                 icon: Activity,
+                accent: 'emerald' as CinemaHudAccent,
                 onSelect: () => onOpenSelfTest()
               }
             ]
@@ -734,27 +866,35 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
         className="md:hidden w-full shrink-0 bg-[#0B0B0D]/96 border-t border-white/[0.08] font-mono-tech select-none z-30"
       >
         <div className="flex items-center justify-between px-2 py-0.5 border-b border-white/[0.06]">
-          <span className="text-[8.5px] font-bold tracking-[0.12em] uppercase text-[#8E8E93]">
-            STUDIO TOOLS // SH{String(currentShotIndex + 1).padStart(2, '0')}
+          <span className="text-[9px] font-black tracking-wider uppercase text-zinc-400 tabular-nums">
+            SH{String(currentShotIndex + 1).padStart(2, '0')}
           </span>
-          <button
-            type="button"
-            onClick={() => setIsMobileDockCollapsed((v) => !v)}
-            aria-label={isMobileDockCollapsed ? 'Expand Mobile Tool Dock' : 'Collapse Mobile Tool Dock'}
-            className="touch-manipulation px-1.5 py-0.5 rounded bg-[#141417] border border-white/[0.08] text-[8.5px] font-bold text-[#F59E0B] flex items-center gap-1 cursor-pointer"
+          <CinemaToolHUD
+            title="MOBILE TOOL DOCK"
+            en="Expand or collapse the bottom studio tool strip."
+            bn="মোবাইলের নিচের টুলবারটি দেখাতে বা লুকাতে এই বাটনে চাপুন।"
+            accent="amber"
+            side="top"
           >
-            {isMobileDockCollapsed ? (
-              <>
-                <ChevronUp className="w-3 h-3" />
-                <span>TOOLS</span>
-              </>
-            ) : (
-              <>
-                <ChevronDown className="w-3 h-3" />
-                <span>HIDE</span>
-              </>
-            )}
-          </button>
+            <button
+              type="button"
+              onClick={() => setIsMobileDockCollapsed((v) => !v)}
+              aria-label={isMobileDockCollapsed ? 'Expand Mobile Tool Dock' : 'Collapse Mobile Tool Dock'}
+              className="cinema-tile cinema-tile-amber touch-manipulation px-2 py-0.5 rounded text-[9px] font-black tracking-wider uppercase flex items-center gap-1 cursor-pointer"
+            >
+              {isMobileDockCollapsed ? (
+                <>
+                  <ChevronUp className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+                  <span>TOOLS</span>
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+                  <span>HIDE</span>
+                </>
+              )}
+            </button>
+          </CinemaToolHUD>
         </div>
 
         {!isMobileDockCollapsed && (
@@ -769,23 +909,20 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
                 (btn.key === 'SYSTEM' && isRailLocked) ||
                 openFlyout?.key === btn.key;
               return (
-                <button
-                  key={`mob-${btn.key}`}
-                  type="button"
-                  data-testid={`mobile-rail-btn-${btn.key.toLowerCase()}`}
-                  onClick={() => btn.onPrimaryClick()}
-                  style={{
-                    borderColor: isActive ? btn.accentHex : `${btn.accentHex}33`
-                  }}
-                  className={`touch-manipulation shrink-0 min-w-[52px] min-h-[42px] px-2 py-1 rounded border flex flex-col items-center justify-center gap-0.5 cursor-pointer active:scale-95 transition-all ${
-                    isActive ? 'bg-[#181820] text-white' : 'bg-[#121216] text-zinc-300'
-                  }`}
-                >
-                  <Icon style={{ color: btn.accentHex }} className="w-4 h-4 shrink-0" />
-                  <span className="text-[8px] font-black uppercase tracking-tight leading-none whitespace-nowrap">
-                    {btn.label}
-                  </span>
-                </button>
+                <CinemaToolHUD key={`mob-${btn.key}`} hudId={btn.hudId} side="top">
+                  <button
+                    type="button"
+                    data-testid={`mobile-rail-btn-${btn.key.toLowerCase()}`}
+                    data-active={isActive ? 'true' : 'false'}
+                    onClick={() => btn.onPrimaryClick()}
+                    className={`cinema-tile ${ACCENT_TILE_CLASS[btn.accent]} touch-manipulation shrink-0 min-w-[54px] min-h-[44px] px-2 py-1 rounded-lg flex flex-col items-center justify-center gap-1 cursor-pointer`}
+                  >
+                    <Icon className="w-5 h-5 cinema-tile-icon shrink-0" strokeWidth={2.2} />
+                    <span className="text-[9px] font-black uppercase tracking-wider leading-none whitespace-nowrap">
+                      {btn.label}
+                    </span>
+                  </button>
+                </CinemaToolHUD>
               );
             })}
           </nav>
@@ -797,273 +934,230 @@ export const StudioNavRail: React.FC<StudioNavRailProps> = ({
         aria-label="Director Left Tool Rail"
         data-playing={effectiveIsPlaying ? 'true' : 'false'}
         className={`hidden md:flex nle-focus-bar h-full select-none z-30 shrink-0 bg-[#0B0B0D]/95 backdrop-blur-2xl border-r border-white/[0.07] flex-col font-mono-tech transition-all duration-200 relative ${
-          isCollapsed ? 'w-[50px]' : 'w-48'
+          isCollapsed ? 'w-[58px]' : 'w-32'
         }`}
       >
-      {/* Full-Height 10-Button Evenly Distributed Vertical Spine */}
-      <nav
-        aria-label="10 Studio Tools"
-        className="flex-1 min-h-0 py-1 px-1 flex flex-col justify-between gap-0.5 overflow-hidden"
-      >
-        {railButtons.map((btn) => {
-          const Icon = btn.icon;
-          const isActive =
-            btn.activeModules.includes(activeModule) ||
-            (btn.key === 'SYSTEM' && isRailLocked) ||
-            openFlyout?.key === btn.key;
+        {/* Full-Height 10-Button Evenly Distributed Vertical Spine */}
+        <nav
+          aria-label="10 Studio Tools"
+          className="flex-1 min-h-0 py-1 px-1 flex flex-col justify-between gap-1 overflow-hidden"
+        >
+          {railButtons.map((btn) => {
+            const Icon = btn.icon;
+            const isActive =
+              btn.activeModules.includes(activeModule) ||
+              (btn.key === 'SYSTEM' && isRailLocked) ||
+              openFlyout?.key === btn.key;
 
-          return (
-            <button
-              key={btn.key}
-              type="button"
-              data-testid={`rail-btn-${btn.key.toLowerCase()}`}
-              data-active={isActive ? 'true' : 'false'}
-              aria-label={btn.title}
-              style={{
-                '--item-accent': btn.accentHex,
-                borderColor: isActive ? btn.accentHex : `${btn.accentHex}33`,
-                boxShadow: isActive
-                  ? `0 0 12px ${btn.accentHex}40, inset 0 1px 0 rgba(255,255,255,0.12)`
-                  : `0 0 6px ${btn.accentHex}14`
-              } as React.CSSProperties}
-              onMouseEnter={(e) => openButtonFlyout(btn.key, e.currentTarget)}
-              onMouseLeave={scheduleFlyoutClose}
-              onClick={(e) => {
-                openButtonFlyout(btn.key, e.currentTarget);
-                btn.onPrimaryClick();
-              }}
-              className={`nle-editorial-btn group relative flex-1 min-h-0 rounded cursor-pointer select-none active:scale-95 border ${
-                isActive
-                  ? 'bg-[#181820] text-[#F4F4F5]'
-                  : 'bg-[#121216] hover:bg-[#191920] text-[#E4E4E7]'
-              } ${
-                isCollapsed
-                  ? 'w-full px-0.5 py-0.5 flex flex-col items-center justify-center gap-0.5'
-                  : 'w-full px-2 py-0.5 flex items-center gap-2'
-              }`}
-            >
-              {/* Luminous Editorial Accent Indicator Bar */}
-              <span
-                style={{ backgroundColor: btn.accentHex }}
-                className={`absolute left-0 top-1 bottom-1 w-[2.5px] rounded-r transition-opacity duration-200 ${
-                  isActive
-                    ? 'opacity-100'
-                    : 'opacity-45 group-hover:opacity-100'
-                }`}
-              />
-
-              <Icon
-                style={{ color: btn.accentHex }}
-                className="w-[18px] h-[18px] shrink-0 transition-transform duration-200 group-hover:scale-110"
-              />
-
-              {isCollapsed ? (
-                <span
-                  className={`text-[9px] leading-none font-black uppercase tracking-tight whitespace-nowrap transition-colors ${
-                    isActive ? 'text-white' : 'text-zinc-200 group-hover:text-white'
+            return (
+              <CinemaToolHUD key={btn.key} hudId={btn.hudId} side="right" blockWrapper className="flex-1 min-h-0">
+                <button
+                  type="button"
+                  data-testid={`rail-btn-${btn.key.toLowerCase()}`}
+                  data-active={isActive ? 'true' : 'false'}
+                  aria-label={btn.label}
+                  onMouseEnter={(e) => openButtonFlyout(btn.key, e.currentTarget)}
+                  onMouseLeave={scheduleFlyoutClose}
+                  onClick={(e) => {
+                    openButtonFlyout(btn.key, e.currentTarget);
+                    btn.onPrimaryClick();
+                  }}
+                  className={`cinema-tile ${ACCENT_TILE_CLASS[btn.accent]} nle-editorial-btn group relative w-full h-full min-h-0 rounded-lg cursor-pointer select-none ${
+                    isCollapsed
+                      ? 'px-1 py-1 flex flex-col items-center justify-center gap-0.5'
+                      : 'px-2.5 py-1 flex items-center justify-between gap-1.5'
                   }`}
                 >
-                  {btn.label}
-                </span>
-              ) : (
-                <div className="min-w-0 flex-1 text-left">
-                  <div className="flex items-center justify-between gap-1">
-                    <span
-                      className={`text-[10.5px] font-black tracking-wider uppercase truncate transition-colors ${
-                        isActive ? 'text-white' : 'text-zinc-200 group-hover:text-white'
-                      }`}
-                    >
+                  <div className={`flex items-center min-w-0 ${isCollapsed ? 'flex-col gap-0.5' : 'gap-2'}`}>
+                    <Icon className="w-5 h-5 cinema-tile-icon shrink-0" strokeWidth={2.2} />
+                    <span className="text-[9.5px] sm:text-[10px] font-black uppercase tracking-wider leading-none truncate">
                       {btn.label}
                     </span>
-                    <ChevronRight
-                      style={{ color: isActive ? btn.accentHex : undefined }}
-                      className="w-3 h-3 shrink-0 text-zinc-400 group-hover:text-white transition-colors"
-                    />
                   </div>
-                  <div className="text-[8px] text-zinc-400 truncate leading-tight">
-                    {btn.why}
-                  </div>
-                </div>
-              )}
-            </button>
-          );
-        })}
-      </nav>
-
-      {/* Portaled z-[9999] Monochrome Stealth Flyout Drawer */}
-      {openFlyout && activeFlyoutConfig && typeof document !== 'undefined' && createPortal(
-        <div
-          ref={flyoutRef}
-          onMouseEnter={clearCloseTimer}
-          onMouseLeave={scheduleFlyoutClose}
-          style={{
-            position: 'fixed',
-            top: `${openFlyout.top}px`,
-            left: `${openFlyout.left}px`,
-            zIndex: 9999
-          }}
-          className="z-[9999] w-72 bg-[#0B0B0D]/96 border border-white/[0.07] shadow-[0_22px_54px_rgba(0,0,0,0.95)] rounded-xl backdrop-blur-2xl p-2.5 font-mono text-xs text-[#F4F4F5] space-y-2"
-        >
-          {/* Flyout Header */}
-          <div className="px-2 py-1 border-b border-white/[0.07] flex items-center justify-between gap-2">
-            <span className="text-[10px] font-black tracking-widest uppercase text-[#F4F4F5] truncate">
-              {activeFlyoutConfig.title}
-            </span>
-            <span className="text-[8.5px] font-black px-1.5 py-0.5 rounded bg-[#141417] border border-[#F59E0B]/40 text-[#F59E0B] shrink-0">
-              {activeFlyoutConfig.label}
-            </span>
-          </div>
-
-          <p className="px-2 text-[9.5px] text-[#8E8E93] leading-snug">
-            {activeFlyoutConfig.why}
-          </p>
-
-          {/* Sub-tool Buttons with Keyboard Shortcut Badges */}
-          <div className="space-y-1">
-            {activeFlyoutConfig.subTools.map((sub) => {
-              const SubIcon = sub.icon;
-              const isRecBadge = sub.badge === 'REC';
-              return (
-                <button
-                  key={sub.id}
-                  type="button"
-                  onClick={() => {
-                    sub.onSelect();
-                    setOpenFlyout(null);
-                  }}
-                  className={`w-full px-2.5 py-1.5 rounded-lg flex items-center gap-2 text-left transition-colors cursor-pointer border group ${
-                    sub.isActive
-                      ? 'bg-[#F59E0B]/12 border-[#F59E0B]/60'
-                      : 'bg-[#141417] border-white/[0.07] hover:bg-[#1B1B20] hover:border-white/[0.15]'
-                  }`}
-                >
-                  <SubIcon
-                    className={`w-4 h-4 shrink-0 transition-colors ${
-                      sub.isActive ? 'text-[#F59E0B]' : 'text-[#8E8E93] group-hover:text-[#F4F4F5]'
-                    }`}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[10.5px] font-bold text-[#F4F4F5] truncate">{sub.label}</div>
-                    <div className="text-[8.5px] text-[#8E8E93] truncate">{sub.sub}</div>
-                  </div>
-                  {(sub.shortcut || sub.badge) && (
-                    <span
-                      className={`text-[8.5px] font-black px-1.5 py-0.5 rounded bg-[#0B0B0D] border shrink-0 tabular-nums ${
-                        isRecBadge
-                          ? 'border-[#E50914]/55 text-[#E50914]'
-                          : sub.isActive
-                            ? 'border-[#F59E0B]/50 text-[#F59E0B]'
-                            : 'border-white/[0.07] text-[#8E8E93]'
-                      }`}
-                    >
-                      {sub.shortcut || sub.badge}
-                    </span>
+                  {!isCollapsed && (
+                    <ChevronRight className="w-3.5 h-3.5 shrink-0 opacity-60 group-hover:opacity-100 transition-opacity" />
                   )}
                 </button>
-              );
-            })}
-          </div>
+              </CinemaToolHUD>
+            );
+          })}
+        </nav>
 
-          {/* Live Interactive Optical/Grading Sliders in FX Flyout */}
-          {activeFlyoutConfig.key === 'FX' && onUpdateActiveAdjustments && (
-            <div className="pt-2 border-t border-white/[0.07] space-y-2 px-1">
-              <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-wider text-[#F59E0B]">
-                <span className="tabular-nums">LIVE SHOT SHADERS (SH{String(currentShotIndex + 1).padStart(2, '0')})</span>
-                <button
-                  type="button"
-                  onClick={() => onUpdateActiveAdjustments({ bloom: 25, grain: 12, vignette: 18 })}
-                  className="text-[#8E8E93] hover:text-[#F4F4F5] cursor-pointer"
-                >
-                  RESET
-                </button>
-              </div>
+        {/* Portaled z-[9999] Monochrome Stealth Flyout Drawer */}
+        {openFlyout && activeFlyoutConfig && typeof document !== 'undefined' && createPortal(
+          <div
+            ref={flyoutRef}
+            onMouseEnter={clearCloseTimer}
+            onMouseLeave={scheduleFlyoutClose}
+            style={{
+              position: 'fixed',
+              top: `${openFlyout.top}px`,
+              left: `${openFlyout.left}px`,
+              zIndex: 9999
+            }}
+            className="z-[9999] w-72 bg-[#0B0B0D]/96 border border-white/[0.08] shadow-[0_22px_54px_rgba(0,0,0,0.95)] rounded-xl backdrop-blur-2xl p-2.5 font-mono text-xs text-[#F4F4F5] space-y-2.5"
+          >
+            {/* Compact Badge Header (Icon + 1-2 word bold tag) */}
+            <CinemaBadgeHeader
+              icon={<activeFlyoutConfig.icon className="w-3.5 h-3.5" strokeWidth={2.3} />}
+              label={activeFlyoutConfig.label}
+              accent={activeFlyoutConfig.accent}
+            />
 
-              <label className="block space-y-0.5">
-                <div className="flex justify-between text-[9px] text-[#8E8E93]">
-                  <span>HALATION / BLOOM</span>
-                  <span className="font-bold text-[#F4F4F5] tabular-nums">{bloomVal}%</span>
-                </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={bloomVal}
-                  onChange={(e) => onUpdateActiveAdjustments({ bloom: Number(e.target.value) })}
-                  className="w-full accent-[#F59E0B] cursor-pointer"
-                />
-              </label>
-
-              <label className="block space-y-0.5">
-                <div className="flex justify-between text-[9px] text-[#8E8E93]">
-                  <span>35MM FILM GRAIN</span>
-                  <span className="font-bold text-[#F4F4F5] tabular-nums">{grainVal}%</span>
-                </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={grainVal}
-                  onChange={(e) => onUpdateActiveAdjustments({ grain: Number(e.target.value) })}
-                  className="w-full accent-[#F59E0B] cursor-pointer"
-                />
-              </label>
-
-              <label className="block space-y-0.5">
-                <div className="flex justify-between text-[9px] text-[#8E8E93]">
-                  <span>OPTICAL VIGNETTE</span>
-                  <span className="font-bold text-[#F4F4F5] tabular-nums">{vignetteVal}%</span>
-                </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={vignetteVal}
-                  onChange={(e) => onUpdateActiveAdjustments({ vignette: Number(e.target.value) })}
-                  className="w-full accent-[#F59E0B] cursor-pointer"
-                />
-              </label>
-            </div>
-          )}
-
-          {/* Inline Cine Rig Switcher inside CROP flyout */}
-          {activeFlyoutConfig.key === 'CROP' && (
-            <div className="pt-1.5 border-t border-white/[0.07] space-y-1">
-              <div className="px-2 flex items-center justify-between text-[8.5px] text-[#F59E0B] font-bold uppercase tracking-wider">
-                <span className="flex items-center gap-1">
-                  <Camera className="w-3 h-3" />
-                  CINE BODY & LENS
-                </span>
-                <span className="text-[#8E8E93] tabular-nums">{currentProfile.shutter}</span>
-              </div>
-              <div className="space-y-0.5 max-h-36 overflow-y-auto no-scrollbar">
-                {CINE_PROFILES.map((prof) => {
-                  const selected = prof.body === currentProfile.body;
-                  return (
+            {/* Responsive 2-Col Icon + 1-2 Word Sub-Tool Tiles */}
+            <div className="grid grid-cols-2 gap-1.5">
+              {activeFlyoutConfig.subTools.map((sub) => {
+                const SubIcon = sub.icon;
+                const subAccent = sub.accent || activeFlyoutConfig.accent;
+                return (
+                  <CinemaToolHUD
+                    key={sub.id}
+                    title={sub.hudTitle}
+                    en={sub.en}
+                    bn={sub.bn}
+                    shortcut={sub.shortcut}
+                    accent={subAccent}
+                    side="right"
+                    blockWrapper
+                  >
                     <button
-                      key={prof.body}
                       type="button"
-                      onClick={() => handleSelectCineProfile(prof)}
-                      className={`w-full px-2 py-1 rounded text-left flex items-center justify-between gap-2 cursor-pointer transition-colors ${
-                        selected
-                          ? 'bg-[#F59E0B]/15 text-[#F4F4F5] border border-[#F59E0B]/60'
-                          : 'hover:bg-[#141417] text-[#8E8E93] hover:text-[#F4F4F5] border border-transparent'
-                      }`}
+                      data-active={sub.isActive ? 'true' : 'false'}
+                      onClick={() => {
+                        sub.onSelect();
+                        setOpenFlyout(null);
+                      }}
+                      className={`cinema-tile ${ACCENT_TILE_CLASS[subAccent]} relative w-full min-h-[58px] px-2 py-2 rounded-lg flex flex-col items-center justify-center gap-1.5 cursor-pointer select-none`}
                     >
-                      <div className="min-w-0">
-                        <div className="text-[9.5px] font-bold text-[#F4F4F5] truncate">{prof.body}</div>
-                        <div className="text-[8px] text-[#8E8E93] truncate">{prof.lens}</div>
-                      </div>
-                      {selected && <Check className="w-3 h-3 text-[#F59E0B] shrink-0" />}
+                      {(sub.shortcut || sub.badge) && (
+                        <span className="absolute top-1 right-1 px-1 py-0.5 rounded bg-black/75 border border-white/15 text-[8px] font-black tracking-wider uppercase leading-none text-amber-300 tabular-nums">
+                          {sub.shortcut || sub.badge}
+                        </span>
+                      )}
+                      <SubIcon className="w-5 h-5 cinema-tile-icon shrink-0" strokeWidth={2.2} />
+                      <span className="text-[10px] font-black tracking-wider uppercase leading-none text-center truncate max-w-full">
+                        {sub.shortLabel}
+                      </span>
                     </button>
-                  );
-                })}
-              </div>
+                  </CinemaToolHUD>
+                );
+              })}
             </div>
-          )}
-        </div>,
-        document.body
-      )}
-    </aside>
+
+            {/* Live Interactive Optical/Grading Sliders in FX Flyout */}
+            {activeFlyoutConfig.key === 'FX' && onUpdateActiveAdjustments && (
+              <div className="pt-2 border-t border-white/[0.07] space-y-2 px-1">
+                <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-wider text-amber-400">
+                  <span className="tabular-nums">SH{String(currentShotIndex + 1).padStart(2, '0')} OPTICS</span>
+                  <CinemaToolHUD
+                    title="RESET OPTICS SHADERS"
+                    en="Reset halation, grain, and vignette values to default levels."
+                    bn="হ্যালিয়েশন, গ্রেইন ও ভিনিয়েট মান রিসেট করতে চাপুন।"
+                    accent="amber"
+                    side="right"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => onUpdateActiveAdjustments({ bloom: 25, grain: 12, vignette: 18 })}
+                      className="cinema-tile cinema-tile-amber px-1.5 py-0.5 rounded text-[9px] font-black tracking-wider uppercase cursor-pointer"
+                    >
+                      RESET
+                    </button>
+                  </CinemaToolHUD>
+                </div>
+
+                <label className="block space-y-0.5">
+                  <div className="flex justify-between text-[9px] font-black tracking-wider text-zinc-300">
+                    <span>HALATION</span>
+                    <span className="text-amber-400 tabular-nums">{bloomVal}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={bloomVal}
+                    onChange={(e) => onUpdateActiveAdjustments({ bloom: Number(e.target.value) })}
+                    className="w-full accent-amber-500 cursor-pointer"
+                  />
+                </label>
+
+                <label className="block space-y-0.5">
+                  <div className="flex justify-between text-[9px] font-black tracking-wider text-zinc-300">
+                    <span>35MM GRAIN</span>
+                    <span className="text-amber-400 tabular-nums">{grainVal}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={grainVal}
+                    onChange={(e) => onUpdateActiveAdjustments({ grain: Number(e.target.value) })}
+                    className="w-full accent-amber-500 cursor-pointer"
+                  />
+                </label>
+
+                <label className="block space-y-0.5">
+                  <div className="flex justify-between text-[9px] font-black tracking-wider text-zinc-300">
+                    <span>VIGNETTE</span>
+                    <span className="text-amber-400 tabular-nums">{vignetteVal}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={vignetteVal}
+                    onChange={(e) => onUpdateActiveAdjustments({ vignette: Number(e.target.value) })}
+                    className="w-full accent-amber-500 cursor-pointer"
+                  />
+                </label>
+              </div>
+            )}
+
+            {/* Inline Cine Rig Switcher inside CROP flyout */}
+            {activeFlyoutConfig.key === 'CROP' && (
+              <div className="pt-1.5 border-t border-white/[0.07] space-y-1.5">
+                <div className="px-1 flex items-center justify-between text-[9px] text-cyan-300 font-black uppercase tracking-wider">
+                  <span className="flex items-center gap-1">
+                    <Camera className="w-3.5 h-3.5" strokeWidth={2.2} />
+                    CINE RIG
+                  </span>
+                  <span className="text-zinc-400 tabular-nums">{currentProfile.shutter}</span>
+                </div>
+                <div className="grid grid-cols-1 gap-1 max-h-36 overflow-y-auto no-scrollbar">
+                  {CINE_PROFILES.map((prof) => {
+                    const selected = prof.body === currentProfile.body;
+                    return (
+                      <CinemaToolHUD
+                        key={prof.body}
+                        title={prof.body}
+                        en={`${prof.lens} // ${prof.sensor} // ${prof.shutter}`}
+                        bn="এই ক্যামেরা বডি ও লেন্স প্রোফাইল শটে প্রয়োগ করতে ক্লিক করুন।"
+                        accent="cyan"
+                        side="right"
+                        blockWrapper
+                      >
+                        <button
+                          type="button"
+                          data-active={selected ? 'true' : 'false'}
+                          onClick={() => handleSelectCineProfile(prof)}
+                          className="cinema-tile cinema-tile-cyan w-full px-2.5 py-1.5 rounded-lg text-left flex items-center justify-between gap-2 cursor-pointer"
+                        >
+                          <span className="text-[10px] font-black tracking-wider uppercase truncate">
+                            {prof.body}
+                          </span>
+                          {selected && <Check className="w-3.5 h-3.5 text-cyan-300 shrink-0" />}
+                        </button>
+                      </CinemaToolHUD>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>,
+          document.body
+        )}
+      </aside>
     </>
   );
 };
+

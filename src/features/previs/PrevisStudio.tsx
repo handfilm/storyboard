@@ -8,17 +8,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import { useStudioStore } from '../../core/store';
+import { CinemaToolHUD, CinemaBadgeHeader } from '../../components/ui/CinemaToolHUD';
 import { 
   Box, 
   Camera, 
-  Move, 
-  RotateCw, 
-  Sliders, 
-  Maximize, 
-  Download, 
-  Layers, 
-  Users, 
-  Sun 
+  Aperture,
+  Layers,
+  Users,
+  Check
 } from 'lucide-react';
 
 interface ActorToken {
@@ -32,7 +29,6 @@ interface ActorToken {
 export const PrevisStudio: React.FC = () => {
   const {
     activeShotIndex,
-    activeLens,
     updateShot
   } = useStudioStore();
 
@@ -40,12 +36,13 @@ export const PrevisStudio: React.FC = () => {
   const [focalLength, setFocalLength] = useState<number>(50); // mm
   const [aperture, setAperture] = useState<number>(1.4);
   const [cameraAngle, setCameraAngle] = useState<number>(0); // degrees
+  const [capturedToast, setCapturedToast] = useState(false);
 
   // 2D Blocking Actor Tokens
   const [actors, setActors] = useState<ActorToken[]>([
     { id: 'cam', name: 'CAMERA 1', x: 50, y: 80, color: '#D4AF37' },
-    { id: 'act-a', name: 'RAKIB (HERO)', x: 45, y: 40, color: '#00FFCC' },
-    { id: 'act-b', name: 'SHADOW FIG', x: 55, y: 35, color: '#FF4B4B' },
+    { id: 'act-a', name: 'RAKIB', x: 45, y: 40, color: '#00FFCC' },
+    { id: 'act-b', name: 'SHADOW', x: 55, y: 35, color: '#FF4B4B' },
     { id: 'light', name: 'KEY LIGHT', x: 25, y: 60, color: '#FFE066' }
   ]);
 
@@ -57,7 +54,6 @@ export const PrevisStudio: React.FC = () => {
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
 
-  // Initialize Three.js Scene
   useEffect(() => {
     if (previsMode !== '3D' || !threeMountRef.current) return;
 
@@ -68,7 +64,6 @@ export const PrevisStudio: React.FC = () => {
     scene.background = new THREE.Color(0x050505);
     sceneRef.current = scene;
 
-    // Camera with configurable FOV derived from focal length
     const fov = 2 * Math.atan(18 / focalLength) * (180 / Math.PI);
     const camera = new THREE.PerspectiveCamera(fov, width / height, 0.1, 1000);
     camera.position.set(0, 1.6, 4);
@@ -82,11 +77,9 @@ export const PrevisStudio: React.FC = () => {
     threeMountRef.current.innerHTML = '';
     threeMountRef.current.appendChild(renderer.domElement);
 
-    // Grid Floor
     const gridHelper = new THREE.GridHelper(20, 20, 0xd4af37, 0x222222);
     scene.add(gridHelper);
 
-    // Studio Lighting
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
     scene.add(ambientLight);
 
@@ -98,13 +91,10 @@ export const PrevisStudio: React.FC = () => {
     rimLight.position.set(-3, 3, -3);
     scene.add(rimLight);
 
-    // 3D Actor Blockout Mannequins
     const bodyGeometry = new THREE.CylinderGeometry(0.3, 0.25, 1.4, 16);
     const headGeometry = new THREE.SphereGeometry(0.2, 16, 16);
     const goldMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, roughness: 0.3, metalness: 0.8 });
-    const cyanMat = new THREE.MeshStandardMaterial({ color: 0x00ffcc, roughness: 0.5 });
 
-    // Hero Mannequin
     const heroBody = new THREE.Mesh(bodyGeometry, goldMat);
     heroBody.position.set(0, 0.7, 0);
     const heroHead = new THREE.Mesh(headGeometry, goldMat);
@@ -113,14 +103,12 @@ export const PrevisStudio: React.FC = () => {
     heroGroup.add(heroBody, heroHead);
     scene.add(heroGroup);
 
-    // Background Monolith Prop
     const propGeo = new THREE.BoxGeometry(0.8, 3.5, 0.4);
     const propMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, metalness: 0.9, roughness: 0.1 });
     const prop = new THREE.Mesh(propGeo, propMat);
     prop.position.set(1.5, 1.75, -2);
     scene.add(prop);
 
-    // Render loop
     let animId: number;
     const animate = () => {
       animId = requestAnimationFrame(animate);
@@ -146,15 +134,14 @@ export const PrevisStudio: React.FC = () => {
     };
   }, [previsMode, focalLength]);
 
-  // Capture Still from 3D Viewport directly into Active Shot
   const handleCaptureStill = () => {
     if (!rendererRef.current) return;
     const dataUrl = rendererRef.current.domElement.toDataURL('image/png');
     updateShot(activeShotIndex, { imageUrl: dataUrl });
-    alert(`Captured 3D Previs still into Shot #${activeShotIndex + 1}!`);
+    setCapturedToast(true);
+    setTimeout(() => setCapturedToast(false), 1800);
   };
 
-  // 2D Drag interaction
   const handleFloorClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!selectedActor) return;
     const rect = e.currentTarget.getBoundingClientRect();
@@ -167,42 +154,74 @@ export const PrevisStudio: React.FC = () => {
   return (
     <div className="w-full h-full flex flex-col md:flex-row bg-[#050505] text-[#EDEDED] font-mono select-none overflow-hidden">
       {/* Left Previs Viewport Canvas */}
-      <div className="flex-1 flex flex-col border-r border-[#D4AF37]/20 overflow-hidden">
+      <div className="flex-1 flex flex-col border-r border-white/[0.08] overflow-hidden">
         {/* Top Control Bar */}
-        <div className="h-12 border-b border-[#D4AF37]/20 bg-[#0B0B0B] px-4 flex items-center justify-between text-xs shrink-0">
+        <div className="h-12 border-b border-white/[0.08] bg-[#0B0B0B] px-4 flex items-center justify-between text-xs shrink-0 gap-2">
           <div className="flex items-center gap-2">
-            <Camera className="w-4 h-4 text-[#D4AF37]" />
-            <span className="font-bold text-[#FFE066]">PREVIS & BLOCKING STAGE</span>
-            <span className="text-[#8A8A8A]">| {focalLength}mm f/{aperture}</span>
+            <CinemaBadgeHeader
+              icon={<Camera className="w-3.5 h-3.5 text-amber-400" />}
+              label="PREVIS 3D"
+              accent="amber"
+            />
+            <span className="text-zinc-400 font-black text-[10px]">
+              {focalLength}MM f/{aperture}
+            </span>
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="flex bg-[#121212] p-0.5 rounded border border-[#D4AF37]/20">
-              <button
-                onClick={() => setPrevisMode('3D')}
-                className={`px-3 py-1 rounded text-xs transition-colors ${
-                  previsMode === '3D' ? 'bg-[#D4AF37] text-black font-bold' : 'text-[#8A8A8A]'
-                }`}
-              >
-                3D VIEWPORT
-              </button>
-              <button
-                onClick={() => setPrevisMode('2D')}
-                className={`px-3 py-1 rounded text-xs transition-colors ${
-                  previsMode === '2D' ? 'bg-[#D4AF37] text-black font-bold' : 'text-[#8A8A8A]'
-                }`}
-              >
-                2D OVERHEAD FLOOR
-              </button>
-            </div>
-
-            <button
-              onClick={handleCaptureStill}
-              className="flex items-center gap-1.5 px-3 py-1 bg-[#D4AF37] hover:bg-[#FFE066] text-black font-bold rounded text-xs transition-colors"
+          <div className="flex items-center gap-1.5">
+            <CinemaToolHUD
+              title="3D STAGE VIEWPORT"
+              en="Real-time WebGL 3D camera blocking with true focal-length FOV."
+              bn="কীভাবে ব্যবহার করবেন: 3D ক্যামেরা ও ব্লকিং দেখতে 3D STAGE বেছে নিন।"
+              accent="amber"
+              side="bottom"
             >
-              <Camera className="w-3.5 h-3.5" />
-              <span>CAPTURE STILL</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => setPrevisMode('3D')}
+                data-active={previsMode === '3D' ? 'true' : 'false'}
+                className="cinema-tile cinema-tile-amber min-h-[36px] px-2.5 flex items-center gap-1.5 text-[10px] font-black tracking-wider uppercase"
+              >
+                <Box className="w-3.5 h-3.5" strokeWidth={2.2} />
+                <span>3D STAGE</span>
+              </button>
+            </CinemaToolHUD>
+
+            <CinemaToolHUD
+              title="2D OVERHEAD FLOOR"
+              en="Top-down stage floor plan for camera cone and actor blocking."
+              bn="কীভাবে ব্যবহার করবেন: ওপর থেকে ক্যামেরা ও অ্যাক্টরের পজিশন সাজাতে 2D FLOOR চাপুন।"
+              accent="cyan"
+              side="bottom"
+            >
+              <button
+                type="button"
+                onClick={() => setPrevisMode('2D')}
+                data-active={previsMode === '2D' ? 'true' : 'false'}
+                className="cinema-tile cinema-tile-cyan min-h-[36px] px-2.5 flex items-center gap-1.5 text-[10px] font-black tracking-wider uppercase"
+              >
+                <Layers className="w-3.5 h-3.5" strokeWidth={2.2} />
+                <span>2D FLOOR</span>
+              </button>
+            </CinemaToolHUD>
+
+            <CinemaToolHUD
+              title="CAPTURE PREVIS STILL"
+              en="Render current 3D angle directly into active storyboard shot."
+              bn="কীভাবে ব্যবহার করবেন: 3D দৃশ্যটির ছবি তুলে বর্তমান শটে সেভ করতে CAPTURE চাপুন।"
+              accent="emerald"
+              side="bottom"
+            >
+              <button
+                type="button"
+                onClick={handleCaptureStill}
+                data-active={capturedToast ? 'true' : 'false'}
+                className="cinema-tile cinema-tile-emerald min-h-[36px] px-3 flex items-center gap-1.5 text-[10px] font-black tracking-wider uppercase"
+              >
+                {capturedToast ? <Check className="w-3.5 h-3.5" strokeWidth={2.5} /> : <Camera className="w-3.5 h-3.5" strokeWidth={2.2} />}
+                <span>{capturedToast ? 'SAVED' : 'CAPTURE'}</span>
+              </button>
+            </CinemaToolHUD>
           </div>
         </div>
 
@@ -211,7 +230,6 @@ export const PrevisStudio: React.FC = () => {
           {previsMode === '3D' ? (
             <div ref={threeMountRef} className="w-full h-full relative" />
           ) : (
-            /* 2D Overhead Floor Plan */
             <div 
               onClick={handleFloorClick}
               className="w-full max-w-2xl aspect-square bg-[#080808] border-2 border-[#D4AF37]/30 rounded-xl relative p-4 cursor-crosshair shadow-2xl"
@@ -220,8 +238,8 @@ export const PrevisStudio: React.FC = () => {
                 backgroundSize: '24px 24px'
               }}
             >
-              <div className="absolute top-3 left-3 text-[10px] text-[#8A8A8A]">
-                OVERHEAD GRID 20m x 20m // CLICK TO PLACE SELECTED TOKEN
+              <div className="absolute top-3 left-3 text-[10px] font-black tracking-wider text-zinc-500">
+                20M × 20M GRID
               </div>
 
               {/* Camera Frustum Cone */}
@@ -261,7 +279,7 @@ export const PrevisStudio: React.FC = () => {
                   >
                     {actor.name.charAt(0)}
                   </div>
-                  <span className="text-[9px] font-bold text-[#EDEDED] bg-black/80 px-1 rounded mt-0.5 whitespace-nowrap">
+                  <span className="text-[9px] font-black text-[#EDEDED] bg-black/80 px-1 rounded mt-0.5 whitespace-nowrap">
                     {actor.name}
                   </span>
                 </div>
@@ -270,45 +288,51 @@ export const PrevisStudio: React.FC = () => {
           )}
 
           {/* Camera Info HUD Overlay */}
-          <div className="absolute bottom-4 left-4 bg-black/80 px-3 py-1.5 rounded border border-[#D4AF37]/30 text-[10px] text-[#8A8A8A] flex items-center gap-4">
-            <div>FOCAL: <span className="text-[#FFE066] font-bold">{focalLength}mm</span></div>
-            <div>APERTURE: <span className="text-[#FFE066] font-bold">f/{aperture}</span></div>
-            <div>SENSOR: <span className="text-[#FFE066] font-bold">SUPER 35 CINE</span></div>
+          <div className="absolute bottom-4 left-4 bg-black/80 px-3 py-1.5 rounded border border-[#26282E] text-[10px] font-black tracking-wider text-zinc-400 flex items-center gap-4">
+            <span>{focalLength}MM</span>
+            <span className="text-amber-400">f/{aperture}</span>
+            <span>SUPER 35</span>
           </div>
         </div>
       </div>
 
       {/* Right Camera & Lens Controls */}
       <div className="w-full md:w-80 bg-[#0B0B0B] p-4 flex flex-col gap-4 text-xs overflow-y-auto custom-scrollbar">
-        <h3 className="font-bold text-[#FFE066] text-xs uppercase tracking-wider border-b border-[#D4AF37]/20 pb-2">
-          Optics & Lens Settings
-        </h3>
+        <CinemaBadgeHeader
+          icon={<Aperture className="w-3.5 h-3.5 text-amber-400" />}
+          label="OPTIC RIG"
+          accent="amber"
+        />
 
         {/* Lens Focal Length Presets */}
-        <div>
-          <label className="text-[10px] text-[#8A8A8A] uppercase">Prime Lens Presets</label>
-          <div className="grid grid-cols-3 gap-1.5 mt-1">
-            {[18, 24, 35, 50, 85, 135].map(mm => (
+        <div className="grid grid-cols-3 gap-1.5">
+          {[18, 24, 35, 50, 85, 135].map(mm => (
+            <CinemaToolHUD
+              key={mm}
+              title={`${mm}MM PRIME LENS`}
+              en={`Set virtual 3D camera field of view to ${mm}mm.`}
+              bn={`কীভাবে ব্যবহার করবেন: ক্যামেরা লেন্স ${mm}mm-এ সেট করতে চাপুন।`}
+              accent="amber"
+              side="left"
+              blockWrapper
+            >
               <button
-                key={mm}
+                type="button"
                 onClick={() => setFocalLength(mm)}
-                className={`py-2 rounded border text-center font-bold text-xs ${
-                  focalLength === mm 
-                    ? 'border-[#FFE066] bg-[#D4AF37] text-black' 
-                    : 'border-[#D4AF37]/20 bg-[#121212] text-[#EDEDED] hover:border-[#D4AF37]'
-                }`}
+                data-active={focalLength === mm ? 'true' : 'false'}
+                className="cinema-tile cinema-tile-amber w-full min-h-[42px] text-center font-black tracking-wider text-xs"
               >
-                {mm}mm
+                {mm}MM
               </button>
-            ))}
-          </div>
+            </CinemaToolHUD>
+          ))}
         </div>
 
         {/* Aperture Slider */}
-        <div className="border-t border-[#D4AF37]/10 pt-3">
-          <div className="flex justify-between text-[10px] text-[#8A8A8A]">
-            <span>IRIS APERTURE (DOF)</span>
-            <span className="text-[#FFE066]">f/{aperture}</span>
+        <div className="border-t border-white/[0.08] pt-3">
+          <div className="flex justify-between text-[10px] font-black tracking-wider text-zinc-400">
+            <span>APERTURE</span>
+            <span className="text-amber-400">f/{aperture}</span>
           </div>
           <input
             type="range"
@@ -317,15 +341,15 @@ export const PrevisStudio: React.FC = () => {
             step="0.2"
             value={aperture}
             onChange={(e) => setAperture(Number(e.target.value))}
-            className="w-full accent-[#D4AF37] mt-1"
+            className="w-full accent-amber-400 mt-1"
           />
         </div>
 
         {/* Camera Pan Angle */}
-        <div className="border-t border-[#D4AF37]/10 pt-3">
-          <div className="flex justify-between text-[10px] text-[#8A8A8A]">
-            <span>CAMERA PAN ANGLE</span>
-            <span className="text-[#FFE066]">{cameraAngle}°</span>
+        <div className="border-t border-white/[0.08] pt-3">
+          <div className="flex justify-between text-[10px] font-black tracking-wider text-zinc-400">
+            <span>PAN ANGLE</span>
+            <span className="text-cyan-300">{cameraAngle}°</span>
           </div>
           <input
             type="range"
@@ -333,25 +357,38 @@ export const PrevisStudio: React.FC = () => {
             max="180"
             value={cameraAngle}
             onChange={(e) => setCameraAngle(Number(e.target.value))}
-            className="w-full accent-[#D4AF37] mt-1"
+            className="w-full accent-cyan-400 mt-1"
           />
         </div>
 
         {/* 2D Actor Tokens Manager */}
         {previsMode === '2D' && (
-          <div className="border-t border-[#D4AF37]/10 pt-3 flex flex-col gap-2">
-            <label className="text-[10px] text-[#8A8A8A] uppercase">Select Active Token</label>
+          <div className="border-t border-white/[0.08] pt-3 flex flex-col gap-2">
+            <CinemaBadgeHeader
+              icon={<Users className="w-3 h-3 text-cyan-400" />}
+              label="FLOOR TOKENS"
+              accent="cyan"
+            />
             {actors.map(actor => (
-              <button
+              <CinemaToolHUD
                 key={actor.id}
-                onClick={() => setSelectedActor(actor.id)}
-                className={`p-2 rounded border text-left flex items-center justify-between ${
-                  selectedActor === actor.id ? 'border-[#FFE066] bg-[#D4AF37]/20 text-[#FFE066]' : 'border-[#D4AF37]/20 bg-[#121212] text-[#8A8A8A]'
-                }`}
+                title={`MOVE ${actor.name}`}
+                en="Select token, then click anywhere on the floor grid to reposition."
+                bn={`কীভাবে ব্যবহার করবেন: ${actor.name} সিলেক্ট করে বাম দিকের ফ্লোর গ্রিডে ক্লিক করুন।`}
+                accent="cyan"
+                side="left"
+                blockWrapper
               >
-                <span className="font-bold">{actor.name}</span>
-                <span className="text-[10px] text-[#8A8A8A]">{actor.x}%, {actor.y}%</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedActor(actor.id)}
+                  data-active={selectedActor === actor.id ? 'true' : 'false'}
+                  className="cinema-tile cinema-tile-cyan w-full min-h-[42px] px-3 flex items-center justify-between text-[10.5px] font-black tracking-wider uppercase"
+                >
+                  <span>{actor.name}</span>
+                  <span className="text-[9.5px] opacity-75">{actor.x}%,{actor.y}%</span>
+                </button>
+              </CinemaToolHUD>
             ))}
           </div>
         )}

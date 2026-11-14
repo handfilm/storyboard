@@ -39,6 +39,7 @@ import {
   Rewind
 } from 'lucide-react';
 import { TrackVuMeter } from './audio/TrackVuMeter';
+import { CinemaToolHUD } from './ui/CinemaToolHUD';
 
 export interface CutEditorTimelineProps {
   clips: TimelineClip[];
@@ -596,90 +597,127 @@ export const CutEditorTimeline: React.FC<CutEditorTimelineProps> = ({
       <div className="min-h-[40px] bg-[#090A0F] border-b border-[#1C1D2A] px-3 py-1 flex flex-wrap items-center justify-between gap-2 text-xs shrink-0">
         <div className="flex items-center gap-1.5 flex-wrap">
           {onSplitClip && (
-            <button
-              type="button"
-              onClick={onSplitClip}
-              className="px-2 py-1 bg-[#141520] hover:bg-[#F5A623] hover:text-black rounded border border-[#27283C] text-[10px] font-bold font-mono flex items-center gap-1 cursor-pointer transition-all active:scale-95 whitespace-nowrap"
-              title="Split clip at playhead (S)"
+            <CinemaToolHUD
+              title="SPLIT AT PLAYHEAD [S]"
+              en="Cut the selected clip cleanly at the current playhead frame."
+              bn="প্লেহেড যেখানে আছে সেখানে ক্লিপটি দুই ভাগ করতে চাপুন।"
+              accent="amber"
             >
-              <Scissors className="w-3 h-3" />
-              <span>SPLIT [S]</span>
-            </button>
+              <button
+                type="button"
+                onClick={onSplitClip}
+                data-active="true"
+                className="px-2.5 py-1 rounded cinema-tile cinema-tile-amber text-[10px] font-black font-mono flex items-center gap-1 cursor-pointer whitespace-nowrap"
+              >
+                <Scissors className="w-3 h-3 cinema-tile-icon" />
+                <span>SPLIT</span>
+              </button>
+            </CinemaToolHUD>
           )}
 
           {selectedClip && onRippleDeleteClip && (
-            <button
-              type="button"
-              onClick={() => onRippleDeleteClip(selectedClip.id)}
-              className="px-2 py-1 bg-rose-950/40 hover:bg-rose-600 hover:text-white rounded border border-rose-700/50 text-rose-300 text-[10px] font-bold font-mono flex items-center gap-1 cursor-pointer transition-all whitespace-nowrap"
-              title="Ripple Delete selected clip & close gap"
+            <CinemaToolHUD
+              title="RIPPLE DELETE"
+              en="Remove selected clip and close gap across timeline."
+              bn="সিলেক্ট করা ক্লিপ মুছে ফাঁকা জায়গা সাথে সাথে জুড়ে দিন।"
+              accent="crimson"
             >
-              <Trash2 className="w-3 h-3" />
-              <span>RIPPLE DEL</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => onRippleDeleteClip(selectedClip.id)}
+                className="px-2.5 py-1 rounded cinema-tile cinema-tile-crimson text-[10px] font-black font-mono flex items-center gap-1 cursor-pointer whitespace-nowrap"
+              >
+                <Trash2 className="w-3 h-3 cinema-tile-icon" />
+                <span>RIPPLE</span>
+              </button>
+            </CinemaToolHUD>
           )}
 
           {selectedClip && (selectedClip.trackId === 'V1' || selectedClip.trackId === 'V2') && onFreezeFrame && (
-            <button
-              type="button"
-              onClick={() => onFreezeFrame(selectedClip.id)}
-              className="px-2 py-1 bg-[#141520] hover:bg-cyan-500/20 hover:border-cyan-400 hover:text-cyan-200 rounded border border-[#27283C] text-[10px] font-bold font-mono flex items-center gap-1 cursor-pointer transition-all whitespace-nowrap"
-              title="Insert 2.0s Freeze Frame at playhead"
+            <CinemaToolHUD
+              title="FREEZE FRAME"
+              en="Insert a 2.0-second still hold at the playhead frame."
+              bn="প্লেহেড ফ্রেমটি ২ সেকেন্ডের জন্য স্থির ছবি (Freeze) করে দিন।"
+              accent="cyan"
             >
-              <Snowflake className="w-3 h-3 text-cyan-300" />
-              <span>FREEZE</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => onFreezeFrame(selectedClip.id)}
+                className="px-2.5 py-1 rounded cinema-tile cinema-tile-cyan text-[10px] font-black font-mono flex items-center gap-1 cursor-pointer whitespace-nowrap"
+              >
+                <Snowflake className="w-3 h-3 cinema-tile-icon" />
+                <span>FREEZE</span>
+              </button>
+            </CinemaToolHUD>
           )}
 
           {selectedClip && (selectedClip.type === 'video' || selectedClip.trackId === 'V1') && onDetachAudio && (
-            <button
-              type="button"
-              onClick={() => onDetachAudio(selectedClip.id)}
-              className="px-2 py-1 bg-[#141520] hover:bg-emerald-500/20 hover:border-emerald-400 hover:text-emerald-200 rounded border border-[#27283C] text-[10px] font-bold font-mono flex items-center gap-1 cursor-pointer transition-all whitespace-nowrap"
-              title="Detach Audio onto A1 track"
+            <CinemaToolHUD
+              title="EXTRACT AUDIO"
+              en="Detach clip audio onto the A1 sound effects lane."
+              bn="ভিডিও ক্লিপ থেকে অডিও আলাদা করে A1 ট্র্যাকে নামান।"
+              accent="emerald"
             >
-              <AudioWaveform className="w-3 h-3 text-emerald-400" />
-              <span>EXTRACT AUDIO</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => onDetachAudio(selectedClip.id)}
+                className="px-2.5 py-1 rounded cinema-tile cinema-tile-emerald text-[10px] font-black font-mono flex items-center gap-1 cursor-pointer whitespace-nowrap"
+              >
+                <AudioWaveform className="w-3 h-3 cinema-tile-icon" />
+                <span>AUDIO</span>
+              </button>
+            </CinemaToolHUD>
           )}
 
-          <button
-            type="button"
-            onClick={() => setIsMagneticSnap(!isMagneticSnap)}
-            className={`px-2 py-1 rounded border text-[10px] font-bold font-mono cursor-pointer transition-all flex items-center gap-1 whitespace-nowrap ${
-              isMagneticSnap
-                ? 'bg-[#F5A623]/20 border-[#F5A623]/80 text-[#FFE066]'
-                : 'bg-[#141520] border-[#27283C] text-zinc-500 hover:text-zinc-300'
-            }`}
-            title="Toggle magnetic snapping to clip edges"
+          <CinemaToolHUD
+            title="MAGNETIC SNAP"
+            en="Snap clip drags and trims to adjacent cut edges."
+            bn="ক্লিপ সরানোর সময় পাশের ক্লিপের সাথে অটো-স্ন্যাপ চালু বা বন্ধ করুন।"
+            accent="amber"
           >
-            <Magnet className="w-3 h-3" />
-            <span>SNAP</span>
-          </button>
+            <button
+              type="button"
+              data-active={isMagneticSnap ? 'true' : 'false'}
+              onClick={() => setIsMagneticSnap(!isMagneticSnap)}
+              className="px-2.5 py-1 rounded cinema-tile cinema-tile-amber text-[10px] font-black font-mono cursor-pointer flex items-center gap-1 whitespace-nowrap"
+            >
+              <Magnet className="w-3 h-3 cinema-tile-icon" />
+              <span>SNAP</span>
+            </button>
+          </CinemaToolHUD>
 
-          <button
-            type="button"
-            onClick={handleToggleBeatSnapInternal}
-            className={`px-2 py-1 rounded border text-[10px] font-bold font-mono cursor-pointer transition-all flex items-center gap-1 whitespace-nowrap ${
-              isBeatSnapActive
-                ? 'bg-cyan-500/20 border-cyan-400 text-cyan-200'
-                : 'bg-[#141520] border-[#27283C] text-zinc-400 hover:text-white'
-            }`}
-            title="Snap cuts and drags to audio beats"
+          <CinemaToolHUD
+            title="BEAT SNAP"
+            en="Quantize clip trims and drags directly to audio beat transients."
+            bn="গানের বিটের তালে তালে কাট ও ট্রিম লক করতে এটি চালু করুন।"
+            accent="cyan"
           >
-            <Music className="w-3 h-3 text-cyan-400" />
-            <span>BEAT SNAP</span>
-          </button>
+            <button
+              type="button"
+              data-active={isBeatSnapActive ? 'true' : 'false'}
+              onClick={handleToggleBeatSnapInternal}
+              className="px-2.5 py-1 rounded cinema-tile cinema-tile-cyan text-[10px] font-black font-mono cursor-pointer flex items-center gap-1 whitespace-nowrap"
+            >
+              <Music className="w-3 h-3 cinema-tile-icon" />
+              <span>BEAT SNAP</span>
+            </button>
+          </CinemaToolHUD>
 
-          <button
-            type="button"
-            onClick={() => audioInputRef.current?.click()}
-            className="px-2 py-1 rounded bg-[#141520] hover:bg-[#1E2030] border border-[#27283C] text-[10px] font-mono text-zinc-300 hover:text-[#FFE066] flex items-center gap-1 cursor-pointer transition-colors whitespace-nowrap"
-            title="Attach MP3/WAV track for beat markers"
+          <CinemaToolHUD
+            title="LOAD BEAT TRACK"
+            en="Attach MP3/WAV track to extract beat transient markers."
+            bn="মিউজিক ফাইল লোড করে টাইমলাইনে বিট মার্কার যোগ করুন।"
+            accent="amber"
           >
-            <Upload className="w-3 h-3 text-[#F5A623]" />
-            <span>Beat Track</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => audioInputRef.current?.click()}
+              className="px-2.5 py-1 rounded cinema-tile cinema-tile-amber text-[10px] font-black font-mono flex items-center gap-1 cursor-pointer whitespace-nowrap"
+            >
+              <Upload className="w-3 h-3 cinema-tile-icon" />
+              <span>BEAT MP3</span>
+            </button>
+          </CinemaToolHUD>
           <input
             ref={audioInputRef}
             type="file"
@@ -707,14 +745,15 @@ export const CutEditorTimeline: React.FC<CutEditorTimelineProps> = ({
 
         {/* Zoom Controls */}
         <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => setZoomScale((z) => Math.max(20, z - 15))}
-            className="p-1 hover:text-[#FFE066] text-zinc-400 hover:bg-white/5 rounded cursor-pointer transition-colors"
-            title="Zoom Out Timeline"
-          >
-            <ZoomOut className="w-3.5 h-3.5" />
-          </button>
+          <CinemaToolHUD title="ZOOM OUT" en="Zoom out horizontal timeline scale." bn="টাইমলাইন জুম আউট করতে চাপুন।" accent="amber">
+            <button
+              type="button"
+              onClick={() => setZoomScale((z) => Math.max(20, z - 15))}
+              className="p-1.5 rounded cinema-tile cinema-tile-amber cursor-pointer"
+            >
+              <ZoomOut className="w-3.5 h-3.5 cinema-tile-icon" />
+            </button>
+          </CinemaToolHUD>
 
           <div className="flex items-center gap-1 bg-black/60 px-2 py-0.5 rounded border border-[#27283C]">
             <input
@@ -730,23 +769,25 @@ export const CutEditorTimeline: React.FC<CutEditorTimelineProps> = ({
             </span>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setZoomScale((z) => Math.min(180, z + 15))}
-            className="p-1 hover:text-[#FFE066] text-zinc-400 hover:bg-white/5 rounded cursor-pointer transition-colors"
-            title="Zoom In Timeline"
-          >
-            <ZoomIn className="w-3.5 h-3.5" />
-          </button>
+          <CinemaToolHUD title="ZOOM IN" en="Zoom in for sub-frame clip trimming." bn="ফ্রেম-বাই-ফ্রেম কাটার জন্য টাইমলাইন জুম ইন করুন।" accent="amber">
+            <button
+              type="button"
+              onClick={() => setZoomScale((z) => Math.min(180, z + 15))}
+              className="p-1.5 rounded cinema-tile cinema-tile-amber cursor-pointer"
+            >
+              <ZoomIn className="w-3.5 h-3.5 cinema-tile-icon" />
+            </button>
+          </CinemaToolHUD>
 
-          <button
-            type="button"
-            onClick={() => setZoomScale(100)}
-            className="px-2 py-0.5 text-[9px] font-mono font-bold text-zinc-400 hover:text-white bg-[#141520] hover:bg-zinc-800 rounded border border-[#27283C] cursor-pointer"
-            title="Reset Zoom to 100%"
-          >
-            FIT
-          </button>
+          <CinemaToolHUD title="RESET ZOOM" en="Reset timeline zoom to 100% standard view." bn="টাইমলাইন জুম ১০০% ডিফল্ট সাইজে ফেরান।" accent="cyan">
+            <button
+              type="button"
+              onClick={() => setZoomScale(100)}
+              className="px-2 py-1 text-[9px] font-mono font-black rounded cinema-tile cinema-tile-cyan cursor-pointer"
+            >
+              FIT
+            </button>
+          </CinemaToolHUD>
         </div>
       </div>
 
@@ -778,50 +819,46 @@ export const CutEditorTimeline: React.FC<CutEditorTimelineProps> = ({
                 </div>
 
                 <div className="flex items-center gap-1 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => toggleTrackState(track.id, 'muted')}
-                    className={`w-5 h-5 rounded text-[8px] font-bold cursor-pointer transition-colors flex items-center justify-center ${
-                      state.muted
-                        ? 'bg-rose-950 text-rose-400 border border-rose-700/60'
-                        : 'text-zinc-500 hover:text-zinc-200 bg-white/5'
-                    }`}
-                    title="Mute Track"
-                  >
-                    M
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => toggleTrackState(track.id, 'solo')}
-                    className={`w-5 h-5 rounded text-[8px] font-bold cursor-pointer transition-colors flex items-center justify-center ${
-                      state.solo
-                        ? 'bg-amber-500/25 text-amber-300 border border-amber-400/60'
-                        : 'text-zinc-500 hover:text-zinc-200 bg-white/5'
-                    }`}
-                    title="Solo Track"
-                  >
-                    S
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => toggleTrackState(track.id, 'hidden')}
-                    className={`p-1 rounded cursor-pointer transition-colors ${
-                      state.hidden ? 'text-zinc-600 hover:text-zinc-400' : 'text-zinc-300 hover:text-white'
-                    }`}
-                    title={state.hidden ? 'Unhide Track' : 'Hide Track'}
-                  >
-                    {state.hidden ? <EyeOff className="w-3 h-3 text-zinc-600" /> : <Eye className="w-3 h-3" />}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => toggleTrackState(track.id, 'locked')}
-                    className={`p-1 rounded cursor-pointer transition-colors ${
-                      state.locked ? 'text-[#F5A623]' : 'text-zinc-600 hover:text-zinc-400'
-                    }`}
-                    title={state.locked ? 'Unlock Track' : 'Lock Track'}
-                  >
-                    {state.locked ? <Lock className="w-3 h-3 text-[#F5A623]" /> : <Unlock className="w-3 h-3 text-zinc-600" />}
-                  </button>
+                  <CinemaToolHUD title={`MUTE ${track.id}`} en={`Mute ${track.id} lane audio output.`} bn={`${track.id} ট্র্যাক মিউট বা আনমিউট করুন।`} accent="crimson">
+                    <button
+                      type="button"
+                      data-active={state.muted ? 'true' : 'false'}
+                      onClick={() => toggleTrackState(track.id, 'muted')}
+                      className="w-5 h-5 rounded text-[8px] font-black cursor-pointer cinema-tile cinema-tile-crimson flex items-center justify-center"
+                    >
+                      M
+                    </button>
+                  </CinemaToolHUD>
+                  <CinemaToolHUD title={`SOLO ${track.id}`} en={`Solo ${track.id} lane audio playback.`} bn={`শুধু ${track.id} ট্র্যাক শুনতে সোলো চাপুন।`} accent="amber">
+                    <button
+                      type="button"
+                      data-active={state.solo ? 'true' : 'false'}
+                      onClick={() => toggleTrackState(track.id, 'solo')}
+                      className="w-5 h-5 rounded text-[8px] font-black cursor-pointer cinema-tile cinema-tile-amber flex items-center justify-center"
+                    >
+                      S
+                    </button>
+                  </CinemaToolHUD>
+                  <CinemaToolHUD title={`VISIBILITY ${track.id}`} en={`Show or hide ${track.id} track layer.`} bn={`${track.id} ট্র্যাক দেখানো বা লুকানোর জন্য চাপুন।`} accent="cyan">
+                    <button
+                      type="button"
+                      data-active={!state.hidden ? 'true' : 'false'}
+                      onClick={() => toggleTrackState(track.id, 'hidden')}
+                      className="p-1 rounded cursor-pointer cinema-tile cinema-tile-cyan"
+                    >
+                      {state.hidden ? <EyeOff className="w-3 h-3 cinema-tile-icon" /> : <Eye className="w-3 h-3 cinema-tile-icon" />}
+                    </button>
+                  </CinemaToolHUD>
+                  <CinemaToolHUD title={`LOCK ${track.id}`} en={`Lock ${track.id} clips against accidental edits.`} bn={`${track.id} ট্র্যাক লক করে এডিটিং নিরাপদ রাখুন।`} accent="amber">
+                    <button
+                      type="button"
+                      data-active={state.locked ? 'true' : 'false'}
+                      onClick={() => toggleTrackState(track.id, 'locked')}
+                      className="p-1 rounded cursor-pointer cinema-tile cinema-tile-amber"
+                    >
+                      {state.locked ? <Lock className="w-3 h-3 cinema-tile-icon" /> : <Unlock className="w-3 h-3 cinema-tile-icon" />}
+                    </button>
+                  </CinemaToolHUD>
                 </div>
               </div>
             );

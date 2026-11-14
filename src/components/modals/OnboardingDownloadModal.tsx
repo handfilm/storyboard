@@ -35,6 +35,7 @@ import {
 import { hasSupabaseConfig } from '../../services/supabaseClient';
 import { eventBus } from '../../core/eventBus';
 import { CheckoutModal } from './CheckoutModal';
+import { CinemaToolHUD, CinemaBadgeHeader } from '../ui/CinemaToolHUD';
 
 interface DownloadArtifactMeta {
   filename: string;
@@ -236,9 +237,9 @@ export const OnboardingDownloadModal: React.FC<OnboardingDownloadModalProps> = (
   })();
 
   const stepTabs: Array<{ num: OnboardingStep; label: string; enabled: boolean }> = [
-    { num: 1, label: '01. Account', enabled: true },
-    { num: 2, label: '02. Plan', enabled: isAuthenticated },
-    { num: 3, label: '03. Download', enabled: isAuthenticated }
+    { num: 1, label: '01 ACCOUNT', enabled: true },
+    { num: 2, label: '02 PLAN', enabled: isAuthenticated },
+    { num: 3, label: '03 INSTALL', enabled: isAuthenticated }
   ];
 
   const proPrice = billingCycle === 'monthly' ? '$19.99' : '$15.99';
@@ -260,90 +261,97 @@ export const OnboardingDownloadModal: React.FC<OnboardingDownloadModalProps> = (
     >
       <div className="w-full max-w-5xl bg-[#0B0B0D] border border-white/[0.12] rounded-lg shadow-[0_24px_90px_rgba(0,0,0,0.96)] overflow-hidden my-auto">
         {/* Top Modal Header with 3-Step Progression */}
-        <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 py-3.5 border-b border-white/[0.08] bg-[#111115]">
-          <div className="flex items-center gap-3 min-w-0">
-            <span className="font-space-grotesk font-black tracking-[0.14em] text-sm sm:text-base text-[#F4F4F5] whitespace-nowrap">
-              HAND<span className="text-[#F59E0B]">FILM</span> STUDIO
-            </span>
-            <span aria-hidden="true" className="hidden sm:inline text-zinc-600">·</span>
-            <span className="hidden sm:inline text-[11px] font-mono text-zinc-400 truncate">
-              {paywallFeatureName && paywallFeatureName !== 'Pro Studio Feature'
-                ? `Unlock ${paywallFeatureName}`
-                : 'Cross-Platform NLE Setup'}
-            </span>
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 py-3 border-b border-[#26282E] bg-[#111215]">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <CinemaBadgeHeader
+              icon={<Sparkles className="w-4 h-4" strokeWidth={2.2} />}
+              label="HANDFILM STUDIO"
+              accent="amber"
+            />
+            {paywallFeatureName && paywallFeatureName !== 'Pro Studio Feature' && (
+              <span className="hidden sm:inline text-[10px] font-black uppercase tracking-wider text-cyan-300 truncate">
+                {paywallFeatureName}
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Stepper Controls */}
-            <nav aria-label="Onboarding Steps" className="flex items-center gap-1 bg-[#08080A] border border-white/[0.08] rounded p-0.5 font-mono">
+            <nav aria-label="Onboarding Steps" className="flex items-center gap-1 bg-[#0B0C10] border border-[#26282E] rounded p-0.5 font-mono">
               {stepTabs.map((item) => {
                 const isActive = step === item.num;
                 const isDone =
                   (item.num === 1 && isAuthenticated && step > 1) ||
                   (item.num === 2 && isAuthenticated && step > 2);
                 return (
-                  <button
+                  <CinemaToolHUD
                     key={item.num}
-                    type="button"
-                    disabled={!item.enabled}
-                    onClick={() => item.enabled && setStep(item.num)}
-                    className={`px-2.5 py-1.5 rounded-[3px] text-[10px] font-bold tracking-wider uppercase whitespace-nowrap shrink-0 transition-colors touch-manipulation ${
-                      isActive
-                        ? 'bg-[#F59E0B] text-[#0B0B0D]'
-                        : isDone
-                          ? 'text-emerald-400 hover:bg-white/[0.05] cursor-pointer'
-                          : item.enabled
-                            ? 'text-zinc-300 hover:text-white cursor-pointer'
-                            : 'text-zinc-600 cursor-not-allowed'
-                    }`}
+                    title={item.label}
+                    en={`Go to onboarding step ${item.label}.`}
+                    bn={`কীভাবে ব্যবহার করবেন: ${item.label} ধাপে যেতে চাপুন।`}
+                    accent={isDone ? 'emerald' : 'amber'}
+                    side="bottom"
                   >
-                    {item.label}
-                  </button>
+                    <button
+                      type="button"
+                      disabled={!item.enabled}
+                      data-active={isActive ? 'true' : 'false'}
+                      onClick={() => item.enabled && setStep(item.num)}
+                      className={`cinema-tile ${isDone ? 'cinema-tile-emerald' : 'cinema-tile-amber'} px-2.5 py-2 min-h-[38px] rounded text-[10px] font-black tracking-wider uppercase whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-40`}
+                    >
+                      {item.label}
+                    </button>
+                  </CinemaToolHUD>
                 );
               })}
             </nav>
 
-            <button
-              type="button"
-              onClick={closeModal}
-              className="w-10 h-10 sm:w-9 sm:h-9 flex items-center justify-center rounded border border-white/[0.12] bg-[#141417] text-zinc-400 hover:text-white hover:border-white/30 transition-colors cursor-pointer touch-manipulation shrink-0"
-              aria-label="Close Onboarding Modal"
+            <CinemaToolHUD
+              title="CLOSE ONBOARDING"
+              en="Close account & download setup dialog."
+              bn="কীভাবে ব্যবহার করবেন: এই উইন্ডো বন্ধ করতে X বাটনে চাপুন।"
+              shortcut="ESC"
+              accent="crimson"
+              side="bottom"
             >
-              <X className="w-4 h-4" />
-            </button>
+              <button
+                type="button"
+                onClick={closeModal}
+                className="cinema-tile cinema-tile-crimson min-w-[44px] min-h-[44px] px-2.5 flex items-center justify-center rounded cursor-pointer shrink-0"
+                aria-label="Close Onboarding Modal"
+              >
+                <X className="w-4 h-4 cinema-tile-icon" strokeWidth={2.3} />
+              </button>
+            </CinemaToolHUD>
           </div>
         </div>
 
-        {/* STEP 1 — INSTANT ACCOUNT CREATION / SIGN-IN */}
+        {/* STEP 1 — ACCOUNT */}
         {step === 1 && (
-          <div className="p-5 sm:p-8 md:p-10">
-            <div className="max-w-md mx-auto space-y-6">
-              <div className="text-center space-y-2.5">
-                <h2 className="font-space-grotesk text-xl sm:text-2xl font-black tracking-tight text-white leading-snug text-balance">
-                  AI-Powered Video &amp; Storyboard Studio for Everyone
-                </h2>
-                <p className="text-xs sm:text-sm font-mono text-zinc-400">
-                  No credit card required · Instant sync across Desktop, Android &amp; Web
-                </p>
+          <div className="p-5 sm:p-8">
+            <div className="max-w-md mx-auto space-y-5">
+              <div className="flex items-center justify-center">
+                <CinemaBadgeHeader
+                  icon={<ShieldCheck className="w-4 h-4" strokeWidth={2.2} />}
+                  label="STUDIO AUTH"
+                  accent="cyan"
+                />
               </div>
 
               {isAuthenticated && license ? (
-                <div className="p-5 rounded-md bg-[#141417] border border-white/[0.1] space-y-4">
+                <div className="p-5 rounded-md bg-[#111215] border border-[#26282E] space-y-4">
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="text-xs font-bold text-white truncate">{license.name || license.email}</div>
+                      <div className="text-xs font-black text-white uppercase truncate">{license.name || license.email}</div>
                       <div className="text-[11px] font-mono text-zinc-400 truncate">{license.email}</div>
                     </div>
-                    <span className="text-[10px] font-mono font-bold text-emerald-400 uppercase shrink-0">
-                      Signed In
+                    <span className="text-[10px] font-mono font-black text-emerald-400 uppercase shrink-0">
+                      SIGNED IN
                     </span>
                   </div>
 
-                  {/* Active Devices Management (2-Device Limit) */}
-                  <div className="space-y-2 pt-2 border-t border-white/[0.08]">
-                    <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider text-zinc-400 tabular-nums">
-                      <span>Bound Devices ({license.activeDevices.length}/{license.maxDevices})</span>
-                      <span className="text-zinc-500">Server-Verified</span>
+                  <div className="space-y-2 pt-2 border-t border-[#26282E]">
+                    <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-zinc-400 tabular-nums">
+                      <span>DEVICES ({license.activeDevices.length}/{license.maxDevices})</span>
                     </div>
                     <div className="space-y-1.5">
                       {license.activeDevices.map((dev) => {
@@ -351,28 +359,36 @@ export const OnboardingDownloadModal: React.FC<OnboardingDownloadModalProps> = (
                         return (
                           <div
                             key={dev.deviceId}
-                            className="flex items-center justify-between gap-2 px-3 py-2 rounded bg-[#0B0B0D] border border-white/[0.08] text-[11px] font-mono"
+                            className="flex items-center justify-between gap-2 px-3 py-2 rounded bg-[#0B0C10] border border-[#26282E] text-[11px] font-mono"
                           >
                             <div className="flex items-center gap-2 min-w-0">
                               {dev.platform === 'android' ? (
                                 <Smartphone className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
                               ) : (
-                                <Laptop className="w-3.5 h-3.5 text-[#F59E0B] shrink-0" />
+                                <Laptop className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                               )}
                               <span className="text-zinc-200 truncate">{dev.label}</span>
                               {isCurrent && (
-                                <span className="text-[9px] text-emerald-400 font-bold shrink-0">· Current</span>
+                                <span className="text-[9px] text-emerald-400 font-black uppercase shrink-0">ACTIVE</span>
                               )}
                             </div>
                             {!isCurrent && (
-                              <button
-                                type="button"
-                                onClick={() => revokeDevice(dev.deviceId)}
-                                disabled={isLoading}
-                                className="px-2 py-1 rounded border border-red-500/40 text-red-400 hover:bg-red-500/15 text-[10px] flex items-center gap-1 cursor-pointer touch-manipulation"
+                              <CinemaToolHUD
+                                title="REVOKE DEVICE"
+                                en="Disconnect this device from your license seat."
+                                bn="কীভাবে ব্যবহার করবেন: ডিভাইসটি রিমুভ করতে REMOVE চাপুন।"
+                                accent="crimson"
                               >
-                                <Trash2 className="w-3 h-3" /> Remove
-                              </button>
+                                <button
+                                  type="button"
+                                  onClick={() => revokeDevice(dev.deviceId)}
+                                  disabled={isLoading}
+                                  className="cinema-tile cinema-tile-crimson px-2.5 py-1.5 min-h-[36px] rounded text-[10px] font-black uppercase flex items-center gap-1 cursor-pointer"
+                                >
+                                  <Trash2 className="w-3 h-3 cinema-tile-icon" />
+                                  <span>REMOVE</span>
+                                </button>
+                              </CinemaToolHUD>
                             )}
                           </div>
                         );
@@ -381,37 +397,48 @@ export const OnboardingDownloadModal: React.FC<OnboardingDownloadModalProps> = (
                   </div>
 
                   <div className="flex items-center gap-2.5 pt-1">
-                    <button
-                      type="button"
-                      onClick={() => setStep(2)}
-                      className="flex-1 h-11 rounded bg-[#F59E0B] hover:bg-amber-400 text-[#0B0B0D] font-black text-xs tracking-[0.12em] uppercase flex items-center justify-center gap-2 cursor-pointer transition-colors touch-manipulation"
+                    <CinemaToolHUD
+                      title="CHOOSE PLAN"
+                      en="Proceed to tier selection and trial activation."
+                      bn="কীভাবে ব্যবহার করবেন: প্ল্যান বেছে নিতে PLAN বাটনে চাপুন।"
+                      accent="amber"
+                      blockWrapper
                     >
-                      <span>Choose Your Plan</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={signOut}
-                      className="h-11 px-4 rounded border border-white/[0.14] bg-[#0B0B0D] hover:bg-white/[0.06] text-zinc-300 font-mono font-bold text-xs flex items-center gap-1.5 cursor-pointer touch-manipulation"
+                      <button
+                        type="button"
+                        onClick={() => setStep(2)}
+                        data-active="true"
+                        className="cinema-tile cinema-tile-amber flex-1 min-h-[44px] rounded font-black text-xs tracking-wider uppercase flex items-center justify-center gap-2 cursor-pointer"
+                      >
+                        <span>PLANS</span>
+                        <ArrowRight className="w-4 h-4 cinema-tile-icon" />
+                      </button>
+                    </CinemaToolHUD>
+
+                    <CinemaToolHUD
+                      title="SIGN OUT"
+                      en="Sign out from this studio device."
+                      bn="কীভাবে ব্যবহার করবেন: একাউন্ট লগআউট করতে SIGN OUT চাপুন।"
+                      accent="crimson"
                     >
-                      <LogOut className="w-3.5 h-3.5" />
-                      <span>Sign Out</span>
-                    </button>
+                      <button
+                        type="button"
+                        onClick={signOut}
+                        className="cinema-tile cinema-tile-crimson min-h-[44px] px-4 rounded font-black text-xs uppercase flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <LogOut className="w-3.5 h-3.5 cinema-tile-icon" />
+                        <span>SIGN OUT</span>
+                      </button>
+                    </CinemaToolHUD>
                   </div>
                 </div>
               ) : (
                 <div className="space-y-3.5">
-                  {/* 2-Device Conflict Recovery Panel */}
                   {deviceLimitConflict && (
                     <div className="p-3.5 rounded-md bg-red-950/35 border border-red-500/45 space-y-2.5">
-                      <div className="flex items-start gap-2 text-red-300 text-xs font-bold">
-                        <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-                        <div>
-                          <div>2-Device Active Limit Reached</div>
-                          <p className="text-[11px] font-mono font-normal text-red-200/80 mt-0.5">
-                            Revoke one device slot below to authorize this workstation.
-                          </p>
-                        </div>
+                      <div className="flex items-center gap-2 text-red-300 text-xs font-black uppercase">
+                        <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+                        <span>2-DEVICE LIMIT</span>
                       </div>
                       <div className="space-y-1.5">
                         {deviceLimitConflict.activeDevices.map((dev) => (
@@ -420,80 +447,96 @@ export const OnboardingDownloadModal: React.FC<OnboardingDownloadModalProps> = (
                             className="flex items-center justify-between px-3 py-2 rounded bg-black/70 border border-red-500/30 text-[11px] font-mono"
                           >
                             <span className="text-white truncate">{dev.label}</span>
-                            <button
-                              type="button"
-                              onClick={() => revokeDevice(dev.deviceId)}
-                              disabled={isLoading}
-                              className="px-2.5 py-1 rounded bg-red-500 hover:bg-red-400 text-black font-black text-[10px] uppercase cursor-pointer touch-manipulation"
+                            <CinemaToolHUD
+                              title="REVOKE SLOT"
+                              en="Revoke device slot to authorize this workstation."
+                              bn="কীভাবে ব্যবহার করবেন: এই ডিভাইস চালু করতে REVOKE চাপুন।"
+                              accent="crimson"
                             >
-                              Revoke Slot
-                            </button>
+                              <button
+                                type="button"
+                                onClick={() => revokeDevice(dev.deviceId)}
+                                disabled={isLoading}
+                                className="cinema-tile cinema-tile-crimson px-3 py-1.5 min-h-[36px] rounded font-black text-[10px] uppercase cursor-pointer"
+                              >
+                                REVOKE
+                              </button>
+                            </CinemaToolHUD>
                           </div>
                         ))}
                       </div>
                     </div>
                   )}
 
-                  {/* Continue with Google (Primary Dark/Cyan Pill Button) */}
                   {showGoogleFallbackInput && !supabaseReady && (
                     <input
                       type="email"
                       value={googleEmailInput}
                       onChange={(e) => setGoogleEmailInput(e.target.value)}
-                      placeholder="Enter your Google account email..."
-                      className="w-full h-11 px-4 rounded-full bg-[#141417] border border-cyan-400/50 text-xs text-white font-mono outline-none focus:border-cyan-300"
+                      placeholder="GOOGLE EMAIL..."
+                      className="w-full h-11 px-4 rounded-md bg-[#111215] border border-cyan-400/50 text-xs text-white font-mono outline-none focus:border-cyan-300"
                     />
                   )}
 
-                  <button
-                    type="button"
-                    data-testid="onboarding-google-btn"
-                    onClick={handleGoogleContinue}
-                    disabled={isLoading}
-                    className="w-full h-12 rounded-full bg-[#0E171B] hover:bg-[#132229] border border-cyan-400/70 hover:border-cyan-300 text-white font-space-grotesk font-bold text-sm tracking-wide flex items-center justify-center gap-3 cursor-pointer transition-all shadow-[0_0_24px_rgba(34,211,238,0.18)] active:scale-[0.99] touch-manipulation"
+                  <CinemaToolHUD
+                    title="GOOGLE SIGN-IN"
+                    en="Sign in instantly with Google across Desktop, Android, and Web."
+                    bn="কীভাবে ব্যবহার করবেন: গুগল একাউন্ট দিয়ে সরাসরি লগইন করতে GOOGLE AUTH চাপুন।"
+                    accent="cyan"
+                    blockWrapper
                   >
-                    <span className="w-5 h-5 rounded-full bg-white text-[#0B0B0D] font-black text-xs flex items-center justify-center shrink-0">
-                      G
-                    </span>
-                    <span>
-                      {showGoogleFallbackInput && !supabaseReady
-                        ? 'Confirm Google Account'
-                        : 'Continue with Google'}
-                    </span>
-                  </button>
+                    <button
+                      type="button"
+                      data-testid="onboarding-google-btn"
+                      onClick={handleGoogleContinue}
+                      disabled={isLoading}
+                      data-active="true"
+                      className="cinema-tile cinema-tile-cyan w-full min-h-[48px] rounded-md font-black text-xs tracking-wider uppercase flex items-center justify-center gap-3 cursor-pointer"
+                    >
+                      <span className="w-5 h-5 rounded-full bg-white text-black font-black text-xs flex items-center justify-center shrink-0">
+                        G
+                      </span>
+                      <span>
+                        {showGoogleFallbackInput && !supabaseReady ? 'CONFIRM GOOGLE' : 'GOOGLE AUTH'}
+                      </span>
+                    </button>
+                  </CinemaToolHUD>
 
-                  {/* Continue with Email Button */}
-                  <button
-                    type="button"
-                    data-testid="onboarding-email-toggle"
-                    onClick={() => setShowEmailForm((prev) => !prev)}
-                    className="w-full h-11 rounded-full bg-[#141417] hover:bg-[#1B1B20] border border-white/[0.14] hover:border-white/30 text-zinc-100 font-space-grotesk font-semibold text-sm flex items-center justify-center gap-2.5 cursor-pointer transition-colors touch-manipulation"
+                  <CinemaToolHUD
+                    title="EMAIL SIGN-IN / TRIAL"
+                    en="Create a free account or sign in using email, password, or magic link."
+                    bn="কীভাবে ব্যবহার করবেন: ইমেইল দিয়ে একাউন্ট খুলতে বা লগইন করতে EMAIL AUTH চাপুন।"
+                    accent="amber"
+                    blockWrapper
                   >
-                    <Mail className="w-4 h-4 text-[#F59E0B]" />
-                    <span>Continue with Email</span>
-                  </button>
+                    <button
+                      type="button"
+                      data-testid="onboarding-email-toggle"
+                      onClick={() => setShowEmailForm((prev) => !prev)}
+                      className="cinema-tile cinema-tile-amber w-full min-h-[44px] rounded-md font-black text-xs tracking-wider uppercase flex items-center justify-center gap-2.5 cursor-pointer"
+                    >
+                      <Mail className="w-4 h-4 cinema-tile-icon" />
+                      <span>EMAIL AUTH</span>
+                    </button>
+                  </CinemaToolHUD>
 
-                  {/* Expanded Email + Password / Magic Link Form */}
                   {showEmailForm && (
                     <form
                       onSubmit={handleEmailSubmit}
-                      className="p-4 rounded-md bg-[#141417] border border-white/[0.1] space-y-3"
+                      className="p-4 rounded-md bg-[#111215] border border-[#26282E] space-y-3"
                     >
-                      <div className="grid grid-cols-3 gap-1 p-1 rounded bg-[#0B0B0D] border border-white/[0.08] font-mono">
+                      <div className="grid grid-cols-3 gap-1.5">
                         {([
-                          { id: 'signup', label: 'Sign Up' },
-                          { id: 'signin', label: 'Sign In' },
-                          { id: 'magic', label: 'Magic Link' }
+                          { id: 'signup', label: 'SIGN UP' },
+                          { id: 'signin', label: 'SIGN IN' },
+                          { id: 'magic', label: 'MAGIC' }
                         ] as const).map((tab) => (
                           <button
                             key={tab.id}
                             type="button"
+                            data-active={emailAuthMode === tab.id ? 'true' : 'false'}
                             onClick={() => setEmailAuthMode(tab.id)}
-                            className={`h-8 rounded text-[10px] font-bold uppercase tracking-wider cursor-pointer transition-colors touch-manipulation ${
-                              emailAuthMode === tab.id
-                                ? 'bg-[#F59E0B] text-[#0B0B0D]'
-                                : 'text-zinc-400 hover:text-white'
-                            }`}
+                            className="cinema-tile cinema-tile-amber min-h-[40px] rounded text-[10px] font-black uppercase tracking-wider cursor-pointer"
                           >
                             {tab.label}
                           </button>
@@ -501,54 +544,39 @@ export const OnboardingDownloadModal: React.FC<OnboardingDownloadModalProps> = (
                       </div>
 
                       {emailAuthMode === 'signup' && (
-                        <div>
-                          <label className="block text-[10px] font-mono uppercase tracking-wider text-zinc-400 mb-1">
-                            Name (Optional)
-                          </label>
-                          <input
-                            type="text"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            placeholder="Studio Director"
-                            className="w-full h-10 px-3 rounded bg-[#0B0B0D] border border-white/[0.14] focus:border-[#F59E0B] text-xs text-white font-mono outline-none"
-                          />
-                        </div>
+                        <input
+                          type="text"
+                          value={name}
+                          onChange={(e) => setName(e.target.value)}
+                          placeholder="NAME (OPTIONAL)"
+                          className="w-full h-11 px-3 rounded bg-[#0B0C10] border border-[#26282E] focus:border-amber-400 text-xs text-white font-mono outline-none"
+                        />
                       )}
 
-                      <div>
-                        <label className="block text-[10px] font-mono uppercase tracking-wider text-zinc-400 mb-1">
-                          Email Address
-                        </label>
-                        <input
-                          type="email"
-                          required
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          placeholder="director@handfilm.studio"
-                          className="w-full h-10 px-3 rounded bg-[#0B0B0D] border border-white/[0.14] focus:border-[#F59E0B] text-xs text-white font-mono outline-none"
-                        />
-                      </div>
+                      <input
+                        type="email"
+                        required
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="EMAIL ADDRESS"
+                        className="w-full h-11 px-3 rounded bg-[#0B0C10] border border-[#26282E] focus:border-amber-400 text-xs text-white font-mono outline-none"
+                      />
 
                       {emailAuthMode !== 'magic' && (
-                        <div>
-                          <label className="block text-[10px] font-mono uppercase tracking-wider text-zinc-400 mb-1">
-                            Password
-                          </label>
-                          <input
-                            type="password"
-                            required
-                            minLength={6}
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            placeholder="Minimum 6 characters"
-                            className="w-full h-10 px-3 rounded bg-[#0B0B0D] border border-white/[0.14] focus:border-[#F59E0B] text-xs text-white font-mono outline-none"
-                          />
-                        </div>
+                        <input
+                          type="password"
+                          required
+                          minLength={6}
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          placeholder="PASSWORD (MIN 6)"
+                          className="w-full h-11 px-3 rounded bg-[#0B0C10] border border-[#26282E] focus:border-amber-400 text-xs text-white font-mono outline-none"
+                        />
                       )}
 
                       {magicLinkSentTo && (
                         <div className="px-3 py-2 rounded bg-emerald-500/15 border border-emerald-500/40 text-[11px] font-mono text-emerald-300">
-                          Magic sign-in link sent to {magicLinkSentTo}. Check your inbox to continue.
+                          SENT: {magicLinkSentTo}
                         </div>
                       )}
 
@@ -558,19 +586,22 @@ export const OnboardingDownloadModal: React.FC<OnboardingDownloadModalProps> = (
                         </div>
                       )}
 
-                      <button
-                        type="submit"
-                        disabled={isLoading}
-                        className="w-full h-10 rounded bg-[#F59E0B] hover:bg-amber-400 disabled:opacity-60 text-[#0B0B0D] font-black text-xs tracking-[0.12em] uppercase cursor-pointer transition-colors touch-manipulation"
+                      <CinemaToolHUD
+                        title="SUBMIT CREDENTIALS"
+                        en="Authenticate or start your free studio trial."
+                        bn="কীভাবে ব্যবহার করবেন: তথ্য পূরণ করে CONTINUE বাটনে চাপুন।"
+                        accent="amber"
+                        blockWrapper
                       >
-                        {isLoading
-                          ? 'Authenticating...'
-                          : emailAuthMode === 'magic'
-                            ? 'Send Magic Link'
-                            : emailAuthMode === 'signup'
-                              ? 'Create Free Account & Continue'
-                              : 'Sign In & Continue'}
-                      </button>
+                        <button
+                          type="submit"
+                          disabled={isLoading}
+                          data-active="true"
+                          className="cinema-tile cinema-tile-amber w-full min-h-[44px] rounded font-black text-xs tracking-wider uppercase cursor-pointer"
+                        >
+                          {isLoading ? 'WAIT...' : emailAuthMode === 'magic' ? 'SEND LINK' : 'CONTINUE'}
+                        </button>
+                      </CinemaToolHUD>
                     </form>
                   )}
 
@@ -582,278 +613,226 @@ export const OnboardingDownloadModal: React.FC<OnboardingDownloadModalProps> = (
                 </div>
               )}
 
-              <div className="pt-3 border-t border-white/[0.08] flex items-center justify-between text-[10px] font-mono text-zinc-500">
-                <span className="flex items-center gap-1.5">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Supabase Auth &amp; Server Clock Protected</span>
+              <div className="pt-3 border-t border-[#26282E] flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-zinc-500">
+                <span className="flex items-center gap-1.5 text-emerald-400">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>SYNC READY</span>
                 </span>
-                <span className="uppercase">{deviceInfo.platform}</span>
+                <span>{deviceInfo.platform}</span>
               </div>
             </div>
           </div>
         )}
 
-        {/* STEP 2 — CHOOSE YOUR PLAN (4-TIER PRICING GRID) */}
+        {/* STEP 2 — STUDIO PLAN */}
         {step === 2 && (
           <div className="p-4 sm:p-6 space-y-5">
-            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
-              <div>
-                <h2 className="font-space-grotesk text-xl sm:text-2xl font-black tracking-tight text-white">
-                  Choose Your Studio Plan
-                </h2>
-                <p className="text-xs font-mono text-zinc-400 mt-1">
-                  Signed in as <span className="text-zinc-200">{license?.email || 'Creator'}</span> · Switch or cancel anytime
-                </p>
-              </div>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <CinemaBadgeHeader
+                icon={<Zap className="w-4 h-4" strokeWidth={2.2} />}
+                label="STUDIO PLANS"
+                accent="amber"
+              />
 
-              {/* Monthly / Yearly Toggle */}
-              <div className="inline-flex items-center gap-1 p-1 rounded bg-[#141417] border border-white/[0.1] self-start sm:self-auto font-mono">
-                <button
-                  type="button"
-                  onClick={() => setBillingCycle('monthly')}
-                  className={`px-3 py-1.5 rounded-[3px] text-[11px] font-bold uppercase cursor-pointer transition-colors touch-manipulation ${
-                    billingCycle === 'monthly'
-                      ? 'bg-[#F59E0B] text-[#0B0B0D]'
-                      : 'text-zinc-400 hover:text-white'
-                  }`}
+              <div className="inline-flex items-center gap-1.5 p-1 rounded bg-[#111215] border border-[#26282E] font-mono">
+                <CinemaToolHUD
+                  title="MONTHLY BILLING"
+                  en="Switch plan pricing view to monthly billing."
+                  bn="কীভাবে ব্যবহার করবেন: মাসিক প্যাকেজ রেট দেখতে MONTHLY চাপুন।"
+                  accent="amber"
                 >
-                  Monthly
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setBillingCycle('annual')}
-                  className={`px-3 py-1.5 rounded-[3px] text-[11px] font-bold uppercase flex items-center gap-1.5 cursor-pointer transition-colors touch-manipulation ${
-                    billingCycle === 'annual'
-                      ? 'bg-[#F59E0B] text-[#0B0B0D]'
-                      : 'text-zinc-400 hover:text-white'
-                  }`}
-                >
-                  <span>Yearly</span>
-                  <span
-                    className={`text-[9px] font-black px-1 rounded ${
-                      billingCycle === 'annual' ? 'bg-black/20 text-black' : 'text-emerald-400'
-                    }`}
+                  <button
+                    type="button"
+                    data-active={billingCycle === 'monthly' ? 'true' : 'false'}
+                    onClick={() => setBillingCycle('monthly')}
+                    className="cinema-tile cinema-tile-amber px-3 py-2 min-h-[40px] rounded text-[10px] font-black uppercase cursor-pointer"
                   >
-                    -20%
-                  </span>
-                </button>
+                    MONTHLY
+                  </button>
+                </CinemaToolHUD>
+
+                <CinemaToolHUD
+                  title="YEARLY BILLING (-20%)"
+                  en="Save 20% with annual billing across Pro, Ultra, and Teams."
+                  bn="কীভাবে ব্যবহার করবেন: ২০% ডিসকাউন্টে বার্ষিক রেট দেখতে YEARLY -20% চাপুন।"
+                  accent="emerald"
+                >
+                  <button
+                    type="button"
+                    data-active={billingCycle === 'annual' ? 'true' : 'false'}
+                    onClick={() => setBillingCycle('annual')}
+                    className="cinema-tile cinema-tile-emerald px-3 py-2 min-h-[40px] rounded text-[10px] font-black uppercase flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <span>YEARLY -20%</span>
+                  </button>
+                </CinemaToolHUD>
               </div>
             </div>
 
-            {/* 4-Tier Pricing Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 items-stretch">
-              {/* Tier 1: FREE / 30-DAY TRIAL */}
-              <div className="flex flex-col justify-between p-4 rounded-md bg-[#141417] border border-white/[0.1]">
+              {/* FREE / TRIAL */}
+              <div className="flex flex-col justify-between p-4 rounded-md bg-[#111215] border border-[#26282E] gap-4">
                 <div className="space-y-3">
-                  <div>
-                    <div className="text-[11px] font-mono font-bold uppercase tracking-wider text-zinc-400">
-                      For Solo Storytellers
-                    </div>
-                    <h3 className="font-space-grotesk text-base font-black text-white mt-0.5">
-                      FREE / 30-DAY TRIAL
-                    </h3>
-                  </div>
-
+                  <CinemaBadgeHeader
+                    icon={<Check className="w-3.5 h-3.5" strokeWidth={2.2} />}
+                    label="30D TRIAL"
+                    accent="emerald"
+                  />
                   <div className="flex items-baseline gap-1.5 tabular-nums">
                     <span className="text-3xl font-black text-white">$0</span>
-                    <span className="text-xs font-mono text-zinc-400">/ month</span>
+                    <span className="text-[10px] font-black uppercase text-zinc-400">/ MO</span>
                   </div>
-
-                  <ul className="space-y-2 pt-2 border-t border-white/[0.08] text-xs text-zinc-300">
-                    <li className="flex items-start gap-2">
-                      <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
-                      <span>Basic &amp; core NLE timeline tools</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
-                      <span>1080p MP4 &amp; XML/PDF export</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
-                      <span>Full 30-day studio trial unlocked</span>
-                    </li>
-                  </ul>
+                  <div className="space-y-1.5 pt-2 border-t border-[#26282E] text-[10px] font-black uppercase text-zinc-300">
+                    <div className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-emerald-400" /><span>CORE NLE</span></div>
+                    <div className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-emerald-400" /><span>1080P MP4</span></div>
+                    <div className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-emerald-400" /><span>30D FULL</span></div>
+                  </div>
                 </div>
 
-                <button
-                  type="button"
-                  data-testid="plan-trial-btn"
-                  disabled={isLoading}
-                  onClick={handleStartTrialTier}
-                  className="mt-5 w-full h-11 rounded bg-white hover:bg-zinc-200 text-[#0B0B0D] font-space-grotesk font-black text-xs tracking-wider uppercase cursor-pointer transition-colors touch-manipulation"
+                <CinemaToolHUD
+                  title="ACTIVATE FREE TRIAL"
+                  en="Unlock the full 30-day studio trial with core NLE and 1080p export."
+                  bn="কীভাবে ব্যবহার করবেন: ফ্রি ৩০ দিনের ট্রায়াল চালু করতে START FREE চাপুন।"
+                  accent="emerald"
+                  blockWrapper
                 >
-                  Get started
-                </button>
+                  <button
+                    type="button"
+                    data-testid="plan-trial-btn"
+                    disabled={isLoading}
+                    onClick={handleStartTrialTier}
+                    data-active="true"
+                    className="cinema-tile cinema-tile-emerald w-full min-h-[44px] rounded font-black text-[11px] tracking-wider uppercase cursor-pointer"
+                  >
+                    START FREE
+                  </button>
+                </CinemaToolHUD>
               </div>
 
-              {/* Tier 2: PRO */}
-              <div
-                className={`flex flex-col justify-between p-4 rounded-md bg-[#141417] border transition-colors ${
-                  pendingUpgradeTier === 'pro' ? 'border-cyan-400' : 'border-white/[0.12]'
-                }`}
-              >
+              {/* PRO */}
+              <div className="flex flex-col justify-between p-4 rounded-md bg-[#111215] border border-cyan-500/40 gap-4">
                 <div className="space-y-3">
-                  <div>
-                    <div className="text-[11px] font-mono font-bold uppercase tracking-wider text-cyan-400">
-                      For Filmmakers &amp; Editors
-                    </div>
-                    <h3 className="font-space-grotesk text-base font-black text-white mt-0.5">
-                      PRO
-                    </h3>
-                  </div>
-
+                  <CinemaBadgeHeader
+                    icon={<Zap className="w-3.5 h-3.5" strokeWidth={2.2} />}
+                    label="PRO"
+                    accent="cyan"
+                  />
                   <div className="tabular-nums">
                     <div className="flex items-baseline gap-1.5">
                       <span className="text-3xl font-black text-white">{proPrice}</span>
-                      <span className="text-xs font-mono text-zinc-400">/ month</span>
+                      <span className="text-[10px] font-black uppercase text-zinc-400">/ MO</span>
                     </div>
-                    <div className="text-[11px] font-mono text-cyan-300/90 mt-0.5">
-                      or {proBdtPrice}/mo {billingCycle === 'annual' ? '(৳14,300/yr · $191/yr)' : 'BDT'}
-                    </div>
+                    <div className="text-[11px] font-mono text-cyan-300 mt-0.5">{proBdtPrice}/MO</div>
                   </div>
-
-                  <ul className="space-y-2 pt-2 border-t border-white/[0.08] text-xs text-zinc-300">
-                    <li className="flex items-start gap-2">
-                      <Check className="w-3.5 h-3.5 text-cyan-400 shrink-0 mt-0.5" />
-                      <span>4K RAW 16-bit master export</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <Check className="w-3.5 h-3.5 text-cyan-400 shrink-0 mt-0.5" />
-                      <span>AI Audio Studio &amp; Voice Remover</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <Check className="w-3.5 h-3.5 text-cyan-400 shrink-0 mt-0.5" />
-                      <span>34 Light Rigs &amp; unlimited cloud sync</span>
-                    </li>
-                  </ul>
+                  <div className="space-y-1.5 pt-2 border-t border-[#26282E] text-[10px] font-black uppercase text-zinc-300">
+                    <div className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-cyan-400" /><span>4K 16-BIT</span></div>
+                    <div className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-cyan-400" /><span>AI AUDIO</span></div>
+                    <div className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-cyan-400" /><span>34 LIGHT RIGS</span></div>
+                  </div>
                 </div>
 
-                <button
-                  type="button"
-                  data-testid="plan-pro-btn"
-                  disabled={isLoading}
-                  onClick={() => handleSelectPaidTier('pro')}
-                  className="mt-5 w-full h-11 rounded bg-cyan-400 hover:bg-cyan-300 text-[#0B0B0D] font-space-grotesk font-black text-xs tracking-wider uppercase cursor-pointer transition-colors touch-manipulation"
+                <CinemaToolHUD
+                  title="UPGRADE TO PRO"
+                  en="Unlock 4K RAW 16-bit export, AI Audio Studio, and 34 Light Rigs."
+                  bn="কীভাবে ব্যবহার করবেন: প্রো ফিচার আনলক করতে UPGRADE PRO চাপুন।"
+                  accent="cyan"
+                  blockWrapper
                 >
-                  Upgrade
-                </button>
+                  <button
+                    type="button"
+                    data-testid="plan-pro-btn"
+                    disabled={isLoading}
+                    onClick={() => handleSelectPaidTier('pro')}
+                    data-active="true"
+                    className="cinema-tile cinema-tile-cyan w-full min-h-[44px] rounded font-black text-[11px] tracking-wider uppercase cursor-pointer"
+                  >
+                    UPGRADE PRO
+                  </button>
+                </CinemaToolHUD>
               </div>
 
-              {/* Tier 3: ULTRA (Most Popular) */}
-              <div
-                className={`relative flex flex-col justify-between p-4 rounded-md bg-[#17140E] border transition-colors ${
-                  pendingUpgradeTier === 'ultra' ? 'border-amber-300 shadow-[0_0_28px_rgba(245,158,11,0.22)]' : 'border-[#F59E0B]/75'
-                }`}
-              >
+              {/* ULTRA */}
+              <div className="flex flex-col justify-between p-4 rounded-md bg-[#111215] border border-amber-500/70 gap-4">
                 <div className="space-y-3">
-                  <div>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#F59E0B]">
-                        Most Popular
-                      </span>
-                      <Sparkles className="w-3.5 h-3.5 text-[#F59E0B]" />
-                    </div>
-                    <h3 className="font-space-grotesk text-base font-black text-white mt-0.5 flex items-center gap-1.5">
-                      <span>ULTRA</span>
-                    </h3>
-                  </div>
-
+                  <CinemaBadgeHeader
+                    icon={<Sparkles className="w-3.5 h-3.5" strokeWidth={2.2} />}
+                    label="ULTRA"
+                    accent="amber"
+                  />
                   <div className="tabular-nums">
                     <div className="flex items-baseline gap-1.5">
                       <span className="text-3xl font-black text-white">{ultraPrice}</span>
-                      <span className="text-xs font-mono text-zinc-400">/ month</span>
+                      <span className="text-[10px] font-black uppercase text-zinc-400">/ MO</span>
                     </div>
-                    <div className="text-[11px] font-mono text-amber-300/90 mt-0.5">
-                      or {ultraBdtPrice}/mo {billingCycle === 'annual' ? '(৳28,700/yr · $383/yr)' : 'BDT'}
-                    </div>
+                    <div className="text-[11px] font-mono text-amber-300 mt-0.5">{ultraBdtPrice}/MO</div>
                   </div>
-
-                  <ul className="space-y-2 pt-2 border-t border-white/[0.1] text-xs text-zinc-200">
-                    <li className="flex items-start gap-2">
-                      <Check className="w-3.5 h-3.5 text-[#F59E0B] shrink-0 mt-0.5" />
-                      <span>Everything in Pro Studio</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <Check className="w-3.5 h-3.5 text-[#F59E0B] shrink-0 mt-0.5" />
-                      <span>AI Video &amp; Image generation credits</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <Check className="w-3.5 h-3.5 text-[#F59E0B] shrink-0 mt-0.5" />
-                      <span>Priority rendering &amp; custom LUTs</span>
-                    </li>
-                  </ul>
+                  <div className="space-y-1.5 pt-2 border-t border-[#26282E] text-[10px] font-black uppercase text-zinc-200">
+                    <div className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-amber-400" /><span>ALL PRO</span></div>
+                    <div className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-amber-400" /><span>AI VIDEO</span></div>
+                    <div className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-amber-400" /><span>FAST RENDER</span></div>
+                  </div>
                 </div>
 
-                <button
-                  type="button"
-                  data-testid="plan-ultra-btn"
-                  disabled={isLoading}
-                  onClick={() => handleSelectPaidTier('ultra')}
-                  className="mt-5 w-full h-11 rounded bg-[#F59E0B] hover:bg-amber-400 text-[#0B0B0D] font-space-grotesk font-black text-xs tracking-wider uppercase cursor-pointer transition-colors shadow-[0_0_20px_rgba(245,158,11,0.3)] touch-manipulation"
+                <CinemaToolHUD
+                  title="UPGRADE TO ULTRA"
+                  en="All Pro features plus AI Video generation credits and priority rendering."
+                  bn="কীভাবে ব্যবহার করবেন: আল্ট্রা প্ল্যানে আপগ্রেড করতে UPGRADE চাপুন।"
+                  accent="amber"
+                  blockWrapper
                 >
-                  Upgrade
-                </button>
+                  <button
+                    type="button"
+                    data-testid="plan-ultra-btn"
+                    disabled={isLoading}
+                    onClick={() => handleSelectPaidTier('ultra')}
+                    data-active="true"
+                    className="cinema-tile cinema-tile-amber w-full min-h-[44px] rounded font-black text-[11px] tracking-wider uppercase cursor-pointer"
+                  >
+                    UPGRADE
+                  </button>
+                </CinemaToolHUD>
               </div>
 
-              {/* Tier 4: TEAMS */}
-              <div
-                className={`flex flex-col justify-between p-4 rounded-md bg-[#141417] border transition-colors ${
-                  pendingUpgradeTier === 'teams' ? 'border-emerald-400' : 'border-white/[0.12]'
-                }`}
-              >
+              {/* TEAMS */}
+              <div className="flex flex-col justify-between p-4 rounded-md bg-[#111215] border border-emerald-500/40 gap-4">
                 <div className="space-y-3">
-                  <div>
-                    <div className="flex items-center justify-between gap-2 text-[11px] font-mono font-bold uppercase tracking-wider text-emerald-400">
-                      <span>For Production Houses</span>
-                      <Users className="w-3.5 h-3.5" />
-                    </div>
-                    <h3 className="font-space-grotesk text-base font-black text-white mt-0.5">
-                      TEAMS
-                    </h3>
-                  </div>
-
+                  <CinemaBadgeHeader
+                    icon={<Users className="w-3.5 h-3.5" strokeWidth={2.2} />}
+                    label="TEAMS"
+                    accent="emerald"
+                  />
                   <div className="tabular-nums">
                     <div className="flex items-baseline gap-1.5">
                       <span className="text-3xl font-black text-white">{teamsPrice}</span>
-                      <span className="text-xs font-mono text-zinc-400">/ seat / mo</span>
+                      <span className="text-[10px] font-black uppercase text-zinc-400">/ SEAT</span>
                     </div>
-                    <div className="text-[11px] font-mono text-emerald-300/90 mt-0.5">
-                      or {teamsBdtPrice}/seat {billingCycle === 'annual' ? '(৳11,400/yr · $143/yr)' : 'BDT'}
-                    </div>
+                    <div className="text-[11px] font-mono text-emerald-300 mt-0.5">{teamsBdtPrice}/SEAT</div>
                   </div>
-
-                  <ul className="space-y-2 pt-2 border-t border-white/[0.08] text-xs text-zinc-300">
-                    <li className="flex items-start gap-2">
-                      <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
-                      <span>Multi-seat NLE workspace</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
-                      <span>Shared storyboard projects</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
-                      <span>Shared team asset &amp; LUT library</span>
-                    </li>
-                  </ul>
+                  <div className="space-y-1.5 pt-2 border-t border-[#26282E] text-[10px] font-black uppercase text-zinc-300">
+                    <div className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-emerald-400" /><span>MULTI SEAT</span></div>
+                    <div className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-emerald-400" /><span>SHARED REELS</span></div>
+                    <div className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-emerald-400" /><span>TEAM LUTS</span></div>
+                  </div>
                 </div>
 
-                <button
-                  type="button"
-                  data-testid="plan-teams-btn"
-                  disabled={isLoading}
-                  onClick={() => handleSelectPaidTier('teams')}
-                  className="mt-5 w-full h-11 rounded bg-[#1E1E24] hover:bg-emerald-400 text-white hover:text-[#0B0B0D] border border-emerald-400/50 font-space-grotesk font-black text-xs tracking-wider uppercase cursor-pointer transition-colors touch-manipulation"
+                <CinemaToolHUD
+                  title="UPGRADE TO TEAMS"
+                  en="Multi-seat collaboration workspace with shared projects and LUT vault."
+                  bn="কীভাবে ব্যবহার করবেন: টিম লাইসেন্স নিতে TEAMS UPGRADE বাটনে চাপুন।"
+                  accent="emerald"
+                  blockWrapper
                 >
-                  Upgrade
-                </button>
+                  <button
+                    type="button"
+                    data-testid="plan-teams-btn"
+                    disabled={isLoading}
+                    onClick={() => handleSelectPaidTier('teams')}
+                    className="cinema-tile cinema-tile-emerald w-full min-h-[44px] rounded font-black text-[11px] tracking-wider uppercase cursor-pointer"
+                  >
+                    UPGRADE
+                  </button>
+                </CinemaToolHUD>
               </div>
-            </div>
-
-            {/* Multi-Gateway Notice */}
-            <div className="px-3.5 py-2.5 rounded bg-[#121216] border border-white/[0.08] flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-zinc-400">
-              <span>Supported gateways: bKash · Nagad · Manual TrxID (BDT ৳) &amp; PayPal (USD $)</span>
-              <span className="text-[#F59E0B] font-bold">Instant Auto-Upgrade</span>
             </div>
 
             {error && (
@@ -867,147 +846,159 @@ export const OnboardingDownloadModal: React.FC<OnboardingDownloadModalProps> = (
               </div>
             )}
 
-            <div className="pt-2 border-t border-white/[0.08] flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-zinc-400">
-              <span>Basic editing, cutting, 1080p &amp; XML/PDF exports remain free after trial.</span>
-              <button
-                type="button"
-                onClick={() => setStep(3)}
-                className="text-zinc-200 hover:text-[#F59E0B] font-bold flex items-center gap-1 cursor-pointer touch-manipulation"
+            <div className="pt-2 border-t border-[#26282E] flex flex-wrap items-center justify-between gap-2 text-[10px] font-black uppercase text-zinc-400">
+              <span>BKASH · NAGAD · PAYPAL</span>
+              <CinemaToolHUD
+                title="SKIP TO DOWNLOADS"
+                en="Jump to Windows, Android, and Web Studio launcher."
+                bn="কীভাবে ব্যবহার করবেন: সরাসরি ডাউনলোড পেজে যেতে DOWNLOADS চাপুন।"
+                accent="amber"
               >
-                <span>Go to Downloads</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setStep(3)}
+                  className="cinema-tile cinema-tile-amber px-3 py-2 min-h-[40px] rounded flex items-center gap-1.5 cursor-pointer"
+                >
+                  <span>DOWNLOADS</span>
+                  <ArrowRight className="w-3.5 h-3.5 cinema-tile-icon" />
+                </button>
+              </CinemaToolHUD>
             </div>
           </div>
         )}
 
         {/* STEP 3 — DIRECT PLATFORM DOWNLOAD HUB */}
         {step === 3 && (
-          <div className="p-5 sm:p-7 space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-white/[0.08]">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 text-emerald-400 font-mono text-xs font-bold uppercase tracking-wider">
-                  <CheckCircle2 className="w-4 h-4 shrink-0" />
-                  <span className="tabular-nums">{activeTierDisplay}</span>
-                </div>
-                <h2 className="font-space-grotesk text-xl sm:text-2xl font-black tracking-tight text-white">
-                  Your HandFilm Studio Account is Ready!
-                </h2>
+          <div className="p-5 sm:p-7 space-y-5">
+            <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[#26282E]">
+              <div className="flex items-center gap-2 text-emerald-400 font-black text-xs uppercase tracking-wider">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span className="tabular-nums">{activeTierDisplay}</span>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setStep(2)}
-                className="self-start sm:self-auto px-3 py-1.5 rounded border border-white/[0.14] bg-[#141417] hover:border-white/30 text-[11px] font-mono font-bold text-zinc-300 hover:text-white cursor-pointer touch-manipulation shrink-0"
+              <CinemaToolHUD
+                title="CHANGE PLAN"
+                en="Return to Step 2 to switch or upgrade your studio plan."
+                bn="কীভাবে ব্যবহার করবেন: প্ল্যান পরিবর্তন করতে PLANS বাটনে চাপুন।"
+                accent="amber"
               >
-                Change Plan
-              </button>
-            </div>
-
-            {/* 3 Direct Platform Cards: Windows, Android, Web Studio */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
-              {/* 1. Windows Desktop (.exe) */}
-              <div className="flex flex-col justify-between p-4 sm:p-5 rounded-md bg-[#141417] border border-white/[0.1] hover:border-[#F59E0B]/50 transition-colors">
-                <div className="space-y-2.5">
-                  <div className="w-10 h-10 rounded bg-[#F59E0B]/15 border border-[#F59E0B]/40 flex items-center justify-center text-[#F59E0B]">
-                    <Monitor className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-space-grotesk text-sm font-black text-white uppercase tracking-wide">
-                      Windows Desktop (.exe)
-                    </h3>
-                    <p className="text-[11px] font-mono text-zinc-400 mt-1 tabular-nums">
-                      Windows 10/11 64-Bit · {formatBytes(winArtifact.sizeBytes)}
-                    </p>
-                  </div>
-                  <p className="text-xs text-zinc-300 leading-relaxed">
-                    Hardware-accelerated 60FPS workstation installer with offline GPU rendering and OPFS media caching.
-                  </p>
-                </div>
-
-                <a
-                  href="/downloads/HandFilm-Studio-Setup.exe"
-                  download="HandFilm-Studio-Setup.exe"
-                  data-testid="step3-download-exe"
-                  onClick={() => setDownloadedFile('HandFilm-Studio-Setup.exe')}
-                  className="mt-5 w-full h-11 rounded bg-[#F59E0B] hover:bg-amber-400 text-[#0B0B0D] font-space-grotesk font-black text-xs tracking-wider uppercase flex items-center justify-center gap-2 cursor-pointer transition-colors touch-manipulation"
-                >
-                  <Download className="w-4 h-4 shrink-0" />
-                  <span>Download .EXE</span>
-                </a>
-              </div>
-
-              {/* 2. Android App (.apk) */}
-              <div className="flex flex-col justify-between p-4 sm:p-5 rounded-md bg-[#141417] border border-white/[0.1] hover:border-cyan-400/50 transition-colors">
-                <div className="space-y-2.5">
-                  <div className="w-10 h-10 rounded bg-cyan-500/15 border border-cyan-400/40 flex items-center justify-center text-cyan-300">
-                    <Smartphone className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-space-grotesk text-sm font-black text-white uppercase tracking-wide">
-                      Android App (.apk)
-                    </h3>
-                    <p className="text-[11px] font-mono text-zinc-400 mt-1 tabular-nums">
-                      Android 10+ ARM64 · {formatBytes(androidArtifact.sizeBytes)}
-                    </p>
-                  </div>
-                  <p className="text-xs text-zinc-300 leading-relaxed">
-                    Capacitor-ready mobile NLE with touch timeline scrubbing, long-press drag reorder, and pinch stage zoom.
-                  </p>
-                </div>
-
-                <a
-                  href="/downloads/HandFilm-Studio.apk"
-                  download="HandFilm-Studio.apk"
-                  data-testid="step3-download-apk"
-                  onClick={() => setDownloadedFile('HandFilm-Studio.apk')}
-                  className="mt-5 w-full h-11 rounded bg-cyan-400 hover:bg-cyan-300 text-[#0B0B0D] font-space-grotesk font-black text-xs tracking-wider uppercase flex items-center justify-center gap-2 cursor-pointer transition-colors touch-manipulation"
-                >
-                  <Download className="w-4 h-4 shrink-0" />
-                  <span>Download .APK</span>
-                </a>
-              </div>
-
-              {/* 3. Web Studio */}
-              <div className="flex flex-col justify-between p-4 sm:p-5 rounded-md bg-[#141417] border border-emerald-500/40 hover:border-emerald-400 transition-colors">
-                <div className="space-y-2.5">
-                  <div className="w-10 h-10 rounded bg-emerald-500/15 border border-emerald-400/40 flex items-center justify-center text-emerald-300">
-                    <Globe className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-space-grotesk text-sm font-black text-white uppercase tracking-wide">
-                      Web Studio
-                    </h3>
-                    <p className="text-[11px] font-mono text-zinc-400 mt-1">
-                      Instant Browser NLE · Zero Install
-                    </p>
-                  </div>
-                  <p className="text-xs text-zinc-300 leading-relaxed">
-                    Launch the complete multi-track storyboard, AI image/video generation, and WebCodecs 4K export workspace directly.
-                  </p>
-                </div>
-
                 <button
                   type="button"
-                  data-testid="step3-launch-web"
-                  onClick={handleLaunchWebStudio}
-                  className="mt-5 w-full h-11 rounded bg-emerald-400 hover:bg-emerald-300 text-[#0B0B0D] font-space-grotesk font-black text-xs tracking-wider uppercase flex items-center justify-center gap-2 cursor-pointer transition-colors touch-manipulation"
+                  onClick={() => setStep(2)}
+                  className="cinema-tile cinema-tile-amber px-3 py-2 min-h-[44px] rounded text-[10px] font-black uppercase cursor-pointer shrink-0"
                 >
-                  <Zap className="w-4 h-4 fill-current shrink-0" />
-                  <span>Launch Web Studio Now</span>
+                  CHANGE PLAN
                 </button>
+              </CinemaToolHUD>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
+              <div className="flex flex-col justify-between p-4 rounded-md bg-[#111215] border border-[#26282E] gap-4">
+                <div className="space-y-2">
+                  <CinemaBadgeHeader
+                    icon={<Monitor className="w-4 h-4" strokeWidth={2.2} />}
+                    label="WINDOWS .EXE"
+                    accent="amber"
+                  />
+                  <div className="text-[11px] font-black text-zinc-400 tabular-nums">
+                    WIN 64-BIT · {formatBytes(winArtifact.sizeBytes)}
+                  </div>
+                </div>
+
+                <CinemaToolHUD
+                  title="WINDOWS DESKTOP (.EXE)"
+                  en="64-bit hardware-accelerated workstation installer with offline GPU rendering."
+                  bn="কীভাবে ব্যবহার করবেন: উইন্ডোজ পিসিতে ইন্সটল করতে GET .EXE বাটনে চাপুন।"
+                  accent="amber"
+                  blockWrapper
+                >
+                  <a
+                    href="/downloads/HandFilm-Studio-Setup.exe"
+                    download="HandFilm-Studio-Setup.exe"
+                    data-testid="step3-download-exe"
+                    data-active="true"
+                    onClick={() => setDownloadedFile('HandFilm-Studio-Setup.exe')}
+                    className="cinema-tile cinema-tile-amber w-full min-h-[44px] rounded font-black text-xs tracking-wider uppercase flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Download className="w-4 h-4 cinema-tile-icon shrink-0" />
+                    <span>GET .EXE</span>
+                  </a>
+                </CinemaToolHUD>
+              </div>
+
+              <div className="flex flex-col justify-between p-4 rounded-md bg-[#111215] border border-[#26282E] gap-4">
+                <div className="space-y-2">
+                  <CinemaBadgeHeader
+                    icon={<Smartphone className="w-4 h-4" strokeWidth={2.2} />}
+                    label="ANDROID .APK"
+                    accent="cyan"
+                  />
+                  <div className="text-[11px] font-black text-zinc-400 tabular-nums">
+                    ARM64 · {formatBytes(androidArtifact.sizeBytes)}
+                  </div>
+                </div>
+
+                <CinemaToolHUD
+                  title="ANDROID STUDIO (.APK)"
+                  en="Mobile 60fps touch NLE with timeline scrubbing and pinch zoom."
+                  bn="কীভাবে ব্যবহার করবেন: অ্যান্ড্রয়েড ফোনে অ্যাপ ডাউনলোড করতে GET .APK চাপুন।"
+                  accent="cyan"
+                  blockWrapper
+                >
+                  <a
+                    href="/downloads/HandFilm-Studio.apk"
+                    download="HandFilm-Studio.apk"
+                    data-testid="step3-download-apk"
+                    data-active="true"
+                    onClick={() => setDownloadedFile('HandFilm-Studio.apk')}
+                    className="cinema-tile cinema-tile-cyan w-full min-h-[44px] rounded font-black text-xs tracking-wider uppercase flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Download className="w-4 h-4 cinema-tile-icon shrink-0" />
+                    <span>GET .APK</span>
+                  </a>
+                </CinemaToolHUD>
+              </div>
+
+              <div className="flex flex-col justify-between p-4 rounded-md bg-[#111215] border border-emerald-500/40 gap-4">
+                <div className="space-y-2">
+                  <CinemaBadgeHeader
+                    icon={<Globe className="w-4 h-4" strokeWidth={2.2} />}
+                    label="WEB STUDIO"
+                    accent="emerald"
+                  />
+                  <div className="text-[11px] font-black text-zinc-400 uppercase">
+                    ZERO INSTALL
+                  </div>
+                </div>
+
+                <CinemaToolHUD
+                  title="LAUNCH WEB STUDIO"
+                  en="Open the complete multi-track browser NLE and 4K exporter immediately."
+                  bn="কীভাবে ব্যবহার করবেন: ব্রাউজারে সরাসরি এডিটর চালু করতে LAUNCH WEB চাপুন।"
+                  accent="emerald"
+                  blockWrapper
+                >
+                  <button
+                    type="button"
+                    data-testid="step3-launch-web"
+                    data-active="true"
+                    onClick={handleLaunchWebStudio}
+                    className="cinema-tile cinema-tile-emerald w-full min-h-[44px] rounded font-black text-xs tracking-wider uppercase flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Zap className="w-4 h-4 cinema-tile-icon fill-current shrink-0" />
+                    <span>LAUNCH WEB</span>
+                  </button>
+                </CinemaToolHUD>
               </div>
             </div>
 
-            <div className="pt-3 border-t border-white/[0.08] flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-zinc-400">
-              <span className="flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Signed packages · AI calls authenticated via backend proxy</span>
+            <div className="pt-3 border-t border-[#26282E] flex flex-wrap items-center justify-between gap-2 text-[10px] font-black uppercase text-zinc-400">
+              <span className="flex items-center gap-1.5 text-emerald-400">
+                <ShieldCheck className="w-4 h-4 shrink-0" />
+                <span>SIGNED BUILDS</span>
               </span>
               {downloadedFile && (
-                <span className="text-emerald-400 font-bold">
-                  Downloading: {downloadedFile}
-                </span>
+                <span className="text-emerald-400">{downloadedFile}</span>
               )}
             </div>
           </div>

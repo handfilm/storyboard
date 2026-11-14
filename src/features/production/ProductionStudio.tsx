@@ -19,6 +19,7 @@ import {
   MapPin, 
   CheckSquare 
 } from 'lucide-react';
+import { CinemaToolHUD, CinemaBadgeHeader } from '../../components/ui/CinemaToolHUD';
 
 export const ProductionStudio: React.FC = () => {
   const {
@@ -61,35 +62,57 @@ export const ProductionStudio: React.FC = () => {
   return (
     <div className="w-full h-full flex flex-col bg-[#050505] text-[#EDEDED] font-mono select-none overflow-hidden">
       {/* Production Header */}
-      <div className="h-12 border-b border-[#D4AF37]/20 bg-[#0B0B0B] px-4 flex items-center justify-between text-xs shrink-0">
-        <div className="flex items-center gap-2">
-          <FileSpreadsheet className="w-4 h-4 text-[#D4AF37]" />
-          <span className="font-bold text-[#FFE066]">HOLLYWOOD PRODUCTION STUDIO</span>
-          <span className="text-[#8A8A8A]">| {project.title}</span>
+      <div className="h-14 border-b border-[#D4AF37]/20 bg-[#0B0B0B] px-4 flex items-center justify-between gap-2 text-xs shrink-0 overflow-x-auto no-scrollbar">
+        <div className="flex items-center gap-2 shrink-0">
+          <CinemaBadgeHeader icon={<FileSpreadsheet className="w-3.5 h-3.5" />} label="PROD STUDIO" accent="amber" />
+          <span className="text-[10px] font-black tracking-wider uppercase text-zinc-500 hidden md:inline">{project.title}</span>
         </div>
 
         {/* Tab Switcher */}
-        <div className="flex items-center gap-1 bg-[#121212] p-1 rounded border border-[#D4AF37]/20">
-          {(['schedule', 'breakdown', 'budget', 'callsheet'] as const).map(tab => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-3 py-1 rounded text-xs capitalize transition-colors ${
-                activeTab === tab ? 'bg-[#D4AF37] text-black font-bold' : 'text-[#8A8A8A] hover:text-[#EDEDED]'
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {([
+            { id: 'schedule', label: 'SCHEDULE', icon: Calendar, en: 'Multi-day shoot schedule blocks & page counts', bn: 'কীভাবে ব্যবহার করবেন: দিনের শুটিং ব্লক ও শট তালিকা দেখতে চাপুন।' },
+            { id: 'breakdown', label: 'BREAKDOWN', icon: Users, en: 'Scene cast, props, wardrobe, vehicles & VFX breakdown', bn: 'কীভাবে ব্যবহার করবেন: কাস্ট, প্রপস ও ভিএফএক্স ব্রেকডাউন শীট দেখতে চাপুন।' },
+            { id: 'budget', label: 'BUDGET', icon: DollarSign, en: 'Multi-currency production budget estimator', bn: 'কীভাবে ব্যবহার করবেন: প্রোডাকশন বাজেট ও কারেন্সি হিসাব দেখতে চাপুন।' },
+            { id: 'callsheet', label: 'CALLSHEET', icon: CheckSquare, en: 'Print-ready daily crew & cast call sheet', bn: 'কীভাবে ব্যবহার করবেন: শুটিংয়ের ডেইলি কল-শীট প্রিন্ট বা দেখতে চাপুন।' }
+          ] as const).map(tab => {
+            const TabIcon = tab.icon;
+            const active = activeTab === tab.id;
+            return (
+              <CinemaToolHUD
+                key={tab.id}
+                title={tab.label}
+                en={tab.en}
+                bn={tab.bn}
+                accent="amber"
+              >
+                <button
+                  onClick={() => setActiveTab(tab.id)}
+                  data-active={active ? 'true' : 'false'}
+                  className="cinema-tile cinema-tile-amber px-3 py-1.5 min-h-[36px] flex items-center gap-1.5 cursor-pointer"
+                >
+                  <TabIcon className="w-3.5 h-3.5" strokeWidth={2.2} />
+                  <span className="font-black tracking-wider text-[10px] sm:text-[11px] uppercase">{tab.label}</span>
+                </button>
+              </CinemaToolHUD>
+            );
+          })}
         </div>
 
-        <button
-          onClick={handlePrintCallSheet}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#121212] hover:bg-[#D4AF37] hover:text-black border border-[#D4AF37]/30 rounded text-xs transition-colors"
+        <CinemaToolHUD
+          title="PRINT CALLSHEET PDF"
+          en="Open system print or save-as-PDF dialog for the active production view"
+          bn="কীভাবে ব্যবহার করবেন: কল-শীট বা প্রোডাকশন শীট পিডিএফ হিসেবে প্রিন্ট করতে চাপুন।"
+          accent="cyan"
         >
-          <Printer className="w-3.5 h-3.5" />
-          <span>PRINT / PDF</span>
-        </button>
+          <button
+            onClick={handlePrintCallSheet}
+            className="cinema-tile cinema-tile-cyan px-3 py-1.5 min-h-[36px] flex items-center gap-1.5 cursor-pointer shrink-0"
+          >
+            <Printer className="w-3.5 h-3.5" strokeWidth={2.2} />
+            <span className="font-black tracking-wider text-[10px] sm:text-[11px] uppercase">PRINT PDF</span>
+          </button>
+        </CinemaToolHUD>
       </div>
 
       {/* Main Production Workspace */}
@@ -98,8 +121,8 @@ export const ProductionStudio: React.FC = () => {
         {activeTab === 'schedule' && (
           <div className="flex flex-col gap-4 max-w-5xl mx-auto">
             <div className="flex items-center justify-between border-b border-[#D4AF37]/20 pb-2">
-              <h2 className="font-bold text-[#FFE066] text-sm">SHOOTING SCHEDULE // 3-DAY BLOCK</h2>
-              <span className="text-xs text-[#8A8A8A]">TOTAL: 100 SHOTS ESTIMATED</span>
+              <CinemaBadgeHeader icon={<Clock className="w-3.5 h-3.5" />} label="3-DAY SCHEDULE" accent="amber" />
+              <span className="text-[10px] font-black tracking-wider uppercase text-zinc-400">100 SHOTS</span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -130,9 +153,9 @@ export const ProductionStudio: React.FC = () => {
         {/* TAB 2: SCENE BREAKDOWN SHEETS */}
         {activeTab === 'breakdown' && (
           <div className="flex flex-col gap-4 max-w-5xl mx-auto">
-            <h2 className="font-bold text-[#FFE066] text-sm border-b border-[#D4AF37]/20 pb-2">
-              SCENE & SHOT BREAKDOWN SHEETS
-            </h2>
+            <div className="border-b border-[#D4AF37]/20 pb-2">
+              <CinemaBadgeHeader icon={<Sparkles className="w-3.5 h-3.5" />} label="SCENE BREAKDOWN" accent="amber" />
+            </div>
             <div className="border border-[#D4AF37]/20 rounded-lg overflow-hidden">
               <table className="w-full text-left text-xs">
                 <thead className="bg-[#121212] text-[#FFE066] border-b border-[#D4AF37]/20">
@@ -165,18 +188,25 @@ export const ProductionStudio: React.FC = () => {
         {/* TAB 3: BUDGET ESTIMATOR */}
         {activeTab === 'budget' && (
           <div className="flex flex-col gap-4 max-w-5xl mx-auto">
-            <div className="flex items-center justify-between border-b border-[#D4AF37]/20 pb-2">
-              <h2 className="font-bold text-[#FFE066] text-sm">PRODUCTION BUDGET ESTIMATOR</h2>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-[#8A8A8A]">CURRENCY:</span>
+            <div className="flex items-center justify-between border-b border-[#D4AF37]/20 pb-2 gap-2 flex-wrap">
+              <CinemaBadgeHeader icon={<DollarSign className="w-3.5 h-3.5" />} label="BUDGET ESTIMATE" accent="emerald" />
+              <div className="flex items-center gap-1.5">
                 {(['BDT', 'USD', 'EUR', 'JPY'] as const).map(cur => (
-                  <button
+                  <CinemaToolHUD
                     key={cur}
-                    onClick={() => setCurrency(cur)}
-                    className={`px-2 py-0.5 rounded text-xs ${currency === cur ? 'bg-[#D4AF37] text-black font-bold' : 'text-[#8A8A8A]'}`}
+                    title={`CURRENCY: ${cur}`}
+                    en={`Convert all production line items to ${cur}`}
+                    bn={`কীভাবে ব্যবহার করবেন: পুরো বাজেটের হিসাব ${cur} মুদ্রায় দেখতে চাপুন।`}
+                    accent="emerald"
                   >
-                    {cur}
-                  </button>
+                    <button
+                      onClick={() => setCurrency(cur)}
+                      data-active={currency === cur ? 'true' : 'false'}
+                      className="cinema-tile cinema-tile-emerald px-2.5 py-1 min-h-[32px] font-black tracking-wider text-[10px] uppercase cursor-pointer"
+                    >
+                      {cur}
+                    </button>
+                  </CinemaToolHUD>
                 ))}
               </div>
             </div>

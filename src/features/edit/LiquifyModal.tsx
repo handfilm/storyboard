@@ -6,7 +6,8 @@
 
 import React, { useRef, useEffect, useState } from 'react';
 import { useStudioStore } from '../../core/store';
-import { X, Undo2, RotateCcw, Download, Check, Hand, CircleDot, Shrink, RefreshCw, Grid } from 'lucide-react';
+import { CinemaToolHUD, CinemaBadgeHeader } from '../../components/ui/CinemaToolHUD';
+import { X, Undo2, RotateCcw, Download, Check, Hand, CircleDot, Shrink, RefreshCw, Sparkles, Sliders, Maximize } from 'lucide-react';
 
 export const LiquifyModal: React.FC = () => {
   const {
@@ -21,7 +22,6 @@ export const LiquifyModal: React.FC = () => {
   const [tool, setTool] = useState<'push' | 'bloat' | 'pinch' | 'restore'>('push');
   const [radius, setRadius] = useState(65);
   const [intensity, setIntensity] = useState(35);
-  const [showGrid, setShowGrid] = useState(false);
   const [framingAspect, setFramingAspect] = useState<'16:9' | '1:1' | '4:5' | '2.39:1' | '9:16'>('16:9');
   const [historyStack, setHistoryStack] = useState<ImageData[]>([]);
 
@@ -35,7 +35,6 @@ export const LiquifyModal: React.FC = () => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Load active frame image or sample
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.src = project.shots[activeShotIndex]?.imageUrl || 
@@ -78,7 +77,6 @@ export const LiquifyModal: React.FC = () => {
     const currentX = (e.clientX - rect.left) * scaleX;
     const currentY = (e.clientY - rect.top) * scaleY;
 
-    // Direct pixel distortion simulation
     const dx = currentX - lastPos.current.x;
     const dy = currentY - lastPos.current.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
@@ -96,7 +94,6 @@ export const LiquifyModal: React.FC = () => {
       const minY = Math.max(0, Math.floor(currentY - r));
       const maxY = Math.min(h - 1, Math.ceil(currentY + r));
 
-      // Push / Bloat pixel shift
       for (let y = minY; y <= maxY; y++) {
         for (let x = minX; x <= maxX; x++) {
           const dX = x - currentX;
@@ -174,91 +171,121 @@ export const LiquifyModal: React.FC = () => {
     <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 z-50 select-none animate-fadeIn font-mono text-xs">
       <div className="w-full max-w-5xl bg-[#0B0B0B] border border-[#D4AF37]/40 rounded-xl shadow-2xl flex flex-col overflow-hidden max-h-[92vh]">
         {/* Header */}
-        <div className="h-11 px-4 border-b border-[#D4AF37]/20 flex items-center justify-between bg-[#121212]/50">
-          <div className="flex items-center gap-2">
-            <span className="text-[#D4AF37] font-bold text-sm">(•)</span>
-            <span className="font-bold tracking-wider text-[#FFE066]">LIQUIFY & MESH WARP STUDIO</span>
-            <span className="text-[#8A8A8A] text-[10px]">// ফ্রেম লিকুইফাই এডিটর</span>
-          </div>
+        <div className="h-12 px-4 border-b border-white/[0.08] flex items-center justify-between bg-[#0E0E12]">
+          <CinemaBadgeHeader
+            icon={<Sparkles className="w-3.5 h-3.5 text-amber-400" />}
+            label="LIQUIFY WARP"
+            accent="amber"
+          />
 
           <div className="flex items-center gap-2">
-            <button
-              onClick={handleApplyToVault}
-              className="flex items-center gap-1.5 px-3 py-1 rounded bg-[#D4AF37] text-black font-bold hover:bg-[#FFE066] transition-colors"
+            <CinemaToolHUD
+              title="SAVE WARP TO SHOT"
+              en="Commit warped frame pixels back to active storyboard shot."
+              bn="কীভাবে ব্যবহার করবেন: এডিট করা ছবি শটে সেভ করতে SAVE SHOT চাপুন।"
+              accent="emerald"
+              side="bottom"
             >
-              <Check className="w-3.5 h-3.5" />
-              <span>APPLY TO VAULT</span>
-            </button>
+              <button
+                type="button"
+                onClick={handleApplyToVault}
+                data-active="true"
+                className="cinema-tile cinema-tile-emerald min-h-[36px] px-3 flex items-center gap-1.5 text-[10px] font-black tracking-wider uppercase"
+              >
+                <Check className="w-3.5 h-3.5" strokeWidth={2.2} />
+                <span>SAVE SHOT</span>
+              </button>
+            </CinemaToolHUD>
 
-            <button
-              onClick={handleExportPNG}
-              className="px-2.5 py-1 rounded bg-[#121212] border border-[#D4AF37]/30 text-[#EDEDED] hover:text-[#FFE066] transition-colors"
+            <CinemaToolHUD
+              title="EXPORT PNG"
+              en="Download full-resolution warped frame as PNG."
+              bn="কীভাবে ব্যবহার করবেন: এডিট করা ছবি PNG হিসেবে ডাউনলোড করতে চাপুন।"
+              accent="cyan"
+              side="bottom"
             >
-              EXPORT PNG
-            </button>
+              <button
+                type="button"
+                onClick={handleExportPNG}
+                className="cinema-tile cinema-tile-cyan min-h-[36px] px-2.5 flex items-center gap-1.5 text-[10px] font-black tracking-wider uppercase"
+              >
+                <Download className="w-3.5 h-3.5" strokeWidth={2.2} />
+                <span>PNG</span>
+              </button>
+            </CinemaToolHUD>
 
-            <button
-              onClick={() => setLiquifyModalOpen(false)}
-              className="text-[#8A8A8A] hover:text-[#EDEDED] p-1"
+            <CinemaToolHUD
+              title="CLOSE LIQUIFY"
+              en="Exit mesh warp studio."
+              bn="কীভাবে ব্যবহার করবেন: এডিটর বন্ধ করতে চাপুন।"
+              accent="crimson"
+              side="bottom"
             >
-              <X className="w-4 h-4" />
-            </button>
+              <button
+                type="button"
+                onClick={() => setLiquifyModalOpen(false)}
+                className="cinema-tile cinema-tile-crimson min-h-[36px] px-2.5 flex items-center justify-center"
+              >
+                <X className="w-4 h-4" strokeWidth={2.2} />
+              </button>
+            </CinemaToolHUD>
           </div>
         </div>
 
         {/* Studio Body */}
         <div className="flex-1 flex overflow-hidden">
           {/* Left Controls Rail */}
-          <div className="w-60 border-r border-[#D4AF37]/20 p-3 flex flex-col gap-3 bg-[#050505] overflow-y-auto">
-            {/* Tools */}
-            <div className="flex flex-col gap-1.5">
-              <span className="text-[10px] text-[#D4AF37] font-bold uppercase tracking-wider">Warp Mode</span>
+          <div className="w-60 border-r border-white/[0.08] p-3 flex flex-col gap-4 bg-[#08090C] overflow-y-auto">
+            <div className="flex flex-col gap-2">
+              <CinemaBadgeHeader
+                icon={<Hand className="w-3 h-3 text-amber-400" />}
+                label="WARP TOOL"
+                accent="amber"
+              />
               <div className="grid grid-cols-2 gap-1.5">
-                <button
-                  onClick={() => setTool('push')}
-                  className={`p-1.5 rounded flex items-center gap-1 text-[11px] border ${
-                    tool === 'push' ? 'bg-[#D4AF37] text-black font-bold border-[#D4AF37]' : 'bg-[#121212] border-white/5 text-[#8A8A8A]'
-                  }`}
-                >
-                  <Hand className="w-3 h-3" />
-                  <span>Push</span>
-                </button>
-                <button
-                  onClick={() => setTool('bloat')}
-                  className={`p-1.5 rounded flex items-center gap-1 text-[11px] border ${
-                    tool === 'bloat' ? 'bg-[#D4AF37] text-black font-bold border-[#D4AF37]' : 'bg-[#121212] border-white/5 text-[#8A8A8A]'
-                  }`}
-                >
-                  <CircleDot className="w-3 h-3" />
-                  <span>Bloat</span>
-                </button>
-                <button
-                  onClick={() => setTool('pinch')}
-                  className={`p-1.5 rounded flex items-center gap-1 text-[11px] border ${
-                    tool === 'pinch' ? 'bg-[#D4AF37] text-black font-bold border-[#D4AF37]' : 'bg-[#121212] border-white/5 text-[#8A8A8A]'
-                  }`}
-                >
-                  <Shrink className="w-3 h-3" />
-                  <span>Pinch</span>
-                </button>
-                <button
-                  onClick={() => setTool('restore')}
-                  className={`p-1.5 rounded flex items-center gap-1 text-[11px] border ${
-                    tool === 'restore' ? 'bg-[#D4AF37] text-black font-bold border-[#D4AF37]' : 'bg-[#121212] border-white/5 text-[#8A8A8A]'
-                  }`}
-                >
-                  <RefreshCw className="w-3 h-3" />
-                  <span>Restore</span>
-                </button>
+                {[
+                  { id: 'push', label: 'PUSH', icon: Hand, en: 'Smudge and pull pixels along stroke direction.', bn: 'আঙুল বা মাউস টেনে পিক্সেল সরান।' },
+                  { id: 'bloat', label: 'BLOAT', icon: CircleDot, en: 'Expand pixels outward from brush center.', bn: 'মাঝের অংশ ফোলাতে ব্যবহার করুন।' },
+                  { id: 'pinch', label: 'PINCH', icon: Shrink, en: 'Pull pixels inward toward brush center.', bn: 'পিক্সেল ভেতরে টেনে সংকুচিত করুন।' },
+                  { id: 'restore', label: 'RESTORE', icon: RefreshCw, en: 'Restore warped areas back toward original.', bn: 'আসল অবস্থা ফিরিয়ে আনতে ট্যাপ করুন।' },
+                ].map((opt) => {
+                  const Icon = opt.icon;
+                  return (
+                    <CinemaToolHUD
+                      key={opt.id}
+                      title={`${opt.label} BRUSH`}
+                      en={opt.en}
+                      bn={`কীভাবে ব্যবহার করবেন: ${opt.bn}`}
+                      accent="amber"
+                      side="right"
+                      blockWrapper
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setTool(opt.id as any)}
+                        data-active={tool === opt.id ? 'true' : 'false'}
+                        className="cinema-tile cinema-tile-amber w-full min-h-[44px] px-2 flex items-center justify-center gap-1.5 text-[10px] font-black tracking-wider uppercase"
+                      >
+                        <Icon className="w-3.5 h-3.5" strokeWidth={2.2} />
+                        <span>{opt.label}</span>
+                      </button>
+                    </CinemaToolHUD>
+                  );
+                })}
               </div>
             </div>
 
             {/* Sliders */}
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2.5 border-t border-white/[0.08] pt-3">
+              <CinemaBadgeHeader
+                icon={<Sliders className="w-3 h-3 text-cyan-400" />}
+                label="BRUSH"
+                accent="cyan"
+              />
               <div className="flex flex-col gap-1">
-                <div className="flex justify-between text-[10px]">
-                  <span className="text-[#8A8A8A]">Brush Radius</span>
-                  <span className="text-[#EDEDED]">{radius}px</span>
+                <div className="flex justify-between text-[10px] font-black tracking-wider">
+                  <span className="text-zinc-400">RADIUS</span>
+                  <span className="text-cyan-300">{radius}px</span>
                 </div>
                 <input
                   type="range"
@@ -266,14 +293,14 @@ export const LiquifyModal: React.FC = () => {
                   max="150"
                   value={radius}
                   onChange={(e) => setRadius(Number(e.target.value))}
-                  className="accent-[#D4AF37] h-1.5 bg-[#121212] rounded cursor-pointer"
+                  className="accent-cyan-400 h-1.5 bg-[#121212] rounded cursor-pointer"
                 />
               </div>
 
               <div className="flex flex-col gap-1">
-                <div className="flex justify-between text-[10px]">
-                  <span className="text-[#8A8A8A]">Warp Intensity</span>
-                  <span className="text-[#EDEDED]">{intensity}%</span>
+                <div className="flex justify-between text-[10px] font-black tracking-wider">
+                  <span className="text-zinc-400">STRENGTH</span>
+                  <span className="text-cyan-300">{intensity}%</span>
                 </div>
                 <input
                   type="range"
@@ -281,45 +308,79 @@ export const LiquifyModal: React.FC = () => {
                   max="100"
                   value={intensity}
                   onChange={(e) => setIntensity(Number(e.target.value))}
-                  className="accent-[#D4AF37] h-1.5 bg-[#121212] rounded cursor-pointer"
+                  className="accent-cyan-400 h-1.5 bg-[#121212] rounded cursor-pointer"
                 />
               </div>
             </div>
 
             {/* Framing Aspect Ratios */}
-            <div className="flex flex-col gap-1.5">
-              <span className="text-[10px] text-[#D4AF37] font-bold uppercase tracking-wider">Framing Aperture</span>
-              <div className="grid grid-cols-3 gap-1">
+            <div className="flex flex-col gap-2 border-t border-white/[0.08] pt-3">
+              <CinemaBadgeHeader
+                icon={<Maximize className="w-3 h-3 text-amber-400" />}
+                label="APERTURE"
+                accent="amber"
+              />
+              <div className="grid grid-cols-3 gap-1.5">
                 {(['16:9', '1:1', '4:5', '2.39:1', '9:16'] as const).map(asp => (
-                  <button
+                  <CinemaToolHUD
                     key={asp}
-                    onClick={() => setFramingAspect(asp)}
-                    className={`py-1 rounded text-center text-[10px] border ${
-                      framingAspect === asp ? 'bg-[#D4AF37]/20 border-[#D4AF37] text-[#FFE066]' : 'bg-[#121212] border-white/5 text-[#8A8A8A]'
-                    }`}
+                    title={`APERTURE ${asp}`}
+                    en={`Reference framing guide at ${asp}.`}
+                    bn={`কীভাবে ব্যবহার করবেন: ${asp} ফ্রেম গাইড বেছে নিতে ট্যাপ করুন।`}
+                    accent="amber"
+                    side="right"
+                    blockWrapper
                   >
-                    {asp}
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => setFramingAspect(asp)}
+                      data-active={framingAspect === asp ? 'true' : 'false'}
+                      className="cinema-tile cinema-tile-amber w-full min-h-[36px] text-center text-[10px] font-black tracking-wider"
+                    >
+                      {asp}
+                    </button>
+                  </CinemaToolHUD>
                 ))}
               </div>
             </div>
 
             {/* Actions */}
-            <div className="flex flex-col gap-1.5 mt-auto pt-2 border-t border-white/10">
-              <button
-                onClick={handleUndo}
-                className="w-full flex items-center justify-center gap-1.5 p-1.5 rounded bg-[#121212] border border-white/10 hover:border-[#D4AF37]/40 text-[#EDEDED] text-[11px]"
+            <div className="flex flex-col gap-2 mt-auto pt-3 border-t border-white/[0.08]">
+              <CinemaToolHUD
+                title="UNDO STROKE"
+                en="Step backward one warp brushstroke."
+                bn="কীভাবে ব্যবহার করবেন: শেষ ওয়ার্প ব্রাশ স্ট্রোকটি বাতিল করতে চাপুন।"
+                accent="cyan"
+                side="right"
+                blockWrapper
               >
-                <Undo2 className="w-3.5 h-3.5" />
-                <span>Undo Stroke</span>
-              </button>
-              <button
-                onClick={handleRevert}
-                className="w-full flex items-center justify-center gap-1.5 p-1.5 rounded bg-[#121212] border border-[#FF4B4B]/30 hover:border-[#FF4B4B] text-[#FF4B4B] text-[11px]"
+                <button
+                  type="button"
+                  onClick={handleUndo}
+                  className="cinema-tile cinema-tile-cyan w-full min-h-[42px] flex items-center justify-center gap-1.5 text-[10.5px] font-black tracking-wider uppercase"
+                >
+                  <Undo2 className="w-3.5 h-3.5" strokeWidth={2.2} />
+                  <span>UNDO</span>
+                </button>
+              </CinemaToolHUD>
+
+              <CinemaToolHUD
+                title="REVERT ORIGINAL"
+                en="Reset canvas pixels back to unmodified source plate."
+                bn="কীভাবে ব্যবহার করবেন: ছবিটি একদম আগের অবস্থায় ফিরিয়ে নিতে চাপুন।"
+                accent="crimson"
+                side="right"
+                blockWrapper
               >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>Revert to Original</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={handleRevert}
+                  className="cinema-tile cinema-tile-crimson w-full min-h-[42px] flex items-center justify-center gap-1.5 text-[10.5px] font-black tracking-wider uppercase"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" strokeWidth={2.2} />
+                  <span>REVERT</span>
+                </button>
+              </CinemaToolHUD>
             </div>
           </div>
 

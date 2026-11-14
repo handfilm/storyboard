@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { AspectRatio } from '../../types/anthology';
 import { audioEngine } from '../../utils/audioEngine';
+import { CinemaToolHUD, CinemaBadgeHeader } from '../../components/ui/CinemaToolHUD';
 
 interface SettingsSlidePanelProps {
   currentAspectRatio?: AspectRatio | string;
@@ -116,68 +117,58 @@ export const SettingsSlidePanel: React.FC<SettingsSlidePanelProps> = ({
   const strokeDashoffset = circumference - (quotaInfo.percent / 100) * circumference;
 
   return (
-    <div className="space-y-6">
-      {/* 1. Header Banner */}
-      <div className="bg-[#12131a] border border-[#F5A623]/40 rounded p-4 relative overflow-hidden shadow-[0_0_20px_rgba(245,166,35,0.15)]">
-        <div className="flex items-center gap-2 text-[#F5A623] mb-1">
-          <Settings className="w-4 h-4 animate-pulse" />
-          <span className="font-mono-tech text-[11px] font-bold tracking-widest uppercase">
-            [ MODULE 15 // HARDWARE & ENGINE SETTINGS ]
-          </span>
-        </div>
-        <p className="text-xs text-zinc-400 font-mono-tech">
-          WebCodecs GPU encoder telemetry, memory ring meter & studio defaults
-        </p>
-      </div>
+    <div className="space-y-4">
+      <CinemaBadgeHeader
+        icon={<Settings className="w-4 h-4" strokeWidth={2.2} />}
+        label="ENGINE SETTINGS"
+        accent="amber"
+      />
 
-      {/* 2. System Diagnostics (GPU Acceleration & WebCodecs) */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between text-xs font-mono-tech font-bold uppercase tracking-wider text-white">
-          <div className="flex items-center gap-1.5">
-            <Cpu className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Hardware & GPU Diagnostics</span>
-          </div>
-          <span className="text-[10px] text-emerald-400 font-mono-tech">
-            HARDWARE ACCELERATED
-          </span>
-        </div>
+      {/* Hardware Diagnostics */}
+      <div className="space-y-2">
+        <CinemaBadgeHeader
+          icon={<Cpu className="w-3.5 h-3.5" strokeWidth={2.2} />}
+          label="GPU PIPELINE"
+          accent="cyan"
+          rightSlot={<span className="text-[10px] font-black text-emerald-400">WEBCODECS OK</span>}
+        />
 
-        <div className="bg-[#101117] border border-white/10 rounded p-3 space-y-2 font-mono-tech text-[10.5px]">
+        <div className="bg-[#111215] border border-[#26282E] rounded-md p-3 grid grid-cols-2 gap-2 font-mono-tech text-[10px]">
           <div className="flex items-center justify-between">
-            <span className="text-zinc-400">WebCodecs Hardware Encoders:</span>
-            <span className="text-emerald-400 font-bold">H.264 / HEVC / AV1 : YES</span>
+            <span className="text-zinc-400 font-bold">CODECS</span>
+            <span className="text-emerald-400 font-black">H264/AV1</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-zinc-400">WebGL 2.0 Shader Pipeline:</span>
-            <span className="text-emerald-400 font-bold">Active (Discrete GPU)</span>
+            <span className="text-zinc-400 font-bold">WEBGL</span>
+            <span className="text-emerald-400 font-black">ACTIVE</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-zinc-400">OffscreenCanvas Proxy Threading:</span>
-            <span className="text-emerald-400 font-bold">Supported (Zero Latency)</span>
+            <span className="text-zinc-400 font-bold">PROXY</span>
+            <span className="text-emerald-400 font-black">WORKER</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-zinc-400">Frame Cadence Engine:</span>
-            <span className="text-white font-bold">24.000 FPS Lock</span>
+            <span className="text-zinc-400 font-bold">CADENCE</span>
+            <span className="text-white font-black">24 FPS</span>
           </div>
         </div>
       </div>
 
-      {/* 3. Memory Gauge (Dynamic Ring Meter) */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between text-xs font-mono-tech font-bold uppercase tracking-wider text-white">
-          <div className="flex items-center gap-1.5">
-            <HardDrive className="w-3.5 h-3.5 text-[#F5A623]" />
-            <span>Browser Storage Quota</span>
-          </div>
-          <span className="text-[10px] text-zinc-400 font-mono-tech">
-            {quotaInfo.usedGB} GB of {quotaInfo.totalGB} GB
-          </span>
-        </div>
+      {/* Storage Quota */}
+      <div className="space-y-2">
+        <CinemaBadgeHeader
+          icon={<HardDrive className="w-3.5 h-3.5" strokeWidth={2.2} />}
+          label="VAULT STORAGE"
+          accent="amber"
+          rightSlot={
+            <span className="text-[10px] font-black text-zinc-400">
+              {quotaInfo.usedGB}/{quotaInfo.totalGB}GB
+            </span>
+          }
+        />
 
-        <div className="bg-[#101117] border border-white/10 rounded p-4 flex items-center gap-5">
-          {/* Circular SVG Ring Meter */}
-          <div className="relative w-24 h-24 shrink-0 flex items-center justify-center">
-            <svg className="w-full h-full -rotate-90">
+        <div className="bg-[#111215] border border-[#26282E] rounded-md p-3 flex items-center gap-4">
+          <div className="relative w-20 h-20 shrink-0 flex items-center justify-center">
+            <svg className="w-full h-full -rotate-90" viewBox="0 0 96 96">
               <circle
                 cx="48"
                 cy="48"
@@ -191,130 +182,152 @@ export const SettingsSlidePanel: React.FC<SettingsSlidePanelProps> = ({
                 cx="48"
                 cy="48"
                 r={radius}
-                stroke="#F5A623"
+                stroke="#F59E0B"
                 strokeWidth="7"
                 strokeDasharray={circumference}
                 strokeDashoffset={strokeDashoffset}
                 strokeLinecap="round"
                 fill="transparent"
-                style={{ filter: 'drop-shadow(0 0 6px rgba(245,166,35,0.6))' }}
               />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center font-mono-tech">
-              <span className="text-sm font-bold text-white">{quotaInfo.percent}%</span>
-              <span className="text-[8px] text-zinc-400 uppercase">USED</span>
+              <span className="text-xs font-black text-white">{quotaInfo.percent}%</span>
+              <span className="text-[8px] text-zinc-400 font-black uppercase">USED</span>
             </div>
           </div>
 
-          <div className="space-y-1 font-mono-tech text-[10.5px]">
-            <div className="text-white font-bold">Resilient IndexedDB Vault</div>
-            <div className="text-zinc-400 text-[9.5px]">
-              Durable local persistence across sessions. Zero cloud leakage.
-            </div>
-            <div className="pt-2">
+          <div className="flex-1 min-w-0">
+            <CinemaToolHUD
+              title="PURGE LOCAL CACHE"
+              en="Clear orphan blob URLs and temporary caches safely."
+              bn="অস্থায়ী ক্যাশ ও অপ্রয়োজনীয় ব্লব ফাইল নিরাপদে মুছে ফেলতে PURGE চাপুন।"
+              accent="crimson"
+              blockWrapper
+            >
               <button
                 type="button"
                 onClick={handlePurgeCache}
                 disabled={isPurging}
-                className="px-3 py-1.5 rounded bg-red-950/40 hover:bg-red-900/60 text-red-300 border border-red-500/30 text-[10px] font-mono-tech flex items-center gap-1.5 cursor-pointer transition-colors"
+                data-active={isPurging ? 'true' : 'false'}
+                className="cinema-tile cinema-tile-crimson w-full min-h-[44px] px-3 py-2 rounded-md text-[10px] sm:text-[11px] font-black tracking-wider uppercase flex items-center justify-center gap-1.5 cursor-pointer"
               >
-                {isPurging ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
-                <span>[ 🧹 PURGE LOCAL CACHE & ORPHAN BLOBS ]</span>
+                {isPurging ? (
+                  <RefreshCw className="w-4 h-4 animate-spin cinema-tile-icon" strokeWidth={2.2} />
+                ) : (
+                  <Trash2 className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                )}
+                <span>PURGE CACHE</span>
               </button>
-            </div>
+            </CinemaToolHUD>
           </div>
         </div>
 
         {purgeSuccess && (
-          <div className="p-2 rounded bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-[10px] font-mono-tech text-center animate-in fade-in">
-            ✓ Orphan blob URLs purged and temporary memory cache reclaimed safely.
+          <div className="p-2 rounded bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-[10px] font-black uppercase text-center">
+            CACHE RECLAIMED
           </div>
         )}
       </div>
 
-      {/* 4. Timeline & Studio Preferences */}
-      <div className="space-y-4">
-        {/* A. Timeline Default Duration */}
-        <div>
-          <div className="text-xs font-mono-tech font-bold uppercase tracking-wider text-white mb-2">
-            Timeline Default Duration
-          </div>
-          <div className="grid grid-cols-2 gap-2 font-mono-tech text-[11px]">
+      {/* Timeline Duration */}
+      <div className="space-y-2">
+        <CinemaBadgeHeader
+          icon={<Sliders className="w-3.5 h-3.5" strokeWidth={2.2} />}
+          label="SHOT HOLD"
+          accent="amber"
+        />
+        <div className="grid grid-cols-2 gap-1.5">
+          <CinemaToolHUD
+            title="12.0S STRICT CADENCE"
+            en="Lock default shot hold duration to strict 12.0s (288 frames)."
+            bn="প্রতিটি শটের ডিফল্ট সময়সীমা ১২.০ সেকেন্ডে লক করুন।"
+            accent="amber"
+            blockWrapper
+          >
             <button
               type="button"
               onClick={() => handleSelectDurationMode('strict')}
-              className={`p-2.5 rounded text-left transition-all border cursor-pointer ${
-                durationMode === 'strict'
-                  ? 'bg-[#F5A623]/20 border-[#F5A623] text-[#F5A623] font-bold shadow-[0_0_10px_rgba(245,166,35,0.25)]'
-                  : 'bg-[#101117] border-white/10 text-zinc-300 hover:border-white/20'
-              }`}
+              data-active={durationMode === 'strict' ? 'true' : 'false'}
+              className="cinema-tile cinema-tile-amber w-full min-h-[48px] px-3 py-2 rounded-lg flex items-center justify-center gap-1.5 font-black tracking-wider text-[10px] sm:text-[11px] uppercase cursor-pointer"
             >
-              <div className="font-bold">[ 12.0s Strict ]</div>
-              <div className="text-[9px] text-zinc-400 mt-0.5">288 frames @ 24fps</div>
+              <Zap className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+              <span>12S STRICT</span>
             </button>
+          </CinemaToolHUD>
 
+          <CinemaToolHUD
+            title="CUSTOM DURATION"
+            en="Unlock slider to set any custom default shot duration."
+            bn="স্লাইডার ব্যবহার করে শটের কাস্টম সময়সীমা নির্ধারণ করুন।"
+            accent="amber"
+            blockWrapper
+          >
             <button
               type="button"
               onClick={() => handleSelectDurationMode('custom')}
-              className={`p-2.5 rounded text-left transition-all border cursor-pointer ${
-                durationMode === 'custom'
-                  ? 'bg-[#F5A623]/20 border-[#F5A623] text-[#F5A623] font-bold shadow-[0_0_10px_rgba(245,166,35,0.25)]'
-                  : 'bg-[#101117] border-white/10 text-zinc-300 hover:border-white/20'
-              }`}
+              data-active={durationMode === 'custom' ? 'true' : 'false'}
+              className="cinema-tile cinema-tile-amber w-full min-h-[48px] px-3 py-2 rounded-lg flex items-center justify-center gap-1.5 font-black tracking-wider text-[10px] sm:text-[11px] uppercase cursor-pointer"
             >
-              <div className="font-bold">[ Custom ]</div>
-              <div className="text-[9px] text-zinc-400 mt-0.5">{customDuration}s per slide</div>
+              <Sliders className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+              <span>CUSTOM ({customDuration}S)</span>
             </button>
-          </div>
-
-          {durationMode === 'custom' && (
-            <div className="mt-2 p-2 bg-black/40 border border-white/10 rounded flex items-center gap-3">
-              <input
-                type="range"
-                min="2.0"
-                max="30.0"
-                step="0.5"
-                value={customDuration}
-                onChange={(e) => {
-                  const val = parseFloat(e.target.value);
-                  setCustomDuration(val);
-                  if (onChangeTimelineDuration) onChangeTimelineDuration(val);
-                }}
-                className="flex-1 accent-[#F5A623]"
-              />
-              <span className="text-xs font-mono-tech text-[#F5A623] font-bold w-12 text-right">
-                {customDuration}s
-              </span>
-            </div>
-          )}
+          </CinemaToolHUD>
         </div>
 
-        {/* B. Default Export Aspect */}
-        <div>
-          <div className="text-xs font-mono-tech font-bold uppercase tracking-wider text-white mb-2">
-            Default Export Aspect Ratio
+        {durationMode === 'custom' && (
+          <div className="p-2.5 bg-black/40 border border-[#26282E] rounded flex items-center gap-3">
+            <input
+              type="range"
+              min="2.0"
+              max="30.0"
+              step="0.5"
+              value={customDuration}
+              onChange={(e) => {
+                const val = parseFloat(e.target.value);
+                setCustomDuration(val);
+                if (onChangeTimelineDuration) onChangeTimelineDuration(val);
+              }}
+              className="flex-1 accent-[#F59E0B]"
+            />
+            <span className="text-xs font-mono-tech text-[#F59E0B] font-black w-12 text-right">
+              {customDuration}s
+            </span>
           </div>
-          <div className="grid grid-cols-3 gap-1.5 font-mono-tech text-[10.5px]">
-            {[
-              { id: '2.39:1' as AspectRatio, label: '[ 2.39:1 Scope ]', sub: 'Anamorphic Cine' },
-              { id: '16:9' as AspectRatio, label: '[ 16:9 Standard ]', sub: 'Broadcast / 4K' },
-              { id: '9:16' as AspectRatio, label: '[ 9:16 Vertical ]', sub: 'Reels / Mobile' }
-            ].map((aspect) => (
+        )}
+      </div>
+
+      {/* Default Export Aspect */}
+      <div className="space-y-2">
+        <CinemaBadgeHeader
+          icon={<Monitor className="w-3.5 h-3.5" strokeWidth={2.2} />}
+          label="ASPECT RATIO"
+          accent="cyan"
+        />
+        <div className="grid grid-cols-3 gap-1.5">
+          {[
+            { id: '2.39:1' as AspectRatio, label: '2.39 SCOPE', desc: 'Anamorphic widescreen cinema ratio.' },
+            { id: '16:9' as AspectRatio, label: '16:9 4K', desc: 'Standard 4K UHD broadcast ratio.' },
+            { id: '9:16' as AspectRatio, label: '9:16 REELS', desc: 'Vertical mobile Reels / Shorts ratio.' }
+          ].map((aspect) => (
+            <CinemaToolHUD
+              key={aspect.id}
+              title={`ASPECT: ${aspect.label}`}
+              en={aspect.desc}
+              bn={`ডিফল্ট এক্সপোর্ট রেশিও ${aspect.id} করতে চাপুন।`}
+              accent="cyan"
+              blockWrapper
+            >
               <button
-                key={aspect.id}
                 type="button"
                 onClick={() => handleSelectAspect(aspect.id)}
-                className={`p-2 rounded text-left transition-all border cursor-pointer ${
-                  selectedAspect === aspect.id
-                    ? 'bg-[#00F0FF]/20 border-[#00F0FF] text-[#00F0FF] font-bold shadow-[0_0_10px_rgba(0,240,255,0.25)]'
-                    : 'bg-[#101117] border-white/10 text-zinc-300 hover:border-white/20'
-                }`}
+                data-active={selectedAspect === aspect.id ? 'true' : 'false'}
+                className="cinema-tile cinema-tile-cyan w-full min-h-[48px] px-1.5 py-2 rounded-lg flex flex-col items-center justify-center gap-1 font-black tracking-wider text-[10px] uppercase cursor-pointer"
               >
-                <div className="font-bold truncate">{aspect.label}</div>
-                <div className="text-[8.5px] text-zinc-400 mt-0.5 truncate">{aspect.sub}</div>
+                <Monitor className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                <span>{aspect.label}</span>
               </button>
-            ))}
-          </div>
+            </CinemaToolHUD>
+          ))}
         </div>
       </div>
     </div>

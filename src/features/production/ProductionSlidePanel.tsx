@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { useStudioStore } from '../../core/store';
 import { audioEngine } from '../../utils/audioEngine';
+import { CinemaToolHUD, CinemaBadgeHeader } from '../../components/ui/CinemaToolHUD';
 
 interface ProductionSlidePanelProps {
   onSelectFrame?: (index: number) => void;
@@ -237,203 +238,181 @@ export const ProductionSlidePanel: React.FC<ProductionSlidePanelProps> = ({
   };
 
   return (
-    <div className="space-y-6">
-      {/* 1. Tactical Header */}
-      <div className="bg-[#12131a] border border-[#F5A623]/40 rounded p-4 relative overflow-hidden shadow-[0_0_20px_rgba(245,166,35,0.15)]">
-        <div className="absolute top-0 right-0 w-28 h-28 bg-[#F5A623]/10 rounded-full blur-2xl pointer-events-none" />
-        
-        <div className="flex items-center gap-2 text-[#F5A623] mb-1">
-          <Clapperboard className="w-4 h-4 animate-pulse" />
-          <span className="font-mono-tech text-[11px] font-bold tracking-widest uppercase">
-            [ DAY BLOCK 01 // PRINCIPAL PHOTOGRAPHY ]
-          </span>
-        </div>
-        
-        <p className="text-xs text-zinc-400 font-mono-tech">
-          Hollywood-format production scheduler & 100-shot day matrix
-        </p>
+    <div className="space-y-4">
+      <div className="space-y-2.5">
+        <CinemaBadgeHeader
+          icon={<Clapperboard className="w-4 h-4" strokeWidth={2.2} />}
+          label="CALL SHEET"
+          accent="amber"
+          rightSlot={<span className="text-[10px] font-black text-amber-400">DAY 01</span>}
+        />
 
         {/* Call Time & Weather Badges */}
-        <div className="mt-3 grid grid-cols-2 gap-2 text-[10px] font-mono-tech">
-          <div className="bg-black/60 border border-[#F5A623]/30 px-2.5 py-1.5 rounded flex items-center justify-between">
-            <span className="text-zinc-400 flex items-center gap-1">
-              <Clock className="w-3 h-3 text-[#F5A623]" /> CALL TIME:
+        <div className="grid grid-cols-2 gap-1.5 text-[10px] font-mono-tech">
+          <div className="bg-[#111215] border border-[#26282E] px-2.5 py-2 rounded-md flex items-center justify-between">
+            <span className="text-zinc-400 font-black flex items-center gap-1 uppercase">
+              <Clock className="w-3.5 h-3.5 text-[#F59E0B]" /> CALL
             </span>
-            <input 
-              type="text" 
+            <input
+              type="text"
               value={callTime}
               onChange={(e) => setCallTime(e.target.value)}
-              className="bg-transparent text-[#F5A623] font-bold text-right w-20 focus:outline-none focus:border-b border-[#F5A623]"
+              className="bg-transparent text-[#F59E0B] font-black text-right w-20 focus:outline-none"
             />
           </div>
 
-          <div className="bg-black/60 border border-cyan-500/30 px-2.5 py-1.5 rounded flex items-center justify-between">
-            <span className="text-zinc-400 flex items-center gap-1">
-              <Sun className="w-3 h-3 text-cyan-400" /> WEATHER:
+          <div className="bg-[#111215] border border-[#26282E] px-2.5 py-2 rounded-md flex items-center justify-between">
+            <span className="text-zinc-400 font-black flex items-center gap-1 uppercase">
+              <Sun className="w-3.5 h-3.5 text-cyan-400" /> SKY
             </span>
-            <span className="text-cyan-300 font-bold truncate">28°C CLEAR • 84% HUM</span>
+            <span className="text-cyan-300 font-black">28°C CLEAR</span>
           </div>
-        </div>
-
-        <div className="mt-2 flex items-center justify-between text-[9px] font-mono-tech text-zinc-400 px-1">
-          <span>GOLDEN HOUR: <strong className="text-amber-300">17:15</strong></span>
-          <span>SUNSET: <strong className="text-orange-400">17:42</strong></span>
-          <span>STAGE: <strong className="text-white">CYBER ALLEY B</strong></span>
         </div>
       </div>
 
-      {/* 2. Scene & Shot Breakdown Matrix (3-Hour Lighting Setups) */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Layers className="w-4 h-4 text-[#F5A623]" />
-            <h4 className="text-xs font-mono-tech font-bold uppercase tracking-wider text-white">
-              3-Hour Lighting Setup Matrix (100 Shots)
-            </h4>
-          </div>
-          <span className="text-[10px] font-mono-tech text-zinc-400">
-            TOTAL: 100 SHOTS
-          </span>
-        </div>
+      {/* Lighting Blocks */}
+      <div className="space-y-2">
+        <CinemaBadgeHeader
+          icon={<Layers className="w-3.5 h-3.5" strokeWidth={2.2} />}
+          label="SHOOT BLOCKS"
+          accent="amber"
+          rightSlot={<span className="text-[10px] font-black text-zinc-400">100 SHOTS</span>}
+        />
 
-        <div className="space-y-2.5">
+        <div className="grid grid-cols-3 gap-1.5">
           {lightingBlocks.map((block) => {
             const Icon = block.icon;
             const isSelected = selectedBlock === block.id;
-
             return (
-              <div 
+              <CinemaToolHUD
                 key={block.id}
-                onClick={() => setSelectedBlock(block.id)}
-                className={`p-3 rounded border transition-all cursor-pointer ${
-                  isSelected 
-                    ? 'bg-[#181a24] border-[#F5A623] shadow-[0_0_15px_rgba(245,166,35,0.2)]' 
-                    : 'bg-[#101117] border-white/10 hover:border-white/20'
-                }`}
+                title={`${block.name} · ${block.range}`}
+                en={`${block.setup} — ${block.lighting}`}
+                bn={`${block.range}-এর লাইটিং প্ল্যান দেখতে এবং জাম্প করতে ক্লিক করুন।`}
+                accent={block.id === 'B' ? 'cyan' : block.id === 'C' ? 'crimson' : 'amber'}
+                blockWrapper
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div 
-                      className="w-6 h-6 rounded flex items-center justify-center text-black font-bold text-[11px]"
-                      style={{ backgroundColor: block.accent }}
-                    >
-                      {block.id}
-                    </div>
-                    <div>
-                      <div className="font-mono-tech text-[11px] font-bold text-white">
-                        {block.name}
-                      </div>
-                      <div className="text-[9.5px] font-mono-tech text-zinc-400">
-                        {block.range} • {block.setup}
-                      </div>
-                    </div>
-                  </div>
-
-                  <span 
-                    className="text-[9px] font-mono-tech px-2 py-0.5 rounded font-bold uppercase"
-                    style={{ 
-                      backgroundColor: `${block.accent}20`,
-                      color: block.accent,
-                      border: `1px solid ${block.accent}50`
-                    }}
-                  >
-                    {block.status}
+                <button
+                  type="button"
+                  onClick={() => setSelectedBlock(block.id)}
+                  data-active={isSelected ? 'true' : 'false'}
+                  className={`cinema-tile ${block.id === 'B' ? 'cinema-tile-cyan' : block.id === 'C' ? 'cinema-tile-crimson' : 'cinema-tile-amber'} w-full min-h-[56px] p-2 rounded-lg flex flex-col items-center justify-center gap-1 cursor-pointer`}
+                >
+                  <Icon className="w-5 h-5 cinema-tile-icon" strokeWidth={2.2} />
+                  <span className="font-black tracking-wider text-[10px] sm:text-[11px] uppercase">
+                    BLOCK {block.id}
                   </span>
-                </div>
+                </button>
+              </CinemaToolHUD>
+            );
+          })}
+        </div>
 
-                {isSelected && (
-                  <div className="mt-3 pt-2.5 border-t border-white/10 space-y-2 text-[10px] font-mono-tech animate-in fade-in duration-150">
-                    <div className="text-zinc-300">
-                      <strong className="text-zinc-500">LIGHTING PLAN:</strong> {block.lighting}
-                    </div>
-                    
-                    {/* Quick Jump Buttons for shots in this block */}
-                    <div className="flex items-center justify-between text-zinc-400">
-                      <span>Quick Jump Playhead:</span>
-                      <div className="flex gap-1">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (onSelectFrame) onSelectFrame(block.startIndex);
-                          }}
-                          className="px-2 py-0.5 rounded bg-white/10 hover:bg-[#F5A623] hover:text-black transition-colors"
-                        >
-                          Start #{String(block.startIndex + 1).padStart(3, '0')}
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (onSelectFrame) onSelectFrame(block.endIndex);
-                          }}
-                          className="px-2 py-0.5 rounded bg-white/10 hover:bg-[#F5A623] hover:text-black transition-colors"
-                        >
-                          End #{String(block.endIndex + 1).padStart(3, '0')}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
+        {(() => {
+          const activeBlock = lightingBlocks.find((b) => b.id === selectedBlock);
+          if (!activeBlock) return null;
+          return (
+            <div className="p-2.5 rounded-md bg-[#111215] border border-[#26282E] flex items-center justify-between gap-2">
+              <span className="text-[10px] font-black tracking-wider uppercase text-zinc-300 truncate">
+                {activeBlock.range}
+              </span>
+              <div className="flex gap-1.5 shrink-0">
+                <CinemaToolHUD
+                  title={`JUMP START #${String(activeBlock.startIndex + 1).padStart(3, '0')}`}
+                  en={`Move playhead to the start of Block ${activeBlock.id}.`}
+                  bn={`ব্লক ${activeBlock.id}-এর প্রথম শটে জাম্প করুন।`}
+                  accent="amber"
+                >
+                  <button
+                    type="button"
+                    onClick={() => onSelectFrame?.(activeBlock.startIndex)}
+                    className="cinema-tile cinema-tile-amber px-2.5 min-h-[36px] rounded text-[10px] font-black uppercase cursor-pointer"
+                  >
+                    START #{String(activeBlock.startIndex + 1).padStart(2, '0')}
+                  </button>
+                </CinemaToolHUD>
+                <CinemaToolHUD
+                  title={`JUMP END #${String(activeBlock.endIndex + 1).padStart(3, '0')}`}
+                  en={`Move playhead to the final shot of Block ${activeBlock.id}.`}
+                  bn={`ব্লক ${activeBlock.id}-এর শেষ শটে জাম্প করুন।`}
+                  accent="cyan"
+                >
+                  <button
+                    type="button"
+                    onClick={() => onSelectFrame?.(activeBlock.endIndex)}
+                    className="cinema-tile cinema-tile-cyan px-2.5 min-h-[36px] rounded text-[10px] font-black uppercase cursor-pointer"
+                  >
+                    END #{String(activeBlock.endIndex + 1).padStart(2, '0')}
+                  </button>
+                </CinemaToolHUD>
               </div>
+            </div>
+          );
+        })()}
+      </div>
+
+      {/* Gear Tracker */}
+      <div className="space-y-2">
+        <CinemaBadgeHeader
+          icon={<Camera className="w-3.5 h-3.5" strokeWidth={2.2} />}
+          label="GEAR RIGS"
+          accent="emerald"
+          rightSlot={
+            <span className="text-[10px] font-black text-emerald-400">
+              {Object.values(gearChecklist).filter(Boolean).length}/{Object.keys(gearChecklist).length}
+            </span>
+          }
+        />
+
+        <div className="grid grid-cols-2 gap-1.5">
+          {Object.entries(gearChecklist).map(([item, isChecked]) => {
+            const shortLabel = item.split(' ').slice(0, 2).join(' ').toUpperCase();
+            return (
+              <CinemaToolHUD
+                key={item}
+                title={`GEAR: ${item.toUpperCase()}`}
+                en={`Toggle readiness status for ${item}.`}
+                bn={`${item} সেটআপ রেডি হয়েছে কিনা মার্ক করতে ট্যাপ করুন।`}
+                accent="emerald"
+                blockWrapper
+              >
+                <button
+                  type="button"
+                  onClick={() => toggleGear(item)}
+                  data-active={isChecked ? 'true' : 'false'}
+                  className="cinema-tile cinema-tile-emerald w-full min-h-[44px] px-2.5 py-2 rounded-md flex items-center gap-1.5 font-black tracking-wider text-[10px] uppercase cursor-pointer"
+                >
+                  {isChecked ? (
+                    <CheckSquare className="w-4 h-4 cinema-tile-icon shrink-0" strokeWidth={2.2} />
+                  ) : (
+                    <Square className="w-4 h-4 cinema-tile-icon shrink-0" strokeWidth={2.2} />
+                  )}
+                  <span className="truncate">{shortLabel}</span>
+                </button>
+              </CinemaToolHUD>
             );
           })}
         </div>
       </div>
 
-      {/* 3. Dynamic Talent & Gear Tracker */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Camera className="w-4 h-4 text-[#F5A623]" />
-            <h4 className="text-xs font-mono-tech font-bold uppercase tracking-wider text-white">
-              Talent & Gear Tracker
-            </h4>
-          </div>
-          <span className="text-[10px] font-mono-tech text-emerald-400">
-            {Object.values(gearChecklist).filter(Boolean).length}/{Object.keys(gearChecklist).length} READY
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 gap-1.5 font-mono-tech text-[11px]">
-          {Object.entries(gearChecklist).map(([item, isChecked]) => (
-            <button
-              key={item}
-              type="button"
-              onClick={() => toggleGear(item)}
-              className={`w-full px-3 py-2 rounded text-left flex items-center justify-between transition-all cursor-pointer border ${
-                isChecked
-                  ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-300'
-                  : 'bg-black/40 border-white/10 text-zinc-400 hover:border-white/20'
-              }`}
-            >
-              <div className="flex items-center gap-2 truncate">
-                {isChecked ? (
-                  <CheckSquare className="w-4 h-4 text-emerald-400 shrink-0" />
-                ) : (
-                  <Square className="w-4 h-4 text-zinc-500 shrink-0" />
-                )}
-                <span className="truncate">{item}</span>
-              </div>
-              <span className="text-[9px] uppercase font-bold tracking-wider shrink-0 ml-2">
-                {isChecked ? '[✓] RIGGED' : '[ ] PENDING'}
-              </span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* 4. 1-Click Action: Export Official Call Sheet */}
-      <div className="pt-2">
-        <button
-          type="button"
-          onClick={handleExportCallSheetPdf}
-          className="w-full py-3 px-4 bg-gradient-to-r from-[#F5A623] to-[#e09612] hover:from-[#ffb43b] hover:to-[#f5a623] text-black font-mono-tech font-bold text-xs uppercase tracking-widest rounded shadow-[0_0_20px_rgba(245,166,35,0.35)] flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.98]"
+      {/* Export Official Call Sheet */}
+      <div className="pt-1">
+        <CinemaToolHUD
+          title="EXPORT OFFICIAL CALL SHEET"
+          en="Open formatted A4 DGA-standard printable production call sheet."
+          bn="প্রিন্টযোগ্য অফিশিয়াল শুটিং কল শিট (PDF) ওপেন করতে চাপুন।"
+          accent="amber"
+          blockWrapper
         >
-          <Printer className="w-4 h-4" />
-          <span>[ 🖨 EXPORT OFFICIAL CALL SHEET (PDF) ]</span>
-        </button>
-        <p className="text-[9.5px] font-mono-tech text-zinc-500 text-center mt-2">
-          Hollywood DGA standard printable day sheet formatted for A4/Letter
-        </p>
+          <button
+            type="button"
+            onClick={handleExportCallSheetPdf}
+            className="cinema-tile cinema-tile-amber w-full min-h-[48px] py-3 px-4 font-black text-[11px] uppercase tracking-wider rounded-lg flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <Printer className="w-5 h-5 cinema-tile-icon" strokeWidth={2.2} />
+            <span>CALL SHEET PDF</span>
+          </button>
+        </CinemaToolHUD>
       </div>
     </div>
   );

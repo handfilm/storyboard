@@ -6,13 +6,13 @@
 
 import React, { useState } from 'react';
 import { useStudioStore } from '../../core/store';
+import { CinemaToolHUD, CinemaBadgeHeader } from '../../components/ui/CinemaToolHUD';
 import { 
   Library, 
   Camera, 
   Palette, 
   Type, 
   Volume2, 
-  Sparkles, 
   Check, 
   ArrowRight 
 } from 'lucide-react';
@@ -27,126 +27,171 @@ export const LibraryStudio: React.FC = () => {
   } = useStudioStore();
 
   const [activeCategory, setActiveCategory] = useState<'lens' | 'color' | 'type' | 'sound'>('lens');
+  const [appliedBadge, setAppliedBadge] = useState<string | null>(null);
 
   const lensPresets = [
-    { name: '18mm Ultra Wide Cine', focal: 18, fStop: 'f/2.8', desc: 'Expansive environmental perspective with dramatic edge distortion' },
-    { name: '24mm Wide Anamorphic', focal: 24, fStop: 'f/2.0', desc: '2x squeeze aesthetic with signature horizontal streak flares' },
-    { name: '35mm Street Cinema', focal: 35, fStop: 'f/1.8', desc: 'The classic narrative focal length for human-environment balance' },
-    { name: '50mm f/1.4 Human Eye', focal: 50, fStop: 'f/1.4', desc: 'Natural perspective mirroring human vision with creamy shallow focus' },
-    { name: '85mm Portrait Bokeh', focal: 85, fStop: 'f/1.4', desc: 'Subject isolation with cinematic background compression' },
-    { name: '135mm Telephoto Compression', focal: 135, fStop: 'f/2.0', desc: 'Extreme background magnification for intense dramatic tension' }
+    { short: '18MM WIDE', name: '18mm Ultra Wide Cine', focal: 18, fStop: 'f/2.8', desc: 'Expansive environmental perspective with dramatic edge distortion.' },
+    { short: '24MM ANAM', name: '24mm Wide Anamorphic', focal: 24, fStop: 'f/2.0', desc: '2x squeeze aesthetic with signature horizontal streak flares.' },
+    { short: '35MM CINE', name: '35mm Street Cinema', focal: 35, fStop: 'f/1.8', desc: 'Classic narrative focal length for balanced framing.' },
+    { short: '50MM EYE', name: '50mm f/1.4 Human Eye', focal: 50, fStop: 'f/1.4', desc: 'Natural perspective with creamy shallow depth of field.' },
+    { short: '85MM BOKEH', name: '85mm Portrait Bokeh', focal: 85, fStop: 'f/1.4', desc: 'Subject isolation with smooth background compression.' },
+    { short: '135MM TELE', name: '135mm Telephoto Compression', focal: 135, fStop: 'f/2.0', desc: 'Extreme background magnification for dramatic tension.' }
   ];
 
   const colorPresets = [
-    { id: 'cinematic', name: 'RAWx Cinema 35', desc: 'Warm 35mm golden emulsion with rich velvet blacks' },
-    { id: 'cyberpunk', name: 'Dhaka Night 2077', desc: 'Deep cyan shadows with electrifying amber neon highlights' },
-    { id: 'noir', name: 'Monochrome Silver 400', desc: 'High-contrast black and white with dramatic tonal separation' },
-    { id: 'bleach', name: 'Bleach Bypass Grit', desc: 'Desaturated palette with harsh silver halation highlights' },
-    { id: 'kodachrome', name: 'Kodachrome Vintage 64', desc: 'Punchy retro primaries with iconic crimson reds' }
+    { id: 'cinematic', short: 'CINE 35', name: 'RAWx Cinema 35', desc: 'Warm 35mm golden emulsion with velvet blacks.' },
+    { id: 'cyberpunk', short: 'NIGHT 77', name: 'Dhaka Night 2077', desc: 'Deep cyan shadows with amber neon highlights.' },
+    { id: 'noir', short: 'SILVER BW', name: 'Monochrome Silver 400', desc: 'High-contrast monochrome tonal separation.' },
+    { id: 'bleach', short: 'BLEACH', name: 'Bleach Bypass Grit', desc: 'Desaturated midtones with gritty halation highlights.' },
+    { id: 'kodachrome', short: 'KODA 64', name: 'Kodachrome Vintage 64', desc: 'Punchy retro primaries with deep crimson reds.' }
   ];
 
   const handleApplyLens = (lens: typeof lensPresets[0]) => {
     setLens(lens.name);
-    alert(`Applied "${lens.name}" to Active Shot!`);
+    setAppliedBadge(lens.short);
+    setTimeout(() => setAppliedBadge(null), 1600);
   };
 
-  const handleApplyColor = (lutId: string) => {
+  const handleApplyColor = (lutId: string, short: string) => {
     setLut(lutId);
-    alert(`Applied LUT to Active Shot!`);
+    setAppliedBadge(short);
+    setTimeout(() => setAppliedBadge(null), 1600);
+  };
+
+  const catIcons = {
+    lens: Camera,
+    color: Palette,
+    type: Type,
+    sound: Volume2
   };
 
   return (
     <div className="w-full h-full flex flex-col bg-[#050505] text-[#EDEDED] font-mono select-none overflow-hidden">
       {/* Header */}
-      <div className="h-12 border-b border-[#D4AF37]/20 bg-[#0B0B0B] px-4 flex items-center justify-between text-xs shrink-0">
+      <div className="h-12 border-b border-white/[0.08] bg-[#0B0B0B] px-4 flex items-center justify-between text-xs shrink-0 gap-2">
         <div className="flex items-center gap-2">
-          <Library className="w-4 h-4 text-[#D4AF37]" />
-          <span className="font-bold text-[#FFE066]">PRESET & ASSET LIBRARY</span>
-          <span className="text-[#8A8A8A]">| PRODUCTION ASSETS</span>
+          <CinemaBadgeHeader
+            icon={<Library className="w-3.5 h-3.5 text-amber-400" />}
+            label="ASSET VAULT"
+            accent="amber"
+          />
+          {appliedBadge && (
+            <span className="px-2 py-0.5 rounded bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-[10px] font-black tracking-wider">
+              {appliedBadge} ON
+            </span>
+          )}
         </div>
 
         {/* Categories */}
-        <div className="flex bg-[#121212] p-1 rounded border border-[#D4AF37]/20 text-xs">
-          {(['lens', 'color', 'type', 'sound'] as const).map(cat => (
-            <button
-              key={cat}
-              onClick={() => setActiveCategory(cat)}
-              className={`px-3 py-1 rounded capitalize transition-colors ${
-                activeCategory === cat ? 'bg-[#D4AF37] text-black font-bold' : 'text-[#8A8A8A] hover:text-[#EDEDED]'
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
+        <div className="flex gap-1.5">
+          {(['lens', 'color', 'type', 'sound'] as const).map(cat => {
+            const Icon = catIcons[cat];
+            const accent = cat === 'color' ? 'cyan' : cat === 'sound' ? 'emerald' : 'amber';
+            return (
+              <CinemaToolHUD
+                key={cat}
+                title={`${cat.toUpperCase()} PRESETS`}
+                en={`Browse studio ${cat} presets for the active shot.`}
+                bn={`কীভাবে ব্যবহার করবেন: ${cat.toUpperCase()} প্রিসেট ক্যাটাগরি দেখতে ট্যাপ করুন।`}
+                accent={accent}
+                side="bottom"
+              >
+                <button
+                  type="button"
+                  onClick={() => setActiveCategory(cat)}
+                  data-active={activeCategory === cat ? 'true' : 'false'}
+                  className={`cinema-tile cinema-tile-${accent} min-h-[36px] px-2.5 py-1 flex items-center gap-1.5 text-[10px] font-black tracking-wider uppercase`}
+                >
+                  <Icon className="w-3.5 h-3.5" strokeWidth={2.2} />
+                  <span>{cat}</span>
+                </button>
+              </CinemaToolHUD>
+            );
+          })}
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-y-auto p-6 custom-scrollbar bg-[#080808]">
+      <div className="flex-1 overflow-y-auto p-5 custom-scrollbar bg-[#080808]">
         {activeCategory === 'lens' && (
-          <div className="max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-4">
-            {lensPresets.map((lens) => (
-              <div
-                key={lens.name}
-                className="p-4 bg-[#0B0B0B] border border-[#D4AF37]/20 hover:border-[#D4AF37] rounded-lg flex flex-col justify-between gap-3 transition-colors"
-              >
-                <div>
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-bold text-sm text-[#FFE066]">{lens.name}</h3>
-                    <span className="px-2 py-0.5 bg-[#121212] border border-[#D4AF37]/30 text-[10px] text-[#00FFCC] rounded">
-                      {lens.fStop}
-                    </span>
-                  </div>
-                  <p className="text-xs text-[#8A8A8A] mt-2 leading-relaxed">{lens.desc}</p>
-                </div>
-
-                <button
-                  onClick={() => handleApplyLens(lens)}
-                  className="w-full py-1.5 bg-[#121212] hover:bg-[#D4AF37] hover:text-black border border-[#D4AF37]/30 rounded text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
+          <div className="max-w-4xl grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            {lensPresets.map((lens) => {
+              const isSelected = activeLens === lens.name;
+              return (
+                <CinemaToolHUD
+                  key={lens.name}
+                  title={`${lens.name.toUpperCase()} (${lens.fStop})`}
+                  en={lens.desc}
+                  bn={`কীভাবে ব্যবহার করবেন: শট #${activeShotIndex + 1}-এ ${lens.focal}mm লেন্স লাগাতে ক্লিক করুন।`}
+                  accent="amber"
+                  side="top"
+                  blockWrapper
                 >
-                  <span>APPLY LENS TO SHOT #{activeShotIndex + 1}</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ))}
+                  <button
+                    type="button"
+                    onClick={() => handleApplyLens(lens)}
+                    data-active={isSelected ? 'true' : 'false'}
+                    className="cinema-tile cinema-tile-amber w-full min-h-[78px] p-3 flex flex-col justify-between gap-2 text-left"
+                  >
+                    <div className="flex items-center justify-between w-full">
+                      <Camera className="w-4 h-4" strokeWidth={2.2} />
+                      <span className="text-[10px] font-black tracking-wider text-cyan-300">
+                        {lens.fStop}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between w-full">
+                      <span className="text-[11px] font-black tracking-wider uppercase">{lens.short}</span>
+                      {isSelected ? <Check className="w-3.5 h-3.5" /> : <ArrowRight className="w-3.5 h-3.5 opacity-60" />}
+                    </div>
+                  </button>
+                </CinemaToolHUD>
+              );
+            })}
           </div>
         )}
 
         {activeCategory === 'color' && (
-          <div className="max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-4">
-            {colorPresets.map((lut) => (
-              <div
-                key={lut.id}
-                className="p-4 bg-[#0B0B0B] border border-[#D4AF37]/20 hover:border-[#D4AF37] rounded-lg flex flex-col justify-between gap-3 transition-colors"
-              >
-                <div>
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-bold text-sm text-[#FFE066]">{lut.name}</h3>
-                    {activeLut === lut.id && (
-                      <span className="px-2 py-0.5 bg-[#D4AF37] text-black text-[10px] font-bold rounded">
-                        ACTIVE
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-[#8A8A8A] mt-2 leading-relaxed">{lut.desc}</p>
-                </div>
-
-                <button
-                  onClick={() => handleApplyColor(lut.id)}
-                  className="w-full py-1.5 bg-[#121212] hover:bg-[#D4AF37] hover:text-black border border-[#D4AF37]/30 rounded text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
+          <div className="max-w-4xl grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            {colorPresets.map((lut) => {
+              const isSelected = activeLut === lut.id;
+              return (
+                <CinemaToolHUD
+                  key={lut.id}
+                  title={lut.name.toUpperCase()}
+                  en={lut.desc}
+                  bn="কীভাবে ব্যবহার করবেন: বর্তমান শটে এই 3D LUT কালার গ্রেড অ্যাপ্লাই করতে ক্লিক করুন।"
+                  accent="cyan"
+                  side="top"
+                  blockWrapper
                 >
-                  <span>LOAD 3D LUT</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ))}
+                  <button
+                    type="button"
+                    onClick={() => handleApplyColor(lut.id, lut.short)}
+                    data-active={isSelected ? 'true' : 'false'}
+                    className="cinema-tile cinema-tile-cyan w-full min-h-[78px] p-3 flex flex-col justify-between gap-2 text-left"
+                  >
+                    <div className="flex items-center justify-between w-full">
+                      <Palette className="w-4 h-4" strokeWidth={2.2} />
+                      {isSelected && <Check className="w-4 h-4" strokeWidth={2.5} />}
+                    </div>
+                    <div className="flex items-center justify-between w-full">
+                      <span className="text-[11px] font-black tracking-wider uppercase">{lut.short}</span>
+                      <ArrowRight className="w-3.5 h-3.5 opacity-60" />
+                    </div>
+                  </button>
+                </CinemaToolHUD>
+              );
+            })}
           </div>
         )}
 
         {(activeCategory === 'type' || activeCategory === 'sound') && (
-          <div className="max-w-2xl p-6 bg-[#0B0B0B] border border-[#D4AF37]/20 rounded-lg text-center text-xs text-[#8A8A8A]">
-            <p className="text-[#FFE066] font-bold mb-1">RAWx CINEMA PRESETS ACTIVE</p>
-            <p>Presets are linked with the dedicated Text and Sound Studios.</p>
+          <div className="max-w-md mx-auto p-5 bg-[#111215] border border-[#26282E] rounded-lg flex flex-col items-center gap-2 text-center">
+            {activeCategory === 'type' ? (
+              <CinemaBadgeHeader icon={<Type className="w-4 h-4 text-amber-400" />} label="TEXT LINKED" accent="amber" />
+            ) : (
+              <CinemaBadgeHeader icon={<Volume2 className="w-4 h-4 text-emerald-400" />} label="AUDIO LINKED" accent="emerald" />
+            )}
           </div>
         )}
       </div>

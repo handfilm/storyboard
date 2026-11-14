@@ -7,27 +7,24 @@
 
 import React, { useState } from 'react';
 import { useStudioStore } from '../../core/store';
+import { CinemaToolHUD, CinemaBadgeHeader } from '../../components/ui/CinemaToolHUD';
 import { 
   Palette, 
-  Sliders, 
   Activity, 
-  Sparkles, 
-  Layers, 
   Check, 
   RefreshCcw, 
-  Eye, 
-  Sun,
-  Flame,
-  Contrast
+  Layers,
+  SplitSquareHorizontal,
+  Sliders
 } from 'lucide-react';
 
 const lutPresets = [
-  { id: 'cinematic', name: 'RAWx Cinema 35', desc: 'Warm 35mm golden emulsion with deep shadows' },
-  { id: 'cyberpunk', name: 'Dhaka Night Noir', desc: 'High-contrast cyan shadows with neon gold highlights' },
-  { id: 'noir', name: 'Monochrome Silver', desc: 'Tri-X 400 high-contrast black & white' },
-  { id: 'bleach', name: 'Bleach Bypass', desc: 'Desaturated midtones with gritty silver retention' },
-  { id: 'kodachrome', name: 'Kodachrome 64', desc: 'Vibrant primaries with punchy nostalgic reds' },
-  { id: 'eterna', name: 'Fuji Eterna Film', desc: 'Subtle soft pastels with muted organic skin tones' }
+  { id: 'cinematic', short: 'CINE 35', name: 'RAWx Cinema 35', desc: 'Warm 35mm golden emulsion with deep shadows.' },
+  { id: 'cyberpunk', short: 'NIGHT NOIR', name: 'Dhaka Night Noir', desc: 'High-contrast cyan shadows with neon gold highlights.' },
+  { id: 'noir', short: 'SILVER BW', name: 'Monochrome Silver', desc: 'Tri-X 400 high-contrast black and white.' },
+  { id: 'bleach', short: 'BLEACH', name: 'Bleach Bypass', desc: 'Desaturated midtones with gritty silver retention.' },
+  { id: 'kodachrome', short: 'KODA 64', name: 'Kodachrome 64', desc: 'Vibrant primaries with punchy nostalgic reds.' },
+  { id: 'eterna', short: 'ETERNA', name: 'Fuji Eterna Film', desc: 'Soft pastels with muted organic skin tones.' }
 ];
 
 export const ColorStudio: React.FC = () => {
@@ -84,44 +81,78 @@ export const ColorStudio: React.FC = () => {
   return (
     <div className="w-full h-full flex flex-col md:flex-row bg-[#050505] text-[#EDEDED] font-mono select-none overflow-hidden">
       {/* Left Grade Monitor & Scopes */}
-      <div className="flex-1 flex flex-col border-r border-[#D4AF37]/20 overflow-hidden">
+      <div className="flex-1 flex flex-col border-r border-white/[0.08] overflow-hidden">
         {/* Top Grade Bar */}
-        <div className="h-12 border-b border-[#D4AF37]/20 bg-[#0B0B0B] px-4 flex items-center justify-between text-xs">
+        <div className="h-12 border-b border-white/[0.08] bg-[#0B0B0B] px-4 flex items-center justify-between text-xs gap-2">
           <div className="flex items-center gap-2">
-            <Palette className="w-4 h-4 text-[#D4AF37]" />
-            <span className="font-bold text-[#FFE066]">PRO COLOR GRADE & SHADER PIPELINE</span>
-            <span className="text-[#8A8A8A]">| SHOT #{String(activeShotIndex + 1).padStart(3, '0')}</span>
+            <CinemaBadgeHeader
+              icon={<Palette className="w-3.5 h-3.5 text-amber-400" />}
+              label="COLOR LAB"
+              accent="amber"
+            />
+            <span className="text-zinc-500 font-black text-[10px]">
+              SH{String(activeShotIndex + 1).padStart(3, '0')}
+            </span>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setIsSplitMode(!isSplitMode)}
-              className={`px-2.5 py-1 rounded border text-xs transition-colors ${
-                isSplitMode ? 'border-[#D4AF37] bg-[#D4AF37]/20 text-[#FFE066]' : 'border-[#D4AF37]/30 text-[#8A8A8A]'
-              }`}
+          <div className="flex items-center gap-1.5">
+            <CinemaToolHUD
+              title="SPLIT-SCREEN COMPARE"
+              en="Drag slider across preview to compare raw plate vs graded output."
+              bn="কীভাবে ব্যবহার করবেন: আসল ও গ্রেডেড ফুটেজ পাশাপাশি দেখতে COMPARE অন করুন।"
+              accent="cyan"
+              side="bottom"
             >
-              BEFORE / AFTER
-            </button>
-            <button
-              onClick={handleApplyToAll}
-              className="px-2.5 py-1 bg-[#121212] hover:bg-[#D4AF37] hover:text-black border border-[#D4AF37]/30 rounded text-xs transition-colors"
+              <button
+                type="button"
+                onClick={() => setIsSplitMode(!isSplitMode)}
+                data-active={isSplitMode ? 'true' : 'false'}
+                className="cinema-tile cinema-tile-cyan min-h-[36px] px-2.5 flex items-center gap-1.5 text-[10px] font-black tracking-wider uppercase"
+              >
+                <SplitSquareHorizontal className="w-3.5 h-3.5" strokeWidth={2.2} />
+                <span>COMPARE</span>
+              </button>
+            </CinemaToolHUD>
+
+            <CinemaToolHUD
+              title="APPLY LUT TO ALL SHOTS"
+              en="Sync current 3D LUT across all 100 storyboard frames."
+              bn="কীভাবে ব্যবহার করবেন: বর্তমান কালার গ্রেড ১০০টি শটে একসাথে বসাতে SYNC ALL চাপুন।"
+              accent="emerald"
+              side="bottom"
             >
-              APPLY TO ALL 100
-            </button>
-            <button
-              onClick={handleResetGrade}
-              className="p-1 text-[#8A8A8A] hover:text-[#EDEDED]"
-              title="Reset Grade"
+              <button
+                type="button"
+                onClick={handleApplyToAll}
+                className="cinema-tile cinema-tile-emerald min-h-[36px] px-2.5 flex items-center gap-1.5 text-[10px] font-black tracking-wider uppercase"
+              >
+                <Layers className="w-3.5 h-3.5" strokeWidth={2.2} />
+                <span>SYNC ALL</span>
+              </button>
+            </CinemaToolHUD>
+
+            <CinemaToolHUD
+              title="RESET GRADE"
+              en="Restore neutral exposure, lift/gamma/gain, and film shaders."
+              bn="কীভাবে ব্যবহার করবেন: সব কালার স্লাইডার ও ইফেক্ট রিসেট করতে চাপুন।"
+              accent="crimson"
+              side="bottom"
             >
-              <RefreshCcw className="w-3.5 h-3.5" />
-            </button>
+              <button
+                type="button"
+                onClick={handleResetGrade}
+                className="cinema-tile cinema-tile-crimson min-h-[36px] px-2.5 flex items-center gap-1 text-[10px] font-black tracking-wider uppercase"
+              >
+                <RefreshCcw className="w-3.5 h-3.5" strokeWidth={2.2} />
+                <span>RESET</span>
+              </button>
+            </CinemaToolHUD>
           </div>
         </div>
 
         {/* Viewport Canvas with Graded Image */}
         <div className="flex-1 bg-[#030304] flex items-center justify-center p-6 relative overflow-hidden">
-          <div className="w-full max-w-4xl aspect-video bg-black rounded border border-[#D4AF37]/30 relative overflow-hidden shadow-2xl flex items-center justify-center">
-            {/* Graded Media (Video or Image) */}
+          <div className="w-full max-w-4xl aspect-video bg-black rounded border border-[#26282E] relative overflow-hidden shadow-2xl flex items-center justify-center">
             {isVideo ? (
               <video
                 src={imageUrl}
@@ -151,7 +182,7 @@ export const ColorStudio: React.FC = () => {
             {isSplitMode && (
               <>
                 <div 
-                  className="absolute inset-y-0 left-0 overflow-hidden border-r-2 border-[#FFE066] shadow-2xl"
+                  className="absolute inset-y-0 left-0 overflow-hidden border-r-2 border-amber-400 shadow-2xl"
                   style={{ width: `${splitPosition}%` }}
                 >
                   {isVideo ? (
@@ -172,12 +203,12 @@ export const ColorStudio: React.FC = () => {
                       style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                     />
                   )}
-                  <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-black/80 rounded border border-[#8A8A8A] text-[9px] text-[#8A8A8A]">
-                    ORIGINAL
+                  <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-black/80 rounded border border-white/20 text-[9px] font-black tracking-wider text-zinc-300">
+                    RAW PLATE
                   </div>
                 </div>
-                <div className="absolute top-2 right-2 px-1.5 py-0.5 bg-black/80 rounded border border-[#D4AF37] text-[9px] text-[#FFE066]">
-                  GRADED ({activeLut.toUpperCase()})
+                <div className="absolute top-2 right-2 px-1.5 py-0.5 bg-black/80 rounded border border-amber-400/50 text-[9px] font-black tracking-wider text-amber-300">
+                  {activeLut.toUpperCase()}
                 </div>
                 <input
                   type="range"
@@ -185,7 +216,7 @@ export const ColorStudio: React.FC = () => {
                   max="100"
                   value={splitPosition}
                   onChange={(e) => setSplitPosition(Number(e.target.value))}
-                  className="absolute inset-x-4 bottom-4 accent-[#FFE066] opacity-80 hover:opacity-100"
+                  className="absolute inset-x-4 bottom-4 accent-amber-400 opacity-85 hover:opacity-100"
                 />
               </>
             )}
@@ -204,85 +235,116 @@ export const ColorStudio: React.FC = () => {
         </div>
 
         {/* Real-Time Video Scopes Panel */}
-        <div className="h-32 bg-[#0B0B0B] border-t border-[#D4AF37]/20 p-3 flex flex-col justify-between">
+        <div className="h-32 bg-[#0B0B0B] border-t border-white/[0.08] p-3 flex flex-col justify-between">
           <div className="flex items-center justify-between text-[11px]">
-            <div className="flex items-center gap-2">
-              <Activity className="w-3.5 h-3.5 text-[#D4AF37]" />
-              <span className="font-bold text-[#FFE066]">LIVE VIDEO SCOPE</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setActiveScope('waveform')}
-                className={`px-2 py-0.5 rounded text-[10px] ${activeScope === 'waveform' ? 'bg-[#D4AF37] text-black font-bold' : 'text-[#8A8A8A]'}`}
+            <CinemaBadgeHeader
+              icon={<Activity className="w-3.5 h-3.5 text-cyan-400" />}
+              label="SCOPES"
+              accent="cyan"
+            />
+            <div className="flex items-center gap-1.5">
+              <CinemaToolHUD
+                title="LUMA WAVEFORM (IRE)"
+                en="Inspect brightness luminance distribution from 0 to 100 IRE."
+                bn="কীভাবে ব্যবহার করবেন: আলোর ভারসাম্য মাপতে WAVEFORM বেছে নিন।"
+                accent="cyan"
+                side="top"
               >
-                WAVEFORM (IRE)
-              </button>
-              <button
-                onClick={() => setActiveScope('histogram')}
-                className={`px-2 py-0.5 rounded text-[10px] ${activeScope === 'histogram' ? 'bg-[#D4AF37] text-black font-bold' : 'text-[#8A8A8A]'}`}
+                <button
+                  type="button"
+                  onClick={() => setActiveScope('waveform')}
+                  data-active={activeScope === 'waveform' ? 'true' : 'false'}
+                  className="cinema-tile cinema-tile-cyan px-2.5 py-1 text-[9.5px] font-black tracking-wider uppercase"
+                >
+                  WAVEFORM
+                </button>
+              </CinemaToolHUD>
+              <CinemaToolHUD
+                title="RGB HISTOGRAM"
+                en="Inspect RGB tonal clipping and midtone density."
+                bn="কীভাবে ব্যবহার করবেন: লাল-সবুজ-নীল রঙের গ্রাফ দেখতে RGB HIST বেছে নিন।"
+                accent="amber"
+                side="top"
               >
-                RGB HISTOGRAM
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveScope('histogram')}
+                  data-active={activeScope === 'histogram' ? 'true' : 'false'}
+                  className="cinema-tile cinema-tile-amber px-2.5 py-1 text-[9.5px] font-black tracking-wider uppercase"
+                >
+                  RGB HIST
+                </button>
+              </CinemaToolHUD>
             </div>
           </div>
 
-          {/* Simulated Waveform Canvas Graph */}
-          <div className="h-20 bg-black rounded border border-[#D4AF37]/20 relative flex items-end justify-between px-2 pb-1 overflow-hidden">
+          <div className="h-20 bg-black rounded border border-[#26282E] relative flex items-end justify-between px-2 pb-1 overflow-hidden">
             {Array.from({ length: 48 }).map((_, idx) => {
               const height = Math.min(100, Math.max(15, Math.sin(idx * 0.3) * 40 + 50 + (idx % 7) * 4));
               return (
                 <div
                   key={idx}
-                  className="w-1 bg-[#00FFCC]/70 rounded-t-xs"
+                  className={`w-1 rounded-t-xs ${activeScope === 'waveform' ? 'bg-cyan-400/75' : 'bg-amber-400/75'}`}
                   style={{ height: `${height}%` }}
                 />
               );
             })}
-            <div className="absolute inset-x-0 top-1/4 border-b border-[#D4AF37]/20" />
-            <div className="absolute inset-x-0 top-1/2 border-b border-[#D4AF37]/20" />
-            <div className="absolute inset-x-0 top-3/4 border-b border-[#D4AF37]/20" />
-            <span className="absolute top-1 left-2 text-[8px] text-[#8A8A8A]">100 IRE</span>
-            <span className="absolute bottom-1 left-2 text-[8px] text-[#8A8A8A]">0 IRE</span>
+            <div className="absolute inset-x-0 top-1/4 border-b border-white/10" />
+            <div className="absolute inset-x-0 top-1/2 border-b border-white/10" />
+            <div className="absolute inset-x-0 top-3/4 border-b border-white/10" />
+            <span className="absolute top-1 left-2 text-[8px] font-black text-zinc-500">100 IRE</span>
+            <span className="absolute bottom-1 left-2 text-[8px] font-black text-zinc-500">0 IRE</span>
           </div>
         </div>
       </div>
 
       {/* Right Grading Controls Panel */}
       <div className="w-full md:w-80 bg-[#0B0B0B] flex flex-col overflow-y-auto custom-scrollbar p-4 gap-4 text-xs">
-        <h3 className="font-bold text-[#FFE066] text-xs uppercase tracking-wider border-b border-[#D4AF37]/20 pb-2">
-          Color Wheels & Shader FX
-        </h3>
+        <CinemaBadgeHeader
+          icon={<Sliders className="w-3.5 h-3.5 text-amber-400" />}
+          label="3D LUTS"
+          accent="amber"
+        />
 
         {/* 3D LUT Presets */}
-        <div>
-          <label className="text-[10px] text-[#8A8A8A] uppercase">Cinematic 3D LUT</label>
-          <div className="grid grid-cols-1 gap-1.5 mt-1">
-            {lutPresets.map((lut) => (
-              <button
+        <div className="grid grid-cols-2 gap-1.5">
+          {lutPresets.map((lut) => {
+            const isSelected = activeLut === lut.id;
+            return (
+              <CinemaToolHUD
                 key={lut.id}
-                onClick={() => setLut(lut.id)}
-                className={`p-2 rounded border text-left flex flex-col gap-0.5 transition-colors ${
-                  activeLut === lut.id 
-                    ? 'border-[#FFE066] bg-[#D4AF37]/20 text-[#FFE066]' 
-                    : 'border-[#D4AF37]/10 bg-[#121212] text-[#8A8A8A] hover:border-[#D4AF37]/40'
-                }`}
+                title={lut.name.toUpperCase()}
+                en={lut.desc}
+                bn="কীভাবে ব্যবহার করবেন: শটে এই ফিল্মিক কালার প্রিসেট লাগাতে ট্যাপ করুন।"
+                accent="amber"
+                side="left"
+                blockWrapper
               >
-                <div className="font-bold text-[#EDEDED] flex items-center justify-between">
-                  <span>{lut.name}</span>
-                  {activeLut === lut.id && <Check className="w-3 h-3 text-[#FFE066]" />}
-                </div>
-                <div className="text-[10px] text-[#8A8A8A]">{lut.desc}</div>
-              </button>
-            ))}
-          </div>
+                <button
+                  type="button"
+                  onClick={() => setLut(lut.id)}
+                  data-active={isSelected ? 'true' : 'false'}
+                  className="cinema-tile cinema-tile-amber w-full min-h-[44px] px-2.5 py-2 flex items-center justify-between text-[10px] font-black tracking-wider uppercase"
+                >
+                  <span>{lut.short}</span>
+                  {isSelected && <Check className="w-3.5 h-3.5" strokeWidth={2.5} />}
+                </button>
+              </CinemaToolHUD>
+            );
+          })}
         </div>
 
         {/* Lift / Gamma / Gain Sliders */}
-        <div className="flex flex-col gap-3 border-t border-[#D4AF37]/10 pt-3">
+        <div className="flex flex-col gap-3 border-t border-white/[0.08] pt-3">
+          <CinemaBadgeHeader
+            icon={<Palette className="w-3 h-3 text-cyan-400" />}
+            label="COLOR WHEELS"
+            accent="cyan"
+          />
           <div>
-            <div className="flex justify-between text-[10px] text-[#8A8A8A]">
-              <span>LIFT (SHADOWS)</span>
-              <span className="text-[#FFE066]">{lift.master}</span>
+            <div className="flex justify-between text-[10px] font-black tracking-wider text-zinc-400">
+              <span>LIFT</span>
+              <span className="text-amber-400">{lift.master}</span>
             </div>
             <input
               type="range"
@@ -290,14 +352,14 @@ export const ColorStudio: React.FC = () => {
               max="20"
               value={lift.master}
               onChange={(e) => setLift(prev => ({ ...prev, master: Number(e.target.value) }))}
-              className="w-full accent-[#D4AF37] mt-1"
+              className="w-full accent-amber-400 mt-1"
             />
           </div>
 
           <div>
-            <div className="flex justify-between text-[10px] text-[#8A8A8A]">
-              <span>GAMMA (MIDTONES)</span>
-              <span className="text-[#FFE066]">{gamma.master}</span>
+            <div className="flex justify-between text-[10px] font-black tracking-wider text-zinc-400">
+              <span>GAMMA</span>
+              <span className="text-amber-400">{gamma.master}</span>
             </div>
             <input
               type="range"
@@ -305,14 +367,14 @@ export const ColorStudio: React.FC = () => {
               max="20"
               value={gamma.master}
               onChange={(e) => setGamma(prev => ({ ...prev, master: Number(e.target.value) }))}
-              className="w-full accent-[#D4AF37] mt-1"
+              className="w-full accent-amber-400 mt-1"
             />
           </div>
 
           <div>
-            <div className="flex justify-between text-[10px] text-[#8A8A8A]">
-              <span>GAIN (HIGHLIGHTS)</span>
-              <span className="text-[#FFE066]">{gain.master}</span>
+            <div className="flex justify-between text-[10px] font-black tracking-wider text-zinc-400">
+              <span>GAIN</span>
+              <span className="text-amber-400">{gain.master}</span>
             </div>
             <input
               type="range"
@@ -320,18 +382,22 @@ export const ColorStudio: React.FC = () => {
               max="30"
               value={gain.master}
               onChange={(e) => setGain(prev => ({ ...prev, master: Number(e.target.value) }))}
-              className="w-full accent-[#D4AF37] mt-1"
+              className="w-full accent-amber-400 mt-1"
             />
           </div>
         </div>
 
         {/* Optical Shader FX */}
-        <div className="flex flex-col gap-3 border-t border-[#D4AF37]/10 pt-3">
-          <label className="text-[10px] text-[#8A8A8A] uppercase">Analog Shader Emulation</label>
+        <div className="flex flex-col gap-3 border-t border-white/[0.08] pt-3">
+          <CinemaBadgeHeader
+            icon={<Sliders className="w-3 h-3 text-emerald-400" />}
+            label="FILM SHADERS"
+            accent="emerald"
+          />
           <div>
-            <div className="flex justify-between text-[10px] text-[#8A8A8A]">
-              <span>35MM FILM GRAIN</span>
-              <span className="text-[#FFE066]">{grain}%</span>
+            <div className="flex justify-between text-[10px] font-black tracking-wider text-zinc-400">
+              <span>35MM GRAIN</span>
+              <span className="text-emerald-300">{grain}%</span>
             </div>
             <input
               type="range"
@@ -339,14 +405,14 @@ export const ColorStudio: React.FC = () => {
               max="100"
               value={grain}
               onChange={(e) => setGrain(Number(e.target.value))}
-              className="w-full accent-[#D4AF37] mt-1"
+              className="w-full accent-emerald-400 mt-1"
             />
           </div>
 
           <div>
-            <div className="flex justify-between text-[10px] text-[#8A8A8A]">
-              <span>ANAMORPHIC HALATION</span>
-              <span className="text-[#FFE066]">{halation}%</span>
+            <div className="flex justify-between text-[10px] font-black tracking-wider text-zinc-400">
+              <span>HALATION</span>
+              <span className="text-emerald-300">{halation}%</span>
             </div>
             <input
               type="range"
@@ -354,14 +420,14 @@ export const ColorStudio: React.FC = () => {
               max="100"
               value={halation}
               onChange={(e) => setHalation(Number(e.target.value))}
-              className="w-full accent-[#D4AF37] mt-1"
+              className="w-full accent-emerald-400 mt-1"
             />
           </div>
 
           <div>
-            <div className="flex justify-between text-[10px] text-[#8A8A8A]">
-              <span>VIGNETTE FALLOFF</span>
-              <span className="text-[#FFE066]">{vignette}%</span>
+            <div className="flex justify-between text-[10px] font-black tracking-wider text-zinc-400">
+              <span>VIGNETTE</span>
+              <span className="text-emerald-300">{vignette}%</span>
             </div>
             <input
               type="range"
@@ -369,7 +435,7 @@ export const ColorStudio: React.FC = () => {
               max="100"
               value={vignette}
               onChange={(e) => setVignette(Number(e.target.value))}
-              className="w-full accent-[#D4AF37] mt-1"
+              className="w-full accent-emerald-400 mt-1"
             />
           </div>
         </div>

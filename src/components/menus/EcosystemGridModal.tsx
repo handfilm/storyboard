@@ -1,5 +1,7 @@
 import React, { useEffect } from 'react';
+import { ExternalLink, LayoutGrid, X } from 'lucide-react';
 import { ECOSYSTEM_DATA } from '../../constants/ecosystemApps';
+import { CinemaBadgeHeader, CinemaToolHUD } from '../ui/CinemaToolHUD';
 
 interface EcosystemGridModalProps {
   isOpen: boolean;
@@ -18,81 +20,83 @@ export const EcosystemGridModal: React.FC<EcosystemGridModalProps> = ({ isOpen, 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[99999] bg-[#050505]/95 backdrop-blur-3xl overflow-y-auto px-6 py-12 md:px-16 md:py-16">
+    <div className="fixed inset-0 z-[99999] bg-[#050505]/95 backdrop-blur-3xl overflow-y-auto px-4 py-8 md:px-12 md:py-12">
       {/* HEADER */}
-      <div className="max-w-7xl mx-auto flex justify-between items-center pb-8 border-b border-white/10 mb-12">
-        <div>
-          <h1 className="text-3xl md:text-5xl font-black text-white uppercase tracking-widest font-mono">
-            [ THE HIMON ECOSYSTEM ]
+      <div className="max-w-7xl mx-auto flex justify-between items-center pb-6 border-b border-white/10 mb-8">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-[#111215] border border-amber-500/40 flex items-center justify-center text-amber-400">
+            <LayoutGrid className="w-5 h-5" strokeWidth={2.2} />
+          </div>
+          <h1 className="text-xl md:text-2xl font-black text-white uppercase tracking-wider font-mono">
+            APPS ECOSYSTEM
           </h1>
-          <p className="text-xs md:text-sm text-white/40 font-mono tracking-wider mt-2">
-            25+ DISTRIBUTED ARCHITECTURES // CENTRAL COMMAND OS
-          </p>
         </div>
-        <button
-          onClick={onClose}
-          className="text-white/60 hover:text-white font-mono text-sm tracking-widest px-4 py-2 border border-white/10 rounded-md hover:bg-white/5 transition-all cursor-pointer"
+
+        <CinemaToolHUD
+          title="CLOSE APPS HUB"
+          en="Return to the main HandFilm cinema workspace."
+          bn="অ্যাপস গ্যালারি বন্ধ করে মূল স্টুডিওতে ফিরতে CLOSE চাপুন।"
+          shortcut="ESC"
+          accent="crimson"
         >
-          CLOSE ✕
-        </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="cinema-tile cinema-tile-crimson px-3.5 py-2 rounded-lg font-black tracking-wider text-xs uppercase flex items-center gap-1.5 cursor-pointer"
+          >
+            <X className="w-4 h-4 cinema-tile-icon" />
+            <span>CLOSE</span>
+          </button>
+        </CinemaToolHUD>
       </div>
 
-      {/* CATEGORY & CARD STACK */}
-      <div className="max-w-7xl mx-auto space-y-16">
+      {/* CATEGORY & COMPACT ICON CARD GRID */}
+      <div className="max-w-7xl mx-auto space-y-10">
         {ECOSYSTEM_DATA.map((group) => (
-          <div key={group.categoryName} className="space-y-6">
-            <h2 className="text-xs font-mono font-bold uppercase tracking-[0.25em] text-amber-500 border-l-2 border-amber-500 pl-3">
-              // {group.categoryName}
-            </h2>
+          <div key={group.categoryName} className="space-y-4">
+            <CinemaBadgeHeader
+              icon={<LayoutGrid className="w-3.5 h-3.5" />}
+              label={group.categoryName.split(' ')[0].toUpperCase()}
+              accent="amber"
+            />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
               {group.projects.map((proj) => (
-                <div
+                <CinemaToolHUD
                   key={proj.id}
-                  className="group relative bg-[#0A0C10] border border-white/10 rounded-2xl overflow-hidden flex flex-col hover:border-amber-400/60 hover:scale-105 hover:-translate-y-1.5 hover:shadow-[0_0_32px_rgba(245,166,35,0.32),0_20px_45px_rgba(0,0,0,0.9)] transition-all duration-300 ease-out transform-gpu will-change-transform shadow-2xl"
+                  title={proj.title.toUpperCase()}
+                  en={proj.sub}
+                  bn={`${proj.title} অ্যাপটি নতুন ট্যাবে চালু করতে কার্ডে ক্লিক করুন।`}
+                  accent="amber"
+                  blockWrapper
                 >
-                  {/* Soft box-shadow glow animation backdrop */}
-                  <div 
-                    aria-hidden="true" 
-                    className="absolute -inset-0.5 rounded-2xl bg-gradient-to-r from-amber-500/0 via-amber-400/35 to-amber-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none blur-md animate-pulse" 
-                  />
-
-                  {/* CARD IMAGE */}
-                  <div className="h-52 w-full overflow-hidden bg-black/40 relative">
-                    <img
-                      src={proj.image}
-                      alt={proj.title}
-                      className="w-full h-full object-cover opacity-60 group-hover:opacity-100 group-hover:scale-105 transition-all duration-700"
-                      loading="lazy"
-                    />
-                    <div className="absolute top-3 right-3 bg-black/70 backdrop-blur-md px-2 py-0.5 rounded text-[9px] font-mono text-white/70 uppercase tracking-widest border border-white/10 group-hover:border-amber-400/40 group-hover:text-amber-300 transition-colors">
-                      {proj.category}
+                  <a
+                    href={proj.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="cinema-tile cinema-tile-amber w-full rounded-xl overflow-hidden flex flex-col cursor-pointer group"
+                  >
+                    <div className="h-32 sm:h-36 w-full overflow-hidden bg-black/50 relative">
+                      <img
+                        src={proj.image}
+                        alt={proj.title}
+                        className="w-full h-full object-cover opacity-75 group-hover:opacity-100 group-hover:scale-105 transition-all duration-500"
+                        loading="lazy"
+                      />
+                      <span className="absolute top-2 right-2 bg-black/80 px-1.5 py-0.5 rounded text-[9px] font-black tracking-wider text-amber-300 uppercase border border-white/10">
+                        {proj.category}
+                      </span>
                     </div>
-                  </div>
 
-                  {/* CARD DETAILS */}
-                  <div className="p-6 flex-1 flex flex-col justify-between bg-gradient-to-b from-[#0A0C10] to-[#050608] relative z-10">
-                    <div>
-                      <h3 className="text-lg font-black text-white uppercase tracking-wider font-mono group-hover:text-amber-300 transition-colors duration-300">
+                    <div className="p-3 flex items-center justify-between gap-2 bg-[#111215]">
+                      <span className="text-[11px] font-black tracking-wider uppercase text-white truncate">
                         {proj.title}
-                      </h3>
-                      <p className="text-xs text-white/50 font-mono mt-1 leading-relaxed">
-                        {proj.sub}
-                      </p>
+                      </span>
+                      <ExternalLink className="w-4 h-4 cinema-tile-icon shrink-0" strokeWidth={2.2} />
                     </div>
-
-                    {/* NATIVE LINK ANCHOR */}
-                    <a
-                      href={proj.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      className="mt-6 block w-full py-3 bg-white/[0.03] border border-white/15 text-center text-[10px] font-mono font-bold text-white tracking-[0.2em] rounded-lg uppercase group-hover:border-amber-400/50 group-hover:bg-amber-500/10 group-hover:text-amber-200 hover:group-hover:bg-white hover:group-hover:text-black hover:group-hover:shadow-[0_0_20px_rgba(255,255,255,0.4)] transition-all duration-200 cursor-pointer shadow-sm"
-                    >
-                      [ LAUNCH // ENTER ENGINE ] ↗
-                    </a>
-                  </div>
-                </div>
+                  </a>
+                </CinemaToolHUD>
               ))}
             </div>
           </div>

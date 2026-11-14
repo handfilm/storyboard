@@ -46,6 +46,7 @@ import {
 } from '../../services/customShortcutsService';
 import { useStudioStore } from '../../core/store';
 import { ExportLutPreviewCard } from '../export/ExportLutPreviewCard';
+import { CinemaToolHUD, CinemaBadgeHeader } from '../ui/CinemaToolHUD';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -258,102 +259,55 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       >
         {/* Header */}
         <div className="h-13 bg-[#0d0d14] border-b border-[#272732] px-5 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-[2px] bg-[#d4af37]/20 border border-[#d4af37]/50 flex items-center justify-center">
-              <Settings className="w-4 h-4 text-[#fbbf24]" />
-            </div>
-            <div>
-              <h2 className="font-cinzel text-sm font-bold text-white tracking-[0.16em]">
-                STUDIO SETTINGS & SYSTEM DOCTOR
-              </h2>
-              <p className="text-[9px] text-zinc-400 font-mono-tech">
-                IndexedDB Quotas • 720p Proxies • Hotkeys • Design System
-              </p>
-            </div>
-          </div>
+          <CinemaBadgeHeader
+            icon={<Settings className="w-4 h-4 text-[#fbbf24]" strokeWidth={2.2} />}
+            label="STUDIO SETTINGS"
+            accent="amber"
+          />
 
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-[1px] bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white cursor-pointer transition-colors border border-[#272732]"
-            title="Close Settings (Esc)"
+          <CinemaToolHUD
+            title="CLOSE SETTINGS"
+            en="Close the studio settings modal."
+            bn="কীভাবে ব্যবহার করবেন: সেটিংস মডাল বন্ধ করতে ক্লিক করুন।"
+            shortcut="ESC"
+            accent="crimson"
+            side="left"
           >
-            <X className="w-4 h-4" />
-          </button>
+            <button
+              onClick={onClose}
+              className="cinema-tile cinema-tile-crimson min-h-[38px] px-2.5 flex items-center gap-1.5"
+              aria-label="Close Settings"
+            >
+              <X className="w-4 h-4" strokeWidth={2.2} />
+              <span className="font-black tracking-wider text-[10px] uppercase">CLOSE</span>
+            </button>
+          </CinemaToolHUD>
         </div>
 
         {/* Tab Navigation Strip */}
-        <div className="flex items-center gap-1 px-4 py-2 bg-[#060608] border-b border-[#272732] overflow-x-auto no-scrollbar shrink-0 text-xs font-bold">
-          <button
-            onClick={() => setActiveTab('storage')}
-            className={`px-3 py-1.5 rounded-[1px] flex items-center gap-1.5 cursor-pointer transition-all ${
-              activeTab === 'storage'
-                ? 'bg-[#d4af37]/20 border border-[#d4af37] text-[#fbbf24]'
-                : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/5 border border-transparent'
-            }`}
-          >
-            <HardDrive className="w-3.5 h-3.5 text-[#fbbf24]" />
-            <span>Storage & Quotas</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('shortcuts')}
-            className={`px-3 py-1.5 rounded-[1px] flex items-center gap-1.5 cursor-pointer transition-all ${
-              activeTab === 'shortcuts'
-                ? 'bg-[#d4af37]/20 border border-[#d4af37] text-[#fbbf24]'
-                : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/5 border border-transparent'
-            }`}
-          >
-            <Keyboard className="w-3.5 h-3.5 text-[#38bdf8]" />
-            <span>Shortcuts</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('export')}
-            className={`px-3 py-1.5 rounded-[1px] flex items-center gap-1.5 cursor-pointer transition-all ${
-              activeTab === 'export'
-                ? 'bg-[#d4af37]/20 border border-[#d4af37] text-[#fbbf24]'
-                : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/5 border border-transparent'
-            }`}
-          >
-            <Sliders className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Export Defaults</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('theme')}
-            className={`px-3 py-1.5 rounded-[1px] flex items-center gap-1.5 cursor-pointer transition-all ${
-              activeTab === 'theme'
-                ? 'bg-[#d4af37]/20 border border-[#d4af37] text-[#fbbf24]'
-                : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/5 border border-transparent'
-            }`}
-          >
-            <Palette className="w-3.5 h-3.5 text-amber-400" />
-            <span>Themes</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('diagnostics')}
-            className={`px-3 py-1.5 rounded-[1px] flex items-center gap-1.5 cursor-pointer transition-all ${
-              activeTab === 'diagnostics'
-                ? 'bg-[#d4af37]/20 border border-[#d4af37] text-[#fbbf24]'
-                : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/5 border border-transparent'
-            }`}
-          >
-            <Activity className="w-3.5 h-3.5 text-rose-400" />
-            <span>Self-Test</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('git')}
-            className={`px-3 py-1.5 rounded-[1px] flex items-center gap-1.5 cursor-pointer transition-all ${
-              activeTab === 'git'
-                ? 'bg-[#d4af37]/20 border border-[#d4af37] text-[#fbbf24]'
-                : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/5 border border-transparent'
-            }`}
-          >
-            <GitBranch className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Git & GitHub</span>
-          </button>
+        <div className="flex items-center gap-1.5 px-4 py-2 bg-[#060608] border-b border-[#272732] overflow-x-auto no-scrollbar shrink-0">
+          {([
+            { id: 'storage', label: 'STORAGE', icon: HardDrive, accent: 'amber' as const, title: 'STORAGE & QUOTAS', en: 'Manage IndexedDB persistent cache and offline backups.', bn: 'কীভাবে ব্যবহার করবেন: স্টোরেজ ও ব্যাকআপ দেখতে ক্লিক করুন।' },
+            { id: 'shortcuts', label: 'HOTKEYS', icon: Keyboard, accent: 'cyan' as const, title: 'KEYBOARD HOTKEYS', en: 'Search and customize keyboard shortcuts.', bn: 'কীভাবে ব্যবহার করবেন: শর্টকাট বদলাতে ক্লিক করুন।' },
+            { id: 'export', label: 'EXPORT', icon: Sliders, accent: 'emerald' as const, title: 'EXPORT DEFAULTS', en: 'Set default resolution, frame rate, and format.', bn: 'কীভাবে ব্যবহার করবেন: ডিফল্ট এক্সপোর্ট সেট করতে ক্লিক করুন।' },
+            { id: 'theme', label: 'THEMES', icon: Palette, accent: 'amber' as const, title: 'STUDIO THEMES', en: 'Switch color themes and layout density.', bn: 'কীভাবে ব্যবহার করবেন: স্টুডিও থিম বদলাতে ক্লিক করুন।' },
+            { id: 'diagnostics', label: 'SELF-TEST', icon: Activity, accent: 'crimson' as const, title: 'SYSTEM SELF-TEST', en: 'Run diagnostics on audio, codecs, and storage.', bn: 'কীভাবে ব্যবহার করবেন: সিস্টেম হেলথ টেস্ট করতে ক্লিক করুন।' },
+            { id: 'git', label: 'GIT SYNC', icon: GitBranch, accent: 'emerald' as const, title: 'GIT & GITHUB DEPLOY', en: 'Generate GitHub push commands and repo config.', bn: 'কীভাবে ব্যবহার করবেন: গিটহাব পুশ কমান্ড পেতে ক্লিক করুন।' },
+          ]).map((t) => {
+            const Icon = t.icon;
+            return (
+              <CinemaToolHUD key={t.id} title={t.title} en={t.en} bn={t.bn} accent={t.accent} side="bottom">
+                <button
+                  onClick={() => setActiveTab(t.id as typeof activeTab)}
+                  data-active={activeTab === t.id ? 'true' : 'false'}
+                  className={`cinema-tile cinema-tile-${t.accent} min-h-[38px] px-3 py-1.5 flex items-center gap-1.5 whitespace-nowrap`}
+                >
+                  <Icon className="w-3.5 h-3.5" strokeWidth={2.2} />
+                  <span className="font-black tracking-wider text-[10px] sm:text-[11px] uppercase">{t.label}</span>
+                </button>
+              </CinemaToolHUD>
+            );
+          })}
         </div>
 
         {/* Tab Content */}
@@ -363,22 +317,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <div className="space-y-4">
               <div className="p-4 bg-[#0f0f18] border border-[#272732] rounded-[2px] space-y-3">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                    <span className="text-xs font-bold text-white">DURABLE STORAGE STATUS</span>
-                  </div>
-                  <span className={`px-2 py-0.5 text-[9px] font-bold rounded ${quotaInfo.isPersisted ? 'bg-emerald-950/80 border border-emerald-500/50 text-emerald-300' : 'bg-amber-950/80 border border-amber-500/50 text-amber-300'}`}>
-                    {quotaInfo.isPersisted ? 'PERSISTED (OS EVICTION LOCKED)' : 'STANDARD BROWSER CACHE'}
+                  <CinemaBadgeHeader
+                    icon={<ShieldCheck className="w-4 h-4 text-emerald-400" strokeWidth={2.2} />}
+                    label="VAULT STORAGE"
+                    accent="emerald"
+                  />
+                  <span className={`px-2 py-0.5 text-[9px] font-black tracking-wider uppercase rounded ${quotaInfo.isPersisted ? 'bg-emerald-950/80 border border-emerald-500/50 text-emerald-300' : 'bg-amber-950/80 border border-amber-500/50 text-amber-300'}`}>
+                    {quotaInfo.isPersisted ? 'PERSISTED' : 'BROWSER CACHE'}
                   </span>
                 </div>
-                <p className="text-[11px] text-zinc-400 leading-relaxed">
-                  RAWx uses client-side IndexedDB with <code>navigator.storage.persist()</code> to prevent the browser from automatically evicting your 4K clips, 720p proxies, and draft changes.
-                </p>
 
                 {/* Storage Quota Progress Bar */}
-                <div className="space-y-1.5 pt-2">
+                <div className="space-y-1.5 pt-1">
                   <div className="flex justify-between text-[10.5px]">
-                    <span className="text-zinc-400">Allocated Disk Usage</span>
+                    <span className="text-zinc-400 font-black tracking-wider uppercase">DISK QUOTA</span>
                     <span className="text-[#fbbf24] font-bold">
                       {formatBytes(quotaInfo.usedBytes)} / {formatBytes(quotaInfo.quotaBytes)} ({quotaInfo.percentUsed}%)
                     </span>
@@ -395,42 +347,54 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               {/* Cache & Maintenance Controls */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="p-3.5 bg-[#0f0f18] border border-[#272732] rounded-[2px] flex flex-col justify-between gap-3">
-                  <div>
-                    <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
-                      <Zap className="w-3.5 h-3.5 text-[#fbbf24]" />
-                      <span>720p Media Proxies</span>
-                    </h4>
-                    <p className="text-[10px] text-zinc-400 mt-1">
-                      Lightweight 720p proxies generated on ingest for seamless 24fps stage playback and J-K-L shuttling.
-                    </p>
-                  </div>
-                  <button
-                    onClick={handlePurgeProxies}
-                    disabled={isPurging}
-                    className="px-3 py-1.5 bg-[#181824] hover:bg-[#222232] border border-[#272732] hover:border-[#d4af37] text-xs text-[#fbbf24] font-bold rounded cursor-pointer transition-colors flex items-center justify-center gap-1.5 active:scale-[0.98]"
+                  <CinemaBadgeHeader
+                    icon={<Zap className="w-3.5 h-3.5 text-[#fbbf24]" strokeWidth={2.2} />}
+                    label="720P PROXIES"
+                    accent="amber"
+                  />
+                  <CinemaToolHUD
+                    title="FLUSH PROXY CACHE"
+                    en="Revoke transient blob URLs and refresh media proxy storage."
+                    bn="কীভাবে ব্যবহার করবেন: অপ্রয়োজনীয় ক্যাশ পরিষ্কার করতে চাপুন।"
+                    accent="amber"
+                    side="top"
+                    blockWrapper
                   >
-                    <RefreshCw className={`w-3 h-3 ${isPurging ? 'animate-spin' : ''}`} />
-                    <span>{purgeSuccess ? 'Cleaned!' : 'Refresh & Flush Active URLs'}</span>
-                  </button>
+                    <button
+                      onClick={handlePurgeProxies}
+                      disabled={isPurging}
+                      className="cinema-tile cinema-tile-amber w-full min-h-[44px] px-3 py-2 flex items-center justify-center gap-2"
+                    >
+                      <RefreshCw className={`w-4 h-4 ${isPurging ? 'animate-spin' : ''}`} strokeWidth={2.2} />
+                      <span className="font-black tracking-wider text-[10px] sm:text-[11px] uppercase">
+                        {purgeSuccess ? 'CLEANED' : 'FLUSH CACHE'}
+                      </span>
+                    </button>
+                  </CinemaToolHUD>
                 </div>
 
                 <div className="p-3.5 bg-[#0f0f18] border border-[#272732] rounded-[2px] flex flex-col justify-between gap-3">
-                  <div>
-                    <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
-                      <Download className="w-3.5 h-3.5 text-cyan-400" />
-                      <span>Full Project Backup (.rawx)</span>
-                    </h4>
-                    <p className="text-[10px] text-zinc-400 mt-1">
-                      Download a complete, offline JSON bundle containing all 100 shots, camera specs, and timeline edits.
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => exportFullIdbBackup()}
-                    className="px-3 py-1.5 bg-[#181824] hover:bg-[#222232] border border-[#272732] hover:border-cyan-400 text-xs text-cyan-300 font-bold rounded cursor-pointer transition-colors flex items-center justify-center gap-1.5 active:scale-[0.98]"
+                  <CinemaBadgeHeader
+                    icon={<Download className="w-3.5 h-3.5 text-cyan-400" strokeWidth={2.2} />}
+                    label="FULL BACKUP"
+                    accent="cyan"
+                  />
+                  <CinemaToolHUD
+                    title="EXPORT .RAWX BUNDLE"
+                    en="Download a complete offline JSON bundle of shots, specs, and edits."
+                    bn="কীভাবে ব্যবহার করবেন: পুরো প্রজেক্ট ব্যাকআপ ডাউনলোড করতে চাপুন।"
+                    accent="cyan"
+                    side="top"
+                    blockWrapper
                   >
-                    <Download className="w-3 h-3" />
-                    <span>Export .rawx Bundle</span>
-                  </button>
+                    <button
+                      onClick={() => exportFullIdbBackup()}
+                      className="cinema-tile cinema-tile-cyan w-full min-h-[44px] px-3 py-2 flex items-center justify-center gap-2"
+                    >
+                      <Download className="w-4 h-4" strokeWidth={2.2} />
+                      <span className="font-black tracking-wider text-[10px] sm:text-[11px] uppercase">EXPORT .RAWX</span>
+                    </button>
+                  </CinemaToolHUD>
                 </div>
               </div>
             </div>
@@ -441,84 +405,99 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <div className="space-y-3.5">
               {/* Header & Controls */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-1 border-b border-[#272732]">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-                      <Keyboard className="w-3.5 h-3.5 text-[#fbbf24]" />
-                      <span>VISUAL KEYBOARD SHORTCUT MANAGER</span>
-                    </h3>
-                    {shortcutList.filter(s => s.currentKey !== s.defaultKey).length > 0 && (
-                      <span className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-cyan-950/60 border border-cyan-500/40 text-cyan-300 font-bold">
-                        {shortcutList.filter(s => s.currentKey !== s.defaultKey).length} CUSTOMIZED
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-[10px] text-zinc-400 mt-0.5">
-                    Search and reassign hotkeys across Playback, Navigation, Visual FX, and Export. Press Rebind to capture new keys.
-                  </p>
+                <div className="flex items-center gap-2">
+                  <CinemaBadgeHeader
+                    icon={<Keyboard className="w-3.5 h-3.5 text-[#fbbf24]" strokeWidth={2.2} />}
+                    label="HOTKEY MANAGER"
+                    accent="amber"
+                  />
+                  {shortcutList.filter(s => s.currentKey !== s.defaultKey).length > 0 && (
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-cyan-950/60 border border-cyan-500/40 text-cyan-300 uppercase">
+                      {shortcutList.filter(s => s.currentKey !== s.defaultKey).length} CUSTOM
+                    </span>
+                  )}
                 </div>
 
-                <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
+                <CinemaToolHUD
+                  title="RESET ALL HOTKEYS"
+                  en="Restore every keyboard shortcut back to factory defaults."
+                  bn="কীভাবে ব্যবহার করবেন: সব শর্টকাট ডিফল্ট অবস্থায় ফেরাতে ক্লিক করুন।"
+                  accent="crimson"
+                  side="left"
+                >
                   <button
                     onClick={handleResetAllShortcuts}
-                    className="px-2.5 py-1 rounded bg-[#181824] hover:bg-[#222232] border border-[#272732] hover:border-rose-500/50 text-zinc-400 hover:text-rose-300 text-[10px] font-mono flex items-center gap-1.5 transition-colors cursor-pointer"
-                    title="Restore all factory default shortcuts"
+                    className="cinema-tile cinema-tile-crimson min-h-[38px] px-3 py-1.5 flex items-center gap-1.5"
                   >
-                    <RotateCcw className="w-3 h-3" />
-                    <span>Reset All to Defaults</span>
+                    <RotateCcw className="w-3.5 h-3.5" strokeWidth={2.2} />
+                    <span className="font-black tracking-wider text-[10px] uppercase">RESET ALL</span>
                   </button>
-                </div>
+                </CinemaToolHUD>
               </div>
 
               {/* Toast Feedback */}
               {shortcutToast && (
                 <div className="px-3 py-1.5 rounded bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-xs flex items-center gap-2 animate-in fade-in">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="font-mono">{shortcutToast}</span>
+                  <span className="font-mono font-bold">{shortcutToast}</span>
                 </div>
               )}
 
               {/* Search Bar & Category Filters */}
               <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 bg-[#0e0e16] p-2.5 rounded border border-[#272732]">
-                <div className="relative w-full sm:w-72 shrink-0">
+                <div className="relative w-full sm:w-64 shrink-0">
                   <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     type="text"
                     value={shortcutSearch}
                     onChange={(e) => setShortcutSearch(e.target.value)}
-                    placeholder="Search controls (e.g. Space, Shuttle, FX, Split)..."
-                    className="w-full pl-8 pr-7 py-1 text-xs bg-black/60 border border-zinc-700/80 rounded text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-[#fbbf24] font-mono"
+                    placeholder="FILTER HOTKEYS..."
+                    className="w-full pl-8 pr-7 py-1.5 text-xs bg-black/60 border border-zinc-700/80 rounded text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-[#fbbf24] font-mono uppercase"
                   />
                   {shortcutSearch && (
-                    <button
-                      onClick={() => setShortcutSearch('')}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white"
+                    <CinemaToolHUD
+                      title="CLEAR SEARCH"
+                      en="Clear hotkey search filter."
+                      bn="কীভাবে ব্যবহার করবেন: সার্চ মুছতে ক্লিক করুন।"
+                      accent="amber"
+                      side="top"
                     >
-                      <X className="w-3 h-3" />
-                    </button>
+                      <button
+                        onClick={() => setShortcutSearch('')}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white cursor-pointer"
+                        aria-label="Clear search"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </CinemaToolHUD>
                   )}
                 </div>
 
                 <div className="flex items-center gap-1 overflow-x-auto w-full sm:w-auto no-scrollbar pb-0.5">
                   {(['all', 'playback', 'navigation', 'vfx', 'trimmer', 'export', 'system'] as const).map((cat) => {
-                    const count = cat === 'all' 
-                      ? shortcutList.length 
+                    const count = cat === 'all'
+                      ? shortcutList.length
                       : shortcutList.filter(s => s.category === cat).length;
                     const isActive = shortcutCategory === cat;
-                    const label = cat === 'all' ? 'All' : cat === 'vfx' ? 'Optics' : cat.charAt(0).toUpperCase() + cat.slice(1);
+                    const label = cat === 'all' ? 'ALL' : cat === 'vfx' ? 'OPTICS' : cat.toUpperCase();
 
                     return (
-                      <button
+                      <CinemaToolHUD
                         key={cat}
-                        onClick={() => setShortcutCategory(cat)}
-                        className={`px-2 py-0.5 rounded text-[10px] font-mono transition-colors whitespace-nowrap cursor-pointer ${
-                          isActive
-                            ? 'bg-[#fbbf24] text-black font-bold'
-                            : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'
-                        }`}
+                        title={`${label} CATEGORY`}
+                        en={`Filter shortcuts in ${label} group (${count}).`}
+                        bn="কীভাবে ব্যবহার করবেন: এই গ্রুপের শর্টকাট দেখতে ক্লিক করুন।"
+                        accent="amber"
+                        side="top"
                       >
-                        {label} ({count})
-                      </button>
+                        <button
+                          onClick={() => setShortcutCategory(cat)}
+                          data-active={isActive ? 'true' : 'false'}
+                          className="cinema-tile cinema-tile-amber px-2.5 py-1 text-[10px] font-black tracking-wider uppercase whitespace-nowrap"
+                        >
+                          {label} ({count})
+                        </button>
+                      </CinemaToolHUD>
                     );
                   })}
                 </div>
@@ -543,15 +522,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                   if (filtered.length === 0) {
                     return (
-                      <div className="py-12 text-center text-zinc-500 font-mono text-xs">
-                        <Keyboard className="w-7 h-7 mx-auto mb-2 opacity-30" />
-                        <p>No shortcuts match "{shortcutSearch}"</p>
-                        <button
-                          onClick={() => setShortcutSearch('')}
-                          className="mt-2 text-[#fbbf24] hover:underline"
+                      <div className="py-10 text-center text-zinc-500 font-mono text-xs flex flex-col items-center gap-2">
+                        <Keyboard className="w-7 h-7 opacity-30" />
+                        <span className="font-black tracking-wider text-[10px] uppercase">NO MATCHES</span>
+                        <CinemaToolHUD
+                          title="CLEAR FILTER"
+                          en="Reset search query to show all hotkeys."
+                          bn="কীভাবে ব্যবহার করবেন: ফিল্টার সরাতে ক্লিক করুন।"
+                          accent="amber"
+                          side="top"
                         >
-                          Clear search filter
-                        </button>
+                          <button
+                            onClick={() => setShortcutSearch('')}
+                            className="cinema-tile cinema-tile-amber px-3 py-1.5 text-[10px] font-black tracking-wider uppercase"
+                          >
+                            CLEAR FILTER
+                          </button>
+                        </CinemaToolHUD>
                       </div>
                     );
                   }
@@ -560,10 +547,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <table className="w-full text-left text-xs font-mono">
                       <thead className="bg-[#0e0e16] text-[#fbbf24] border-b border-[#272732] sticky top-0 z-10">
                         <tr>
-                          <th className="py-2 px-3 font-bold text-[10px] uppercase">Action & Description</th>
-                          <th className="py-2 px-2 font-bold text-[10px] uppercase text-center w-24">Scope</th>
-                          <th className="py-2 px-3 font-bold text-[10px] uppercase text-center w-36">Current Key</th>
-                          <th className="py-2 px-3 font-bold text-[10px] uppercase text-right w-44">Rebind & Actions</th>
+                          <th className="py-2 px-3 font-black text-[10px] uppercase tracking-wider">ACTION</th>
+                          <th className="py-2 px-2 font-black text-[10px] uppercase tracking-wider text-center w-24">SCOPE</th>
+                          <th className="py-2 px-3 font-black text-[10px] uppercase tracking-wider text-center w-32">KEY</th>
+                          <th className="py-2 px-3 font-black text-[10px] uppercase tracking-wider text-right w-40">REBIND</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[#1e1e28] text-zinc-300 bg-[#09090E]">
@@ -572,117 +559,130 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           const isCustomized = item.currentKey !== item.defaultKey;
 
                           return (
-                            <tr 
+                            <tr
                               key={item.id}
                               className={`transition-colors ${
-                                isRecording 
-                                  ? 'bg-[#fbbf24]/10 border-l-2 border-[#fbbf24]' 
+                                isRecording
+                                  ? 'bg-[#fbbf24]/10 border-l-2 border-[#fbbf24]'
                                   : 'hover:bg-white/[0.02]'
                               }`}
                             >
-                              {/* Name & Desc */}
                               <td className="py-2.5 px-3">
                                 <div className="font-semibold text-zinc-100 flex items-center gap-2">
                                   <span>{item.name}</span>
                                   {isCustomized && (
-                                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-cyan-950 text-cyan-300 border border-cyan-800/60">
+                                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-cyan-950 text-cyan-300 border border-cyan-800/60 font-black">
                                       MODIFIED
                                     </span>
                                   )}
                                 </div>
-                                <div className="text-[10px] text-zinc-400 mt-0.5 line-clamp-1">
-                                  {item.description}
-                                </div>
                               </td>
 
-                              {/* Scope */}
                               <td className="py-2.5 px-2 text-center">
                                 <span className="text-[9.5px] px-1.5 py-0.5 rounded bg-black/60 border border-zinc-800 text-zinc-400">
                                   {item.scope}
                                 </span>
                               </td>
 
-                              {/* Key Display / Live Recording Box */}
                               <td className="py-2.5 px-3 text-center">
                                 {isRecording ? (
                                   <div className="inline-flex flex-col items-center">
                                     <span className="px-2 py-0.5 rounded bg-rose-950/80 border border-rose-500 text-rose-200 text-xs font-bold animate-pulse">
-                                      {recordedKey || 'PRESS KEY...'}
+                                      {recordedKey || 'PRESS KEY'}
                                     </span>
                                     {conflictWarning && (
                                       <span className="text-[8.5px] text-rose-400 mt-1 flex items-center gap-0.5 font-bold">
                                         <AlertTriangle className="w-2.5 h-2.5" />
-                                        Used by: {conflictWarning.name.slice(0, 14)}...
+                                        {conflictWarning.name.slice(0, 12)}
                                       </span>
                                     )}
                                   </div>
                                 ) : (
-                                  <div className="flex flex-col items-center">
-                                    <kbd className={`px-2 py-0.5 rounded text-xs font-bold shadow-sm ${
-                                      isCustomized
-                                        ? 'bg-cyan-950 border border-cyan-500 text-cyan-200'
-                                        : 'bg-black border border-zinc-700 text-[#fbbf24]'
-                                    }`}>
-                                      {item.currentKey}
-                                    </kbd>
-                                    {isCustomized && (
-                                      <span className="text-[8px] text-zinc-500 mt-0.5">
-                                        def: {item.defaultKey}
-                                      </span>
-                                    )}
-                                  </div>
+                                  <kbd className={`px-2 py-0.5 rounded text-xs font-bold shadow-sm ${
+                                    isCustomized
+                                      ? 'bg-cyan-950 border border-cyan-500 text-cyan-200'
+                                      : 'bg-black border border-zinc-700 text-[#fbbf24]'
+                                  }`}>
+                                    {item.currentKey}
+                                  </kbd>
                                 )}
                               </td>
 
-                              {/* Action Buttons */}
                               <td className="py-2.5 px-3 text-right">
                                 {isRecording ? (
                                   <div className="flex items-center justify-end gap-1.5">
-                                    <button
-                                      onClick={() => recordedKey && handleConfirmRebind(item.id, recordedKey)}
-                                      disabled={!recordedKey}
-                                      className={`px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-colors ${
-                                        recordedKey
-                                          ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
-                                          : 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
-                                      }`}
+                                    <CinemaToolHUD
+                                      title="SAVE REBIND"
+                                      en="Save this recorded key combination."
+                                      bn="কীভাবে ব্যবহার করবেন: নতুন শর্টকাট সেভ করতে ক্লিক করুন।"
+                                      accent="emerald"
+                                      side="left"
                                     >
-                                      <Check className="w-3 h-3" />
-                                      <span>Save</span>
-                                    </button>
-                                    <button
-                                      onClick={() => {
-                                        setRecordingId(null);
-                                        setRecordedKey(null);
-                                        setConflictWarning(null);
-                                      }}
-                                      className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[10px] cursor-pointer"
+                                      <button
+                                        onClick={() => recordedKey && handleConfirmRebind(item.id, recordedKey)}
+                                        disabled={!recordedKey}
+                                        className="cinema-tile cinema-tile-emerald px-2 py-1 text-[10px] font-black tracking-wider uppercase flex items-center gap-1"
+                                      >
+                                        <Check className="w-3 h-3" strokeWidth={2.2} />
+                                        <span>SAVE</span>
+                                      </button>
+                                    </CinemaToolHUD>
+                                    <CinemaToolHUD
+                                      title="CANCEL REBIND"
+                                      en="Abort shortcut key recording."
+                                      bn="কীভাবে ব্যবহার করবেন: বাতিল করতে ক্লিক করুন।"
+                                      accent="crimson"
+                                      side="left"
                                     >
-                                      Cancel
-                                    </button>
+                                      <button
+                                        onClick={() => {
+                                          setRecordingId(null);
+                                          setRecordedKey(null);
+                                          setConflictWarning(null);
+                                        }}
+                                        className="cinema-tile cinema-tile-crimson px-2 py-1 text-[10px] font-black tracking-wider uppercase"
+                                      >
+                                        CANCEL
+                                      </button>
+                                    </CinemaToolHUD>
                                   </div>
                                 ) : (
                                   <div className="flex items-center justify-end gap-1.5">
-                                    <button
-                                      onClick={() => {
-                                        setRecordingId(item.id);
-                                        setRecordedKey(null);
-                                        setConflictWarning(null);
-                                      }}
-                                      className="px-2 py-1 rounded bg-[#181824] hover:bg-[#222232] border border-[#272732] hover:border-[#fbbf24] text-[#fbbf24] text-[10px] flex items-center gap-1 cursor-pointer transition-colors"
-                                      title="Record a new key combination"
+                                    <CinemaToolHUD
+                                      title={`REBIND: ${item.name.toUpperCase()}`}
+                                      en={item.description}
+                                      bn="কীভাবে ব্যবহার করবেন: REBIND চেপে কিবোর্ডের নতুন কী চাপুন।"
+                                      accent="amber"
+                                      side="left"
                                     >
-                                      <Edit3 className="w-2.5 h-2.5" />
-                                      <span>Rebind</span>
-                                    </button>
-                                    {isCustomized && (
                                       <button
-                                        onClick={() => handleResetSingle(item.id)}
-                                        className="px-1.5 py-1 rounded bg-[#181824] hover:bg-zinc-800 text-zinc-400 hover:text-white border border-[#272732] text-[10px] cursor-pointer"
-                                        title="Restore default key"
+                                        onClick={() => {
+                                          setRecordingId(item.id);
+                                          setRecordedKey(null);
+                                          setConflictWarning(null);
+                                        }}
+                                        className="cinema-tile cinema-tile-amber px-2 py-1 text-[10px] font-black tracking-wider uppercase flex items-center gap-1"
                                       >
-                                        <RotateCcw className="w-2.5 h-2.5" />
+                                        <Edit3 className="w-2.5 h-2.5" strokeWidth={2.2} />
+                                        <span>REBIND</span>
                                       </button>
+                                    </CinemaToolHUD>
+                                    {isCustomized && (
+                                      <CinemaToolHUD
+                                        title="RESTORE DEFAULT"
+                                        en={`Reset back to ${item.defaultKey}.`}
+                                        bn="কীভাবে ব্যবহার করবেন: আগের ডিফল্ট কী ফেরাতে ক্লিক করুন।"
+                                        accent="cyan"
+                                        side="left"
+                                      >
+                                        <button
+                                          onClick={() => handleResetSingle(item.id)}
+                                          className="cinema-tile cinema-tile-cyan px-1.5 py-1 flex items-center gap-1"
+                                        >
+                                          <RotateCcw className="w-2.5 h-2.5" strokeWidth={2.2} />
+                                          <span className="font-black text-[9px]">RESET</span>
+                                        </button>
+                                      </CinemaToolHUD>
                                     )}
                                   </div>
                                 )}
@@ -694,12 +694,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </table>
                   );
                 })()}
-              </div>
-
-              {/* Bottom Instructions */}
-              <div className="px-3 py-2 bg-[#0e0e16] border border-[#272732] rounded flex flex-col sm:flex-row items-center justify-between gap-2 text-[10px] text-zinc-400 font-mono">
-                <span>Tip: Modifiers (Ctrl, Alt, Shift) are automatically captured while recording.</span>
-                <span className="text-zinc-500">Press <kbd className="px-1 py-0.2 bg-black rounded text-zinc-300">Esc</kbd> anytime to cancel rebind</span>
               </div>
             </div>
           )}
@@ -719,64 +713,91 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
               <div className="p-4 bg-[#0f0f18] border border-[#272732] rounded-[2px] space-y-4">
                 <div>
-                  <label className="text-xs font-bold text-white block mb-1.5">
-                    DEFAULT MASTER EXPORT FORMAT
-                  </label>
+                  <CinemaBadgeHeader
+                    icon={<Sliders className="w-3.5 h-3.5 text-emerald-400" strokeWidth={2.2} />}
+                    label="DEFAULT FORMAT"
+                    accent="emerald"
+                    className="mb-2"
+                  />
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
                     {(['mp4', 'fcpxml', 'xml', 'otio'] as const).map(fmt => (
-                      <button
+                      <CinemaToolHUD
                         key={fmt}
-                        onClick={() => setDefaultFormat(fmt)}
-                        className={`p-2.5 rounded border text-center font-bold cursor-pointer transition-all ${
-                          defaultFormat === fmt
-                            ? 'bg-[#d4af37]/20 border-[#d4af37] text-[#fbbf24]'
-                            : 'bg-white/5 border-white/10 text-zinc-400 hover:text-white'
-                        }`}
+                        title={`${fmt.toUpperCase()} DEFAULT`}
+                        en={`Use ${fmt.toUpperCase()} as primary export output.`}
+                        bn="কীভাবে ব্যবহার করবেন: ডিফল্ট ফরম্যাট সেট করতে ক্লিক করুন।"
+                        accent="emerald"
+                        side="top"
+                        blockWrapper
                       >
-                        {fmt.toUpperCase()}
-                      </button>
+                        <button
+                          onClick={() => setDefaultFormat(fmt)}
+                          data-active={defaultFormat === fmt ? 'true' : 'false'}
+                          className="cinema-tile cinema-tile-emerald w-full min-h-[44px] p-2.5 text-center font-black tracking-wider text-[10px] sm:text-[11px] uppercase"
+                        >
+                          {fmt.toUpperCase()}
+                        </button>
+                      </CinemaToolHUD>
                     ))}
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-white block mb-1.5">
-                    RENDER RESOLUTION PRESET
-                  </label>
+                  <CinemaBadgeHeader
+                    icon={<Sliders className="w-3.5 h-3.5 text-amber-400" strokeWidth={2.2} />}
+                    label="RESOLUTION"
+                    accent="amber"
+                    className="mb-2"
+                  />
                   <div className="grid grid-cols-3 gap-2 text-xs">
                     {(['720p', '1080p', '4k'] as const).map(res => (
-                      <button
+                      <CinemaToolHUD
                         key={res}
-                        onClick={() => setDefaultResolution(res)}
-                        className={`p-2.5 rounded border text-center font-bold cursor-pointer transition-all ${
-                          defaultResolution === res
-                            ? 'bg-[#d4af37]/20 border-[#d4af37] text-[#fbbf24]'
-                            : 'bg-white/5 border-white/10 text-zinc-400 hover:text-white'
-                        }`}
+                        title={`${res.toUpperCase()} PRESET`}
+                        en={`Default render resolution: ${res.toUpperCase()}.`}
+                        bn="কীভাবে ব্যবহার করবেন: ডিফল্ট রেজোলিউশন বাছতে ক্লিক করুন।"
+                        accent="amber"
+                        side="top"
+                        blockWrapper
                       >
-                        {res === '720p' ? '720p HD (Proxy)' : res === '1080p' ? '1080p Cine (Master)' : '4K UHD (Master)'}
-                      </button>
+                        <button
+                          onClick={() => setDefaultResolution(res)}
+                          data-active={defaultResolution === res ? 'true' : 'false'}
+                          className="cinema-tile cinema-tile-amber w-full min-h-[44px] p-2.5 text-center font-black tracking-wider text-[10px] sm:text-[11px] uppercase"
+                        >
+                          {res === '720p' ? '720P PROXY' : res === '1080p' ? '1080P CINE' : '4K UHD'}
+                        </button>
+                      </CinemaToolHUD>
                     ))}
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-white block mb-1.5">
-                    MASTER TIMELINE FRAMERATE
-                  </label>
+                  <CinemaBadgeHeader
+                    icon={<Activity className="w-3.5 h-3.5 text-cyan-400" strokeWidth={2.2} />}
+                    label="FRAMERATE"
+                    accent="cyan"
+                    className="mb-2"
+                  />
                   <div className="grid grid-cols-3 gap-2 text-xs">
                     {([24, 30, 60] as const).map(fps => (
-                      <button
+                      <CinemaToolHUD
                         key={fps}
-                        onClick={() => setDefaultFps(fps)}
-                        className={`p-2.5 rounded border text-center font-bold cursor-pointer transition-all ${
-                          defaultFps === fps
-                            ? 'bg-[#d4af37]/20 border-[#d4af37] text-[#fbbf24]'
-                            : 'bg-white/5 border-white/10 text-zinc-400 hover:text-white'
-                        }`}
+                        title={`${fps} FPS TIMELINE`}
+                        en={`Set master playback and export rate to ${fps} FPS.`}
+                        bn="কীভাবে ব্যবহার করবেন: ফ্রেমরেট সেট করতে ক্লিক করুন।"
+                        accent="cyan"
+                        side="top"
+                        blockWrapper
                       >
-                        {fps === 24 ? '24.0 FPS (Cinema)' : `${fps}.0 FPS`}
-                      </button>
+                        <button
+                          onClick={() => setDefaultFps(fps)}
+                          data-active={defaultFps === fps ? 'true' : 'false'}
+                          className="cinema-tile cinema-tile-cyan w-full min-h-[44px] p-2.5 text-center font-black tracking-wider text-[10px] sm:text-[11px] uppercase"
+                        >
+                          {fps} FPS
+                        </button>
+                      </CinemaToolHUD>
                     ))}
                   </div>
                 </div>
@@ -788,54 +809,72 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           {activeTab === 'theme' && (
             <div className="space-y-4">
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[#d4af37] block mb-2">
-                  Color Themes
-                </span>
+                <CinemaBadgeHeader
+                  icon={<Palette className="w-3.5 h-3.5 text-[#fbbf24]" strokeWidth={2.2} />}
+                  label="COLOR THEMES"
+                  accent="amber"
+                  className="mb-2"
+                />
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {(Object.entries(THEMES) as [ThemeId, typeof THEMES[ThemeId]][]).map(([id, t]) => {
                     const isSelected = themeSettings.theme === id;
                     return (
-                      <button
+                      <CinemaToolHUD
                         key={id}
-                        onClick={() => handleSelectTheme(id)}
-                        className={`p-3 rounded border text-left cursor-pointer transition-all flex flex-col gap-1.5 ${
-                          isSelected
-                            ? 'bg-[#d4af37]/15 border-[#d4af37] text-white shadow-[0_0_12px_rgba(212,175,55,0.3)]'
-                            : 'bg-white/5 border-white/10 text-white/70 hover:text-white hover:bg-white/10'
-                        }`}
+                        title={`${t.name.toUpperCase()} THEME`}
+                        en={`Apply ${t.name} color tokens across the studio UI.`}
+                        bn="কীভাবে ব্যবহার করবেন: এই থিমটি চালু করতে ক্লিক করুন।"
+                        accent="amber"
+                        side="top"
+                        blockWrapper
                       >
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold">{t.name}</span>
-                          {isSelected && <Check className="w-3.5 h-3.5 text-[#d4af37]" />}
-                        </div>
-                        <div className="flex items-center gap-1.5 mt-1">
-                          <span className="w-3.5 h-3.5 rounded-full" style={{ backgroundColor: t.colors.accent }} />
-                          <span className="w-3.5 h-3.5 rounded-full" style={{ backgroundColor: t.colors.surface }} />
-                          <span className="w-3.5 h-3.5 rounded-full" style={{ backgroundColor: t.colors.raised }} />
-                        </div>
-                      </button>
+                        <button
+                          onClick={() => handleSelectTheme(id)}
+                          data-active={isSelected ? 'true' : 'false'}
+                          className="cinema-tile cinema-tile-amber w-full min-h-[54px] p-3 text-left flex items-center justify-between gap-2"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="font-black tracking-wider text-[10px] sm:text-[11px] uppercase">{t.name}</span>
+                            {isSelected && <Check className="w-3.5 h-3.5 text-[#fbbf24]" strokeWidth={2.4} />}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="w-3 h-3 rounded-full border border-white/20" style={{ backgroundColor: t.colors.accent }} />
+                            <span className="w-3 h-3 rounded-full border border-white/20" style={{ backgroundColor: t.colors.surface }} />
+                            <span className="w-3 h-3 rounded-full border border-white/20" style={{ backgroundColor: t.colors.raised }} />
+                          </div>
+                        </button>
+                      </CinemaToolHUD>
                     );
                   })}
                 </div>
               </div>
 
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[#d4af37] block mb-2">
-                  Layout Density
-                </span>
+                <CinemaBadgeHeader
+                  icon={<Sliders className="w-3.5 h-3.5 text-cyan-400" strokeWidth={2.2} />}
+                  label="DENSITY"
+                  accent="cyan"
+                  className="mb-2"
+                />
                 <div className="grid grid-cols-3 gap-2">
                   {(['compact', 'comfortable', 'relaxed'] as DensityMode[]).map(d => (
-                    <button
+                    <CinemaToolHUD
                       key={d}
-                      onClick={() => handleSelectDensity(d)}
-                      className={`p-2.5 rounded border text-xs font-bold capitalize cursor-pointer transition-all ${
-                        themeSettings.density === d
-                          ? 'bg-[#d4af37]/20 border-[#d4af37] text-[#fbbf24]'
-                          : 'bg-white/5 border-white/10 text-zinc-400 hover:text-white'
-                      }`}
+                      title={`${d.toUpperCase()} DENSITY`}
+                      en={`Switch UI spacing to ${d} layout density.`}
+                      bn="কীভাবে ব্যবহার করবেন: প্যানেলের ঘনত্ব বদলাতে ক্লিক করুন।"
+                      accent="cyan"
+                      side="top"
+                      blockWrapper
                     >
-                      {d}
-                    </button>
+                      <button
+                        onClick={() => handleSelectDensity(d)}
+                        data-active={themeSettings.density === d ? 'true' : 'false'}
+                        className="cinema-tile cinema-tile-cyan w-full min-h-[44px] p-2.5 text-center font-black tracking-wider text-[10px] sm:text-[11px] uppercase"
+                      >
+                        {d.toUpperCase()}
+                      </button>
+                    </CinemaToolHUD>
                   ))}
                 </div>
               </div>
@@ -846,18 +885,28 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           {activeTab === 'diagnostics' && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="text-xs font-bold text-white">STUDIO ENGINE HEALTH CHECK</h4>
-                  <p className="text-[10px] text-zinc-400">Verifies audio DSP, video codecs, timing, and storage APIs</p>
-                </div>
-                <button
-                  onClick={handleRunDiagnostics}
-                  disabled={isRunningDiag}
-                  className="px-3.5 py-1.5 bg-[#d4af37] hover:bg-[#ffe066] text-black text-xs font-bold rounded cursor-pointer transition-colors flex items-center gap-1.5 active:scale-[0.98]"
+                <CinemaBadgeHeader
+                  icon={<Activity className="w-4 h-4 text-rose-400" strokeWidth={2.2} />}
+                  label="ENGINE HEALTH"
+                  accent="crimson"
+                />
+                <CinemaToolHUD
+                  title="RUN DIAGNOSTICS"
+                  en="Verify IndexedDB, Web Audio DSP, timing clock, and WebCodecs."
+                  bn="কীভাবে ব্যবহার করবেন: সিস্টেম পরীক্ষা শুরু করতে চাপুন।"
+                  accent="amber"
+                  side="left"
                 >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isRunningDiag ? 'animate-spin' : ''}`} />
-                  <span>Run Tests</span>
-                </button>
+                  <button
+                    onClick={handleRunDiagnostics}
+                    disabled={isRunningDiag}
+                    data-active={isRunningDiag ? 'true' : 'false'}
+                    className="cinema-tile cinema-tile-amber min-h-[40px] px-3.5 py-1.5 flex items-center gap-1.5"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isRunningDiag ? 'animate-spin' : ''}`} strokeWidth={2.2} />
+                    <span className="font-black tracking-wider text-[10px] sm:text-[11px] uppercase">RUN TESTS</span>
+                  </button>
+                </CinemaToolHUD>
               </div>
 
               <div className="space-y-2">
@@ -872,7 +921,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="text-[10px] text-zinc-500 font-mono">{log.latency}</span>
-                      <span className="px-2 py-0.5 bg-emerald-950/80 border border-emerald-500/50 text-emerald-300 text-[9px] font-bold rounded">
+                      <span className="px-2 py-0.5 bg-emerald-950/80 border border-emerald-500/50 text-emerald-300 text-[9px] font-black rounded">
                         {log.status}
                       </span>
                     </div>
@@ -887,29 +936,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <div className="space-y-4">
               <div className="p-4 bg-[#0f0f18] border border-[#272732] rounded-[2px] space-y-3">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <GitBranch className="w-4 h-4 text-emerald-400" />
-                    <span className="text-xs font-bold text-white">LOCAL REPOSITORY STATUS</span>
-                  </div>
-                  <span className="px-2 py-0.5 text-[9px] font-bold rounded bg-emerald-950/80 border border-emerald-500/50 text-emerald-300">
-                    GIT INITIALIZED • MAIN BRANCH
+                  <CinemaBadgeHeader
+                    icon={<GitBranch className="w-4 h-4 text-emerald-400" strokeWidth={2.2} />}
+                    label="GIT STATUS"
+                    accent="emerald"
+                  />
+                  <span className="px-2 py-0.5 text-[9px] font-black rounded bg-emerald-950/80 border border-emerald-500/50 text-emerald-300 uppercase">
+                    MAIN BRANCH
                   </span>
                 </div>
-                <p className="text-[11px] text-zinc-400 leading-relaxed">
-                  Your workspace is initialized with Git on branch <code className="text-[#fbbf24]">main</code>. All production assets, components, and export engines are staged and committed.
-                </p>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2 text-xs">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
                   <div className="p-2.5 bg-[#08080C] border border-[#272732] rounded">
-                    <span className="text-[10px] text-zinc-500 block uppercase">Current Branch</span>
+                    <span className="text-[10px] text-zinc-500 block font-black uppercase">BRANCH</span>
                     <span className="font-mono font-bold text-white">main</span>
                   </div>
                   <div className="p-2.5 bg-[#08080C] border border-[#272732] rounded">
-                    <span className="text-[10px] text-zinc-500 block uppercase">Working Tree</span>
-                    <span className="font-mono font-bold text-emerald-400">Clean (0 Uncommitted)</span>
+                    <span className="text-[10px] text-zinc-500 block font-black uppercase">TREE</span>
+                    <span className="font-mono font-bold text-emerald-400">CLEAN</span>
                   </div>
                   <div className="p-2.5 bg-[#08080C] border border-[#272732] rounded">
-                    <span className="text-[10px] text-zinc-500 block uppercase">Pages Domain (CNAME)</span>
+                    <span className="text-[10px] text-zinc-500 block font-black uppercase">DOMAIN</span>
                     <span className="font-mono font-bold text-[#fbbf24] truncate block">storyboard.handsandhead.com</span>
                   </div>
                 </div>
@@ -917,74 +964,90 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
               {/* Push Configuration Generator */}
               <div className="p-4 bg-[#0f0f18] border border-[#272732] rounded-[2px] space-y-3">
-                <div className="flex items-center gap-2">
-                  <Terminal className="w-4 h-4 text-[#38bdf8]" />
-                  <span className="text-xs font-bold text-white">GITHUB PUSH COMMAND GENERATOR</span>
-                </div>
-                <p className="text-[11px] text-zinc-400">
-                  GitHub requires authentication via Personal Access Token (PAT) for remote pushes. Enter your repository URL and token to generate your command:
-                </p>
+                <CinemaBadgeHeader
+                  icon={<Terminal className="w-4 h-4 text-[#38bdf8]" strokeWidth={2.2} />}
+                  label="PUSH GENERATOR"
+                  accent="cyan"
+                />
 
                 <div className="space-y-3 pt-1">
                   <div>
-                    <label className="text-[10px] text-zinc-400 font-bold block mb-1 uppercase tracking-wider">GitHub Repository URL</label>
+                    <label className="text-[10px] text-zinc-400 font-black block mb-1 uppercase tracking-wider">REPO URL</label>
                     <input
                       type="text"
                       value={gitRepoUrl}
                       onChange={(e) => setGitRepoUrl(e.target.value)}
-                      placeholder="https://github.com/your-username/your-repo.git"
+                      placeholder="https://github.com/user/repo.git"
                       className="w-full px-3 py-1.5 bg-[#08080C] border border-[#272732] rounded text-xs text-white font-mono focus:border-[#fbbf24] outline-none"
                     />
                   </div>
 
                   <div>
-                    <label className="text-[10px] text-zinc-400 font-bold block mb-1 uppercase tracking-wider">GitHub Personal Access Token (PAT)</label>
+                    <label className="text-[10px] text-zinc-400 font-black block mb-1 uppercase tracking-wider">PAT TOKEN</label>
                     <input
                       type="password"
                       value={gitToken}
                       onChange={(e) => setGitToken(e.target.value)}
-                      placeholder="ghp_xxxxxxxxxxxxxxxxxxxx (Optional in command, required for auth)"
+                      placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
                       className="w-full px-3 py-1.5 bg-[#08080C] border border-[#272732] rounded text-xs text-white font-mono focus:border-[#fbbf24] outline-none"
                     />
                   </div>
 
-                  {/* Ready Command Snippet */}
-                  <div className="pt-2">
+                  <div className="pt-1">
                     <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-[10px] font-bold text-[#fbbf24] uppercase tracking-wider">Turnkey Push Command</span>
-                      <button
-                        onClick={() => {
-                          const cmd = gitToken 
-                            ? `./scripts/git-push.sh "${gitToken}" "${gitRepoUrl}"`
-                            : `./scripts/git-push.sh "${gitRepoUrl}"`;
-                          navigator.clipboard.writeText(cmd);
-                          setCopiedCmd(true);
-                          setTimeout(() => setCopiedCmd(false), 2000);
-                        }}
-                        className="px-2 py-0.5 bg-white/10 hover:bg-white/15 text-zinc-200 text-[10px] rounded flex items-center gap-1 cursor-pointer transition-colors"
-                      >
-                        {copiedCmd ? <CheckCircle2 className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                        <span>{copiedCmd ? 'COPIED!' : 'COPY COMMAND'}</span>
-                      </button>
+                      <span className="text-[10px] font-black text-[#fbbf24] uppercase tracking-wider">PUSH COMMAND</span>
+                      <div className="flex items-center gap-2">
+                        <CinemaToolHUD
+                          title="GITHUB TOKEN SETTINGS"
+                          en="Open GitHub Personal Access Token page."
+                          bn="কীভাবে ব্যবহার করবেন: গিটহাব টোকেন তৈরি করতে ক্লিক করুন।"
+                          accent="cyan"
+                          side="left"
+                        >
+                          <a
+                            href="https://github.com/settings/tokens"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="cinema-tile cinema-tile-cyan px-2 py-1 text-[10px] font-black tracking-wider uppercase flex items-center gap-1"
+                          >
+                            <Key className="w-3 h-3" strokeWidth={2.2} />
+                            <span>PAT</span>
+                            <ExternalLink className="w-2.5 h-2.5" strokeWidth={2.2} />
+                          </a>
+                        </CinemaToolHUD>
+                        <CinemaToolHUD
+                          title="COPY PUSH COMMAND"
+                          en="Copy generated Git push CLI command to clipboard."
+                          bn="কীভাবে ব্যবহার করবেন: কমান্ড কপি করতে ক্লিক করুন।"
+                          accent="emerald"
+                          side="left"
+                        >
+                          <button
+                            onClick={() => {
+                              const cmd = gitToken
+                                ? `./scripts/git-push.sh "${gitToken}" "${gitRepoUrl}"`
+                                : `./scripts/git-push.sh "${gitRepoUrl}"`;
+                              navigator.clipboard.writeText(cmd);
+                              setCopiedCmd(true);
+                              setTimeout(() => setCopiedCmd(false), 2000);
+                            }}
+                            data-active={copiedCmd ? 'true' : 'false'}
+                            className="cinema-tile cinema-tile-emerald px-2.5 py-1 text-[10px] font-black tracking-wider uppercase flex items-center gap-1"
+                          >
+                            {copiedCmd ? <CheckCircle2 className="w-3 h-3" strokeWidth={2.2} /> : <Copy className="w-3 h-3" strokeWidth={2.2} />}
+                            <span>{copiedCmd ? 'COPIED' : 'COPY CMD'}</span>
+                          </button>
+                        </CinemaToolHUD>
+                      </div>
                     </div>
 
                     <pre className="p-3 bg-[#050508] border border-[#22222e] rounded text-[11px] font-mono text-emerald-300 overflow-x-auto whitespace-pre-wrap select-all">
-                      {gitToken 
+                      {gitToken
                         ? `./scripts/git-push.sh "${gitToken}" "${gitRepoUrl}"`
                         : `./scripts/git-push.sh "${gitRepoUrl}"`}
                     </pre>
                   </div>
                 </div>
-              </div>
-
-              {/* Troubleshooting Reference */}
-              <div className="p-4 bg-[#08080C] border border-[#1e1e28] rounded space-y-2 text-xs">
-                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Why did git push previously say &quot;unknown&quot;?</span>
-                <ul className="text-[11px] text-zinc-400 space-y-1.5 list-disc pl-4 leading-relaxed">
-                  <li><strong className="text-zinc-200">Repository was uninitialized:</strong> The workspace didn&apos;t have a local <code>.git</code> repository. We ran <code>git init -b main</code> and committed all code.</li>
-                  <li><strong className="text-zinc-200">No remote configured:</strong> Git did not know where to push. Running the command above sets <code>origin</code> to your repository URL.</li>
-                  <li><strong className="text-zinc-200">Authentication requirement:</strong> GitHub no longer accepts account passwords. You must use a Personal Access Token (PAT) with <code>repo</code> scope from <a href="https://github.com/settings/tokens" target="_blank" rel="noreferrer" className="text-[#38bdf8] underline inline-flex items-center gap-0.5">GitHub Settings <ExternalLink className="w-2.5 h-2.5" /></a>.</li>
-                </ul>
               </div>
             </div>
           )}

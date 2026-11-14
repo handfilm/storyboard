@@ -31,6 +31,7 @@ import {
   ReviewAnnotation 
 } from '../../services/reviewStore';
 import { audioEngine } from '../../utils/audioEngine';
+import { CinemaToolHUD, CinemaBadgeHeader } from '../../components/ui/CinemaToolHUD';
 
 interface ReviewSlidePanelProps {
   onJumpToFrame?: (shotIndex: number, timeSec: number) => void;
@@ -116,208 +117,210 @@ export const ReviewSlidePanel: React.FC<ReviewSlidePanelProps> = ({
     setTimeout(() => setCopiedNotification(false), 2500);
   };
 
-  const tools: { id: MarkupTool; label: string; icon: any }[] = [
-    { id: 'pen', label: '✏ Freehand Pen', icon: Edit3 },
-    { id: 'arrow', label: '➔ Tactical Arrow', icon: ArrowRight },
-    { id: 'box', label: '▢ Bounding Box', icon: Square },
-    { id: 'text', label: '💬 Text Flag', icon: Flag }
+  const tools: { id: MarkupTool; label: string; icon: any; en: string; bn: string }[] = [
+    { id: 'pen', label: 'DRAW PEN', icon: Edit3, en: 'Draw freehand notes directly on stage monitor.', bn: 'স্টেজের ওপর ফ্রিহ্যান্ড মার্ক বা দাগ দিতে DRAW PEN চাপুন।' },
+    { id: 'arrow', label: 'ARROW', icon: ArrowRight, en: 'Point directional review arrows at any frame detail.', bn: 'যেকোনো অংশ দেখাতে তীর চিহ্ন (Arrow) আঁকুন।' },
+    { id: 'box', label: 'BOX MARK', icon: Square, en: 'Draw bounding boxes around elements needing edits.', bn: 'নির্দিষ্ট অংশ বক্স দিয়ে হাইলাইট করতে BOX MARK চাপুন।' },
+    { id: 'text', label: 'TEXT PIN', icon: Flag, en: 'Drop text flag comments pinned to current frame.', bn: 'ফ্রেমের ওপর টেক্সট নোট পিন করতে TEXT PIN ব্যবহার করুন।' }
   ];
 
   const colors: { code: MarkupColor; name: string }[] = [
-    { code: '#F5A623', name: 'Neon Amber' },
-    { code: '#00F0FF', name: 'Cyan Flare' },
-    { code: '#FF3344', name: 'Hazard Red' }
+    { code: '#F5A623', name: 'AMBER' },
+    { code: '#00F0FF', name: 'CYAN' },
+    { code: '#FF3344', name: 'RED' }
   ];
 
   return (
-    <div className="space-y-6">
-      {/* 1. Header Banner */}
-      <div className="bg-[#12131a] border border-[#F5A623]/40 rounded p-4 relative overflow-hidden shadow-[0_0_20px_rgba(245,166,35,0.15)]">
-        <div className="flex items-center gap-2 text-[#F5A623] mb-1">
-          <MessageSquare className="w-4 h-4 animate-pulse" />
-          <span className="font-mono-tech text-[11px] font-bold tracking-widest uppercase">
-            [ MODULE 11 // REVIEW & MARKUP ]
-          </span>
-        </div>
-        <p className="text-xs text-zinc-400 font-mono-tech">
-          Frame-accurate stage markup layer & client approval tracking
-        </p>
-        <div className="mt-2 text-[10px] font-mono-tech text-zinc-500">
-          Click tools below, then draw directly on the cinema stage monitor.
-        </div>
-      </div>
+    <div className="space-y-4">
+      <CinemaBadgeHeader
+        icon={<MessageSquare className="w-4 h-4" strokeWidth={2.2} />}
+        label="REVIEW MARKUP"
+        accent="amber"
+        rightSlot={
+          <span className="text-[10px] font-black text-amber-400 uppercase">{activeTool}</span>
+        }
+      />
 
-      {/* 2. Interactive Markup Tools */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h4 className="text-xs font-mono-tech font-bold uppercase tracking-wider text-white">
-            Markup Tools
-          </h4>
-          <span className="text-[10px] font-mono-tech text-zinc-400">
-            ACTIVE: {activeTool.toUpperCase()}
-          </span>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2">
-          {tools.map((t) => {
-            const isSelected = activeTool === t.id;
-            return (
+      {/* Markup Tools */}
+      <div className="grid grid-cols-2 gap-1.5">
+        {tools.map((t) => {
+          const isSelected = activeTool === t.id;
+          return (
+            <CinemaToolHUD
+              key={t.id}
+              title={`MARKUP: ${t.label}`}
+              en={t.en}
+              bn={t.bn}
+              accent="amber"
+              blockWrapper
+            >
               <button
-                key={t.id}
                 type="button"
                 onClick={() => handleSelectTool(t.id)}
-                className={`p-2.5 rounded font-mono-tech text-[11px] text-left transition-all cursor-pointer border flex items-center gap-2 ${
-                  isSelected
-                    ? 'bg-[#F5A623]/20 border-[#F5A623] text-[#F5A623] font-bold shadow-[0_0_12px_rgba(245,166,35,0.3)]'
-                    : 'bg-[#101117] border-white/10 text-zinc-300 hover:border-white/20 hover:text-white'
-                }`}
+                data-active={isSelected ? 'true' : 'false'}
+                className="cinema-tile cinema-tile-amber w-full min-h-[48px] px-2.5 py-2 rounded-lg flex items-center justify-center gap-1.5 font-black tracking-wider text-[10px] sm:text-[11px] uppercase cursor-pointer"
               >
-                <t.icon className="w-3.5 h-3.5 shrink-0" />
-                <span className="truncate">{t.label}</span>
+                <t.icon className="w-4 h-4 cinema-tile-icon shrink-0" strokeWidth={2.2} />
+                <span>{t.label}</span>
               </button>
-            );
-          })}
-        </div>
-
-        {/* Color Palette Selector */}
-        <div className="pt-2">
-          <div className="text-[10px] font-mono-tech text-zinc-400 mb-1.5 uppercase">
-            Color Palette:
-          </div>
-          <div className="flex items-center gap-2">
-            {colors.map((c) => {
-              const isSelected = activeColor === c.code;
-              return (
-                <button
-                  key={c.code}
-                  type="button"
-                  onClick={() => handleSelectColor(c.code)}
-                  className={`flex-1 py-1.5 px-2 rounded font-mono-tech text-[10px] flex items-center justify-center gap-1.5 border transition-all cursor-pointer ${
-                    isSelected ? 'ring-2 ring-white/60 font-bold' : 'opacity-80 hover:opacity-100'
-                  }`}
-                  style={{
-                    backgroundColor: `${c.code}20`,
-                    borderColor: c.code,
-                    color: c.code
-                  }}
-                >
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: c.code }} />
-                  <span>{c.name}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+            </CinemaToolHUD>
+          );
+        })}
       </div>
 
-      {/* 3. Frame Pin List (Clicking jumps to frame) */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h4 className="text-xs font-mono-tech font-bold uppercase tracking-wider text-white">
-            Frame Pin List ({annotations.length})
-          </h4>
-          <span className="text-[10px] font-mono-tech text-amber-400">
-            {annotations.filter(a => !a.resolved).length} UNRESOLVED
-          </span>
-        </div>
+      {/* Color Palette */}
+      <div className="grid grid-cols-3 gap-1.5">
+        {colors.map((c) => {
+          const isSelected = activeColor === c.code;
+          const accent = c.code === '#00F0FF' ? 'cyan' : c.code === '#FF3344' ? 'crimson' : 'amber';
+          return (
+            <CinemaToolHUD
+              key={c.code}
+              title={`INK COLOR: ${c.name}`}
+              en={`Set markup ink brush color to ${c.name}.`}
+              bn={`মার্কআপ আঁকার রঙ ${c.name} করতে চাপুন।`}
+              accent={accent}
+              blockWrapper
+            >
+              <button
+                type="button"
+                onClick={() => handleSelectColor(c.code)}
+                data-active={isSelected ? 'true' : 'false'}
+                className={`cinema-tile cinema-tile-${accent} w-full min-h-[44px] px-2 rounded-md flex items-center justify-center gap-1.5 font-black tracking-wider text-[10px] uppercase cursor-pointer`}
+              >
+                <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: c.code }} />
+                <span>{c.name}</span>
+              </button>
+            </CinemaToolHUD>
+          );
+        })}
+      </div>
+
+      {/* Frame Pin List */}
+      <div className="space-y-2">
+        <CinemaBadgeHeader
+          icon={<Clock className="w-3.5 h-3.5" strokeWidth={2.2} />}
+          label={`PINS (${annotations.length})`}
+          accent="cyan"
+          rightSlot={
+            <span className="text-[10px] font-black text-amber-400">
+              {annotations.filter((a) => !a.resolved).length} OPEN
+            </span>
+          }
+        />
 
         {annotations.length === 0 ? (
-          <div className="p-4 bg-black/40 border border-white/10 rounded text-center text-xs font-mono-tech text-zinc-500">
-            No notes on timeline yet. Draw on the stage monitor to drop pins.
+          <div className="p-3 bg-[#111215] border border-[#26282E] rounded-md text-center text-[10px] font-black tracking-wider uppercase text-zinc-500">
+            NO PINS YET
           </div>
         ) : (
-          <div className="space-y-2 max-h-72 overflow-y-auto no-scrollbar pr-1">
+          <div className="space-y-2 max-h-64 overflow-y-auto no-scrollbar pr-1">
             {annotations.map((ann) => (
               <div
                 key={ann.id}
                 onClick={() => handleJumpToPin(ann)}
-                className={`p-2.5 rounded border transition-all cursor-pointer text-[11px] font-mono-tech group ${
-                  ann.resolved 
-                    ? 'bg-[#0f1015]/60 border-white/5 opacity-70' 
-                    : 'bg-[#12131c] border-white/10 hover:border-[#F5A623]/60'
+                className={`p-2.5 rounded-md border transition-all cursor-pointer text-[11px] font-mono-tech ${
+                  ann.resolved
+                    ? 'bg-[#0f1015]/60 border-white/5 opacity-70'
+                    : 'bg-[#111215] border-[#26282E] hover:border-[#F59E0B]/60'
                 }`}
               >
                 <div className="flex items-center justify-between mb-1">
                   <div className="flex items-center gap-1.5">
-                    <span 
-                      className="w-2 h-2 rounded-full shrink-0"
-                      style={{ backgroundColor: ann.color }}
-                    />
-                    <strong className="text-white group-hover:text-[#F5A623] transition-colors">
-                      Shot {String(ann.shotIndex + 1).padStart(3, '0')} @ F{String(ann.frameNumber).padStart(3, '0')}
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: ann.color }} />
+                    <strong className="text-white">
+                      SH{String(ann.shotIndex + 1).padStart(3, '0')} · F{String(ann.frameNumber).padStart(3, '0')}
                     </strong>
-                    <span className="text-[9.5px] text-zinc-500">({ann.tool.toUpperCase()})</span>
                   </div>
-
-                  <span className="text-[9px] text-zinc-500">{ann.timestamp}</span>
-                </div>
-
-                <p className="text-zinc-300 text-[10.5px] line-clamp-2 leading-relaxed">
-                  "{ann.text || 'Visual mark'}"
-                </p>
-
-                <div className="mt-2 pt-1.5 border-t border-white/5 flex items-center justify-between text-[9.5px]">
-                  <span className="text-zinc-500 truncate max-w-[150px]">{ann.author}</span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        reviewStore.toggleResolved(ann.id);
-                      }}
-                      className={`px-1.5 py-0.5 rounded text-[8.5px] border cursor-pointer ${
-                        ann.resolved ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40' : 'bg-white/5 text-zinc-400 hover:text-white border-white/10'
-                      }`}
+                  <div className="flex items-center gap-1.5">
+                    <CinemaToolHUD
+                      title={ann.resolved ? 'REOPEN MARKUP PIN' : 'RESOLVE MARKUP PIN'}
+                      en="Toggle resolved approval status on this review pin."
+                      bn="এই রিভিউ নোটটির কাজ সম্পন্ন হলে DONE চাপুন।"
+                      accent="emerald"
                     >
-                      {ann.resolved ? '✓ RESOLVED' : 'MARK DONE'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        reviewStore.deleteAnnotation(ann.id);
-                      }}
-                      className="text-zinc-500 hover:text-red-400 p-0.5"
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          reviewStore.toggleResolved(ann.id);
+                        }}
+                        data-active={ann.resolved ? 'true' : 'false'}
+                        className="cinema-tile cinema-tile-emerald px-2 py-0.5 rounded text-[9px] font-black uppercase cursor-pointer"
+                      >
+                        {ann.resolved ? 'DONE' : 'RESOLVE'}
+                      </button>
+                    </CinemaToolHUD>
+                    <CinemaToolHUD
+                      title="DELETE MARKUP PIN"
+                      en="Remove this markup annotation from the timeline."
+                      bn="এই রিভিউ নোটটি মুছে ফেলতে ট্র্যাশ আইকনে চাপুন।"
+                      accent="crimson"
                     >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          reviewStore.deleteAnnotation(ann.id);
+                        }}
+                        className="cinema-tile cinema-tile-crimson p-1 rounded cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+                      </button>
+                    </CinemaToolHUD>
                   </div>
                 </div>
+                {ann.text && (
+                  <p className="text-zinc-300 text-[10.5px] line-clamp-2">&quot;{ann.text}&quot;</p>
+                )}
               </div>
             ))}
           </div>
         )}
       </div>
 
-      {/* 4. 1-Click Action: Export Review Manifest */}
-      <div className="pt-2 space-y-2">
-        <div className="flex items-center gap-2">
+      {/* Export Actions */}
+      <div className="grid grid-cols-2 gap-1.5 pt-1">
+        <CinemaToolHUD
+          title="EXPORT MARKDOWN MANIFEST"
+          en="Download all review pin timestamps and notes as Markdown (.MD)."
+          bn="সব রিভিউ নোট ও টাইমকোড Markdown (.MD) ফাইল হিসেবে ডাউনলোড করুন।"
+          accent="amber"
+          blockWrapper
+        >
           <button
             type="button"
             onClick={() => handleExportManifest('md')}
-            className="flex-1 py-2.5 px-3 bg-gradient-to-r from-[#F5A623] to-[#e09612] hover:from-[#ffb43b] hover:to-[#f5a623] text-black font-mono-tech font-bold text-[11px] uppercase tracking-wider rounded shadow-[0_0_15px_rgba(245,166,35,0.3)] flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-[0.98]"
+            className="cinema-tile cinema-tile-amber w-full min-h-[44px] py-2 px-3 font-black text-[10px] sm:text-[11px] uppercase tracking-wider rounded-md flex items-center justify-center gap-1.5 cursor-pointer"
           >
-            <Download className="w-3.5 h-3.5" />
-            <span>[ ⤓ EXPORT MANIFEST (.MD) ]</span>
+            <Download className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+            <span>EXPORT .MD</span>
           </button>
+        </CinemaToolHUD>
 
+        <CinemaToolHUD
+          title="EXPORT JSON MANIFEST"
+          en="Download structured JSON review manifest for pipeline tools."
+          bn="স্ট্রাকচার্ড JSON ম্যানিফেস্ট ফাইল ডাউনলোড করুন।"
+          accent="cyan"
+          blockWrapper
+        >
           <button
             type="button"
             onClick={() => handleExportManifest('json')}
-            className="py-2.5 px-3 bg-[#181a24] hover:bg-[#222433] text-white border border-white/20 font-mono-tech font-bold text-[11px] uppercase tracking-wider rounded flex items-center justify-center gap-1.5 cursor-pointer transition-all"
-            title="Export as structured JSON manifest"
+            className="cinema-tile cinema-tile-cyan w-full min-h-[44px] py-2 px-3 font-black text-[10px] sm:text-[11px] uppercase tracking-wider rounded-md flex items-center justify-center gap-1.5 cursor-pointer"
           >
-            <FileCode className="w-3.5 h-3.5 text-cyan-400" />
-            <span>.JSON</span>
+            <FileCode className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+            <span>EXPORT .JSON</span>
           </button>
-        </div>
-
-        {copiedNotification && (
-          <div className="text-[10px] font-mono-tech text-emerald-400 text-center animate-in fade-in">
-            ✓ Manifest exported successfully!
-          </div>
-        )}
+        </CinemaToolHUD>
       </div>
+
+      {copiedNotification && (
+        <div className="text-[10px] font-black uppercase text-emerald-400 text-center">
+          MANIFEST EXPORTED
+        </div>
+      )}
     </div>
   );
 };

@@ -20,13 +20,10 @@ import {
   FastForward,
   Repeat,
   Bookmark,
-  Clock,
   Gauge,
-  Sliders,
-  ChevronLeft,
-  ChevronRight,
-  Maximize2
+  RotateCcw
 } from 'lucide-react';
+import { CinemaToolHUD, CinemaBadgeHeader } from './ui/CinemaToolHUD';
 
 interface AnimaticPlayerModalProps {
   isOpen: boolean;
@@ -160,44 +157,62 @@ export const AnimaticPlayerModal: React.FC<AnimaticPlayerModalProps> = ({
         onClick={e => e.stopPropagation()}
       >
         {/* Top Header */}
-        <div className="h-12 bg-[#0c0c12] border-b border-white/10 px-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-1.5 bg-[#D4AF37]/20 border border-[#D4AF37]/40 rounded text-[#FFE066]">
-              <Gauge className="w-4 h-4" />
-            </div>
-            <div>
-              <h2 className="font-cinzel text-xs sm:text-sm font-bold text-white tracking-widest uppercase">
-                PRECISION ANIMATIC CINEMA PLAYER
-              </h2>
-              <span className="text-[9px] text-white/50 tracking-wider">
-                J-K-L JOG SHUTTLE • A-B LOOPER • TIME DILATION
+        <div className="min-h-[56px] bg-[#111215] border-b border-[#26282E] px-4 py-2 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5">
+            <CinemaBadgeHeader
+              icon={<Gauge className="w-4 h-4" strokeWidth={2.2} />}
+              label="ANIMATIC"
+              accent="amber"
+            />
+            {projectTitle && (
+              <span className="hidden md:inline text-[10px] font-black tracking-wider uppercase text-zinc-400 truncate max-w-[180px]">
+                {projectTitle}
               </span>
-            </div>
+            )}
           </div>
 
-          <div className="flex items-center gap-3 text-xs">
-            {/* Ceiling selector */}
-            <div className="flex items-center bg-black/60 p-0.5 rounded border border-white/15">
-              <span className="text-[8px] text-white/40 px-1 uppercase">CEILING</span>
-              {[10, 15, 30, 60, 120].map(sec => (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {[10, 15, 30, 60, 120].map(sec => (
+              <CinemaToolHUD
+                key={sec}
+                title={`TIMELINE CEILING ${sec}S`}
+                en={`Set animatic loop duration ceiling to ${sec} seconds.`}
+                bn={`কীভাবে ব্যবহার করবেন: অ্যানিমেটিক প্রিভিউর মোট সময় ${sec} সেকেন্ড করতে চাপুন।`}
+                accent="amber"
+                side="bottom"
+              >
                 <button
-                  key={sec}
+                  type="button"
+                  data-active={timelineCeiling === sec ? 'true' : 'false'}
                   onClick={() => {
                     setTimelineCeiling(sec);
                     if (currentTime > sec) setCurrentTime(0);
                   }}
-                  className={`px-2 py-0.5 text-[9px] rounded cursor-pointer ${
-                    timelineCeiling === sec ? 'bg-[#D4AF37] text-black font-bold' : 'text-white/60 hover:text-white'
-                  }`}
+                  className="cinema-tile cinema-tile-amber px-2.5 py-1.5 min-h-[36px] rounded-md font-black tracking-wider text-[10px] uppercase cursor-pointer"
                 >
-                  {sec}s
+                  {sec}S
                 </button>
-              ))}
-            </div>
+              </CinemaToolHUD>
+            ))}
 
-            <button onClick={onClose} className="p-1 text-white/50 hover:text-white cursor-pointer">
-              <X className="w-4 h-4" />
-            </button>
+            <CinemaToolHUD
+              title="CLOSE PLAYER"
+              en="Exit the precision animatic cinema player."
+              bn="কীভাবে ব্যবহার করবেন: অ্যানিমেটিক প্লেয়ার বন্ধ করতে X বাটনে চাপুন।"
+              shortcut="ESC"
+              accent="crimson"
+              side="bottom"
+            >
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close"
+                className="cinema-tile cinema-tile-crimson min-h-[36px] min-w-[36px] px-2.5 rounded-md flex items-center justify-center gap-1 cursor-pointer"
+              >
+                <X className="w-4 h-4 cinema-tile-icon" strokeWidth={2.3} />
+                <span className="hidden sm:inline font-black tracking-wider text-[10px] uppercase">CLOSE</span>
+              </button>
+            </CinemaToolHUD>
           </div>
         </div>
 
@@ -256,7 +271,7 @@ export const AnimaticPlayerModal: React.FC<AnimaticPlayerModalProps> = ({
         </div>
 
         {/* Bottom Control Dock & High-Precision Scrubber */}
-        <div className="h-32 bg-[#0a0a0f] border-t border-white/10 p-3 p-3! flex flex-col justify-between relative">
+        <div className="min-h-[136px] bg-[#0B0C10] border-t border-[#26282E] p-3 flex flex-col justify-between gap-2 relative">
           {/* Floating Thumbnail Preview Popup on Index Marker Hover */}
           {hoveredMarker && frames[hoveredMarker.index] && (() => {
             const previewFrame = frames[hoveredMarker.index];
@@ -275,7 +290,7 @@ export const AnimaticPlayerModal: React.FC<AnimaticPlayerModalProps> = ({
                   transform: 'translate(-50%, -100%)',
                   zIndex: 9999
                 }}
-                className="w-44 bg-[#090A10]/95 backdrop-blur-xl border border-[#D4AF37]/60 rounded-[4px] p-1.5 p-1.5! shadow-[0_16px_40px_rgba(0,0,0,0.95)] pointer-events-none select-none transform-gpu animate-in fade-in duration-150"
+                className="w-44 bg-[#090A10]/95 backdrop-blur-xl border border-[#D4AF37]/60 rounded-[4px] p-1.5 shadow-[0_16px_40px_rgba(0,0,0,0.95)] pointer-events-none select-none transform-gpu animate-in fade-in duration-150"
               >
                 <div className="relative w-full aspect-video rounded-[2px] overflow-hidden bg-black border border-white/10">
                   {previewFrame.imageUrl ? (
@@ -290,7 +305,7 @@ export const AnimaticPlayerModal: React.FC<AnimaticPlayerModalProps> = ({
                       NO MEDIA
                     </div>
                   )}
-                  <div className="absolute inset-x-0 bottom-0 h-5 bg-gradient-to-t from-black/90 to-transparent flex items-end justify-between px-1.5 px-1.5! pb-0.5 pb-0.5! font-mono text-[8px] tabular-nums">
+                  <div className="absolute inset-x-0 bottom-0 h-5 bg-gradient-to-t from-black/90 to-transparent flex items-end justify-between px-1.5 pb-0.5 font-mono text-[8px] tabular-nums">
                     <span className="font-bold text-[#FFE066]">
                       #{String(shotNum).padStart(3, '0')}
                     </span>
@@ -299,7 +314,7 @@ export const AnimaticPlayerModal: React.FC<AnimaticPlayerModalProps> = ({
                     </span>
                   </div>
                 </div>
-                <div className="pt-1 pt-1! px-0.5 px-0.5! text-[9.5px] font-semibold text-white truncate">
+                <div className="pt-1 px-0.5 text-[9.5px] font-semibold text-white truncate">
                   {previewFrame.title || `Frame ${shotNum}`}
                 </div>
               </div>
@@ -311,7 +326,6 @@ export const AnimaticPlayerModal: React.FC<AnimaticPlayerModalProps> = ({
             onMouseLeave={() => setHoveredMarker(null)}
             className="relative flex flex-col gap-1"
           >
-            {/* Scrollable Frame Index Markers */}
             <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-0.5">
               {frames.map((f, idx) => {
                 const isAct = idx === activeFrameIndex;
@@ -319,6 +333,7 @@ export const AnimaticPlayerModal: React.FC<AnimaticPlayerModalProps> = ({
                   <button
                     key={`animatic-marker-${idx}-${f?.id ?? 'none'}`}
                     type="button"
+                    data-active={isAct ? 'true' : 'false'}
                     onClick={() => {
                       const jumpSec = (idx / totalFrames) * timelineCeiling;
                       setCurrentTime(jumpSec);
@@ -341,11 +356,7 @@ export const AnimaticPlayerModal: React.FC<AnimaticPlayerModalProps> = ({
                       });
                     }}
                     onBlur={() => setHoveredMarker(null)}
-                    className={`shrink-0 px-1.5 py-0.5 px-1.5! py-0.5! rounded-[2px] text-[8.5px] font-mono font-bold tabular-nums transition-colors cursor-pointer border ${
-                      isAct
-                        ? 'bg-[#D4AF37] text-black border-[#FFE066]'
-                        : 'bg-white/5 hover:bg-white/15 text-white/75 hover:text-[#FFE066] border-white/10'
-                    }`}
+                    className="cinema-tile cinema-tile-amber shrink-0 px-2 py-1 rounded text-[9px] font-mono font-black tabular-nums cursor-pointer"
                   >
                     {String(idx + 1).padStart(2, '0')}
                   </button>
@@ -354,36 +365,31 @@ export const AnimaticPlayerModal: React.FC<AnimaticPlayerModalProps> = ({
             </div>
 
             <div
-              className="h-3.5 bg-black rounded border border-white/15 relative cursor-pointer"
+              className="h-3.5 bg-black rounded border border-[#26282E] relative cursor-pointer"
               onClick={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
                 const ratio = (e.clientX - rect.left) / rect.width;
                 setCurrentTime(ratio * timelineCeiling);
               }}
             >
-              {/* Progress Bar */}
               <div
                 className="h-full bg-gradient-to-r from-amber-600 to-[#FFE066] rounded-xs"
                 style={{ width: `${(currentTime / timelineCeiling) * 100}%` }}
               />
 
-              {/* Loop A & B Markers */}
               {loopPointA !== null && (
                 <div
                   className="absolute top-0 bottom-0 w-1 bg-cyan-400 z-20 pointer-events-none"
                   style={{ left: `${(loopPointA / timelineCeiling) * 100}%` }}
-                  title="In-Point A"
                 />
               )}
               {loopPointB !== null && (
                 <div
                   className="absolute top-0 bottom-0 w-1 bg-cyan-400 z-20 pointer-events-none"
                   style={{ left: `${(loopPointB / timelineCeiling) * 100}%` }}
-                  title="Out-Point B"
                 />
               )}
 
-              {/* Bookmarks */}
               {bookmarks.map((bTime, i) => (
                 <div
                   key={i}
@@ -393,7 +399,6 @@ export const AnimaticPlayerModal: React.FC<AnimaticPlayerModalProps> = ({
               ))}
             </div>
 
-            {/* Micro Time Readouts */}
             <div className="flex justify-between text-[8px] text-white/40 font-mono-tech tabular-nums">
               <span>0.0s</span>
               <span>{(timelineCeiling * 0.25).toFixed(1)}s</span>
@@ -404,84 +409,153 @@ export const AnimaticPlayerModal: React.FC<AnimaticPlayerModalProps> = ({
           </div>
 
           {/* Transport Buttons & Shuttle Controls */}
-          <div className="flex items-center justify-between text-xs">
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setJogSpeed(s => (s < 0 ? Math.max(-8, s * 2) : -1.0))}
-                className="px-2 py-1 bg-white/5 hover:bg-white/15 rounded border border-white/10 text-[10px] font-bold text-white flex items-center gap-1 cursor-pointer"
-                title="Reverse Jog Shuttle (J)"
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-1.5">
+              <CinemaToolHUD
+                title="REVERSE JOG SHUTTLE"
+                en="Step backward and accelerate reverse playback speed (-1x to -8x)."
+                bn="কীভাবে ব্যবহার করবেন: ভিডিও উল্টো দিকে দ্রুত চালাতে REV বাটনে চাপুন।"
+                shortcut="J"
+                accent="cyan"
               >
-                <Rewind className="w-3 h-3" />
-                <span>REV (J)</span>
-              </button>
+                <button
+                  type="button"
+                  data-active={jogSpeed < 0 ? 'true' : 'false'}
+                  onClick={() => setJogSpeed(s => (s < 0 ? Math.max(-8, s * 2) : -1.0))}
+                  className="cinema-tile cinema-tile-cyan px-2.5 py-2 min-h-[44px] rounded-md flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Rewind className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                  <span className="font-black tracking-wider text-[10px] uppercase">REV</span>
+                </button>
+              </CinemaToolHUD>
 
-              <button
-                onClick={() => {
-                  setIsPlaying(p => !p);
-                  setJogSpeed(1.0);
-                }}
-                className="px-3 py-1 bg-[#D4AF37] hover:bg-[#FFE066] text-black font-bold rounded flex items-center gap-1 cursor-pointer"
-                title="Play / Pause (K)"
+              <CinemaToolHUD
+                title={isPlaying ? 'PAUSE ANIMATIC' : 'PLAY ANIMATIC'}
+                en="Toggle continuous animatic playback at 1.0x speed."
+                bn="কীভাবে ব্যবহার করবেন: প্লে বা পজ করতে PLAY/PAUSE বাটনে চাপুন।"
+                shortcut="K"
+                accent="amber"
               >
-                {isPlaying ? <Pause className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current" />}
-                <span>{isPlaying ? 'PAUSE' : 'PLAY'}</span>
-              </button>
+                <button
+                  type="button"
+                  data-active={isPlaying ? 'true' : 'false'}
+                  onClick={() => {
+                    setIsPlaying(p => !p);
+                    setJogSpeed(1.0);
+                  }}
+                  className="cinema-tile cinema-tile-amber px-3 py-2 min-h-[44px] rounded-md flex items-center gap-1.5 cursor-pointer"
+                >
+                  {isPlaying ? (
+                    <Pause className="w-4 h-4 cinema-tile-icon fill-current" strokeWidth={2.2} />
+                  ) : (
+                    <Play className="w-4 h-4 cinema-tile-icon fill-current" strokeWidth={2.2} />
+                  )}
+                  <span className="font-black tracking-wider text-[10px] uppercase">
+                    {isPlaying ? 'PAUSE' : 'PLAY'}
+                  </span>
+                </button>
+              </CinemaToolHUD>
 
-              <button
-                onClick={() => setJogSpeed(s => (s > 0 ? Math.min(8, s * 2) : 1.0))}
-                className="px-2 py-1 bg-white/5 hover:bg-white/15 rounded border border-white/10 text-[10px] font-bold text-white flex items-center gap-1 cursor-pointer"
-                title="Forward Jog Shuttle (L)"
+              <CinemaToolHUD
+                title="FORWARD JOG SHUTTLE"
+                en="Accelerate forward playback shuttle (+1x to +8x)."
+                bn="কীভাবে ব্যবহার করবেন: সামনে দ্রুত টেনে দেখতে FWD বাটনে একাধিকবার চাপুন।"
+                shortcut="L"
+                accent="cyan"
               >
-                <FastForward className="w-3 h-3" />
-                <span>FWD (L)</span>
-              </button>
+                <button
+                  type="button"
+                  data-active={jogSpeed > 1 ? 'true' : 'false'}
+                  onClick={() => setJogSpeed(s => (s > 0 ? Math.min(8, s * 2) : 1.0))}
+                  className="cinema-tile cinema-tile-cyan px-2.5 py-2 min-h-[44px] rounded-md flex items-center gap-1.5 cursor-pointer"
+                >
+                  <FastForward className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                  <span className="font-black tracking-wider text-[10px] uppercase">FWD</span>
+                </button>
+              </CinemaToolHUD>
 
-              <span className="font-bold text-[#FFE066] ml-2 text-[11px]">
+              <span className="font-black text-amber-300 ml-1 text-[11px] tabular-nums">
                 {currentTime.toFixed(2)}s
               </span>
             </div>
 
-            {/* Loop Points & Bookmark */}
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setLoopPointA(currentTime)}
-                className={`px-2 py-1 rounded text-[10px] border cursor-pointer ${
-                  loopPointA !== null ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300' : 'bg-white/5 border-white/10 text-white/60'
-                }`}
-                title="Set Loop Point A (I)"
+            <div className="flex items-center gap-1.5">
+              <CinemaToolHUD
+                title="SET LOOP IN (A)"
+                en="Mark loop start point A at current timecode."
+                bn="কীভাবে ব্যবহার করবেন: লুপ শুরু করার পয়েন্ট সেট করতে LOOP A চাপুন।"
+                shortcut="I"
+                accent="cyan"
               >
-                SET A [{loopPointA !== null ? `${loopPointA.toFixed(1)}s` : '--'}]
-              </button>
+                <button
+                  type="button"
+                  data-active={loopPointA !== null ? 'true' : 'false'}
+                  onClick={() => setLoopPointA(currentTime)}
+                  className="cinema-tile cinema-tile-cyan px-2.5 py-2 min-h-[44px] rounded-md flex items-center gap-1 cursor-pointer"
+                >
+                  <Repeat className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+                  <span className="font-black tracking-wider text-[10px] uppercase">
+                    IN {loopPointA !== null ? `${loopPointA.toFixed(1)}S` : 'A'}
+                  </span>
+                </button>
+              </CinemaToolHUD>
 
-              <button
-                onClick={() => setLoopPointB(currentTime)}
-                className={`px-2 py-1 rounded text-[10px] border cursor-pointer ${
-                  loopPointB !== null ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300' : 'bg-white/5 border-white/10 text-white/60'
-                }`}
-                title="Set Loop Point B (O)"
+              <CinemaToolHUD
+                title="SET LOOP OUT (B)"
+                en="Mark loop end point B at current timecode."
+                bn="কীভাবে ব্যবহার করবেন: লুপ শেষ করার পয়েন্ট সেট করতে OUT B চাপুন।"
+                shortcut="O"
+                accent="cyan"
               >
-                SET B [{loopPointB !== null ? `${loopPointB.toFixed(1)}s` : '--'}]
-              </button>
+                <button
+                  type="button"
+                  data-active={loopPointB !== null ? 'true' : 'false'}
+                  onClick={() => setLoopPointB(currentTime)}
+                  className="cinema-tile cinema-tile-cyan px-2.5 py-2 min-h-[44px] rounded-md flex items-center gap-1 cursor-pointer"
+                >
+                  <Repeat className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+                  <span className="font-black tracking-wider text-[10px] uppercase">
+                    OUT {loopPointB !== null ? `${loopPointB.toFixed(1)}S` : 'B'}
+                  </span>
+                </button>
+              </CinemaToolHUD>
 
               {(loopPointA !== null || loopPointB !== null) && (
-                <button
-                  onClick={() => {
-                    setLoopPointA(null);
-                    setLoopPointB(null);
-                  }}
-                  className="px-1.5 py-1 text-[9px] text-white/40 hover:text-white"
+                <CinemaToolHUD
+                  title="CLEAR LOOP"
+                  en="Clear A-B loop points."
+                  bn="কীভাবে ব্যবহার করবেন: সেট করা A-B লুপ মুছতে CLEAR চাপুন।"
+                  accent="crimson"
                 >
-                  CLEAR
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLoopPointA(null);
+                      setLoopPointB(null);
+                    }}
+                    className="cinema-tile cinema-tile-crimson px-2.5 py-2 min-h-[44px] rounded-md flex items-center gap-1 cursor-pointer"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+                    <span className="font-black tracking-wider text-[10px] uppercase">CLEAR</span>
+                  </button>
+                </CinemaToolHUD>
               )}
 
-              <button
-                onClick={toggleBookmark}
-                className="p-1 rounded border border-white/10 text-[#FFE066] hover:bg-white/5 cursor-pointer ml-2"
-                title="Add Bookmark at Current Time"
+              <CinemaToolHUD
+                title="TOGGLE BOOKMARK"
+                en="Pin or unpin a timeline cue bookmark at current frame."
+                bn="কীভাবে ব্যবহার করবেন: বর্তমান ফ্রেমে বুকমার্ক পিন করতে MARK চাপুন।"
+                accent="amber"
               >
-                <Bookmark className="w-3.5 h-3.5" />
-              </button>
+                <button
+                  type="button"
+                  onClick={toggleBookmark}
+                  className="cinema-tile cinema-tile-amber px-2.5 py-2 min-h-[44px] rounded-md flex items-center gap-1 cursor-pointer"
+                >
+                  <Bookmark className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+                  <span className="font-black tracking-wider text-[10px] uppercase">MARK</span>
+                </button>
+              </CinemaToolHUD>
             </div>
           </div>
         </div>

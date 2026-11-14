@@ -20,6 +20,7 @@ import { useStudioStore } from '../../core/store';
 import { AutonomousKineticPreset } from '../../services/kineticTypographyStyles';
 import { transientPunchEngine } from '../../services/transientPunchEngine';
 import { BrutalistKineticHudStrip } from '../drawers/BrutalistKineticHudStrip';
+import { CinemaBadgeHeader, CinemaToolHUD } from '../ui/CinemaToolHUD';
 
 export interface KineticAdTextDrawerProps {
   currentFrame: AnthologyFrame;
@@ -105,75 +106,92 @@ export const KineticAdTextDrawer: React.FC<KineticAdTextDrawerProps> = ({
     <div
       className={`group/drawer relative transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] ${className}`}
     >
-      <div className="relative bg-[#07080C]/92 hover:bg-[#090B11]/98 focus-within:bg-[#090B11]/98 border border-[#272732] hover:border-[#F5A623]/60 focus-within:border-[#F5A623]/60 rounded-[2px] shadow-[0_8px_32px_rgba(0,0,0,0.88)] backdrop-blur-xl p-2 transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]">
-        {/* Resting Brutalist Console Bar */}
+      <div className="relative bg-[#07080C]/95 border border-[#26282E] hover:border-amber-500/50 rounded-lg shadow-[0_8px_32px_rgba(0,0,0,0.88)] backdrop-blur-xl p-2 transition-all duration-200">
+        {/* Resting Console Bar */}
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5 shrink-0">
-            <span className="text-[10px] font-mono font-bold tracking-widest text-[#F5A623] uppercase flex items-center gap-1">
-              <Type className="w-3 h-3" />
-              <span>TYPOGRAPHY HUD</span>
-            </span>
-            <span className="text-[8.5px] font-mono text-zinc-400 uppercase hidden md:inline items-center gap-1">
-              <Layers className="w-2.5 h-2.5 inline mr-0.5 text-[#F5A623]" />
-              {kineticOcclusion.layerMode === 'BEHIND_SUBJECT' ? 'BEHIND SUBJECT' : 'FOREGROUND'} • {kineticOcclusion.audioPunchMode}
+          <div className="flex items-center gap-2 shrink-0">
+            <CinemaBadgeHeader
+              icon={<Type className="w-3.5 h-3.5" strokeWidth={2.2} />}
+              label="TITLE HUD"
+              accent="amber"
+            />
+            <span className="text-[8.5px] font-mono text-zinc-400 uppercase hidden md:inline-flex items-center gap-1">
+              <Layers className="w-2.5 h-2.5 text-amber-400" />
+              {kineticOcclusion.layerMode === 'BEHIND_SUBJECT' ? 'BEHIND' : 'FRONT'} · {kineticOcclusion.audioPunchMode}
             </span>
           </div>
 
-          {/* Quick Brutalist Preset Switchers */}
-          <div className="flex items-center gap-1 overflow-x-auto">
-            <button
-              type="button"
-              onClick={() => handleSelectAutonomousPreset('CHOPPER_RAP_PUNCH')}
-              className={`px-2 py-0.5 rounded-[2px] text-[9px] font-mono font-bold tracking-wider uppercase transition-all flex items-center gap-1 cursor-pointer ${
-                kineticOcclusion.preset === 'CHOPPER_RAP_PUNCH'
-                  ? 'bg-[#F5A623] text-black border border-[#F5A623]'
-                  : 'bg-[#0D0F16] text-zinc-400 hover:text-white border border-[#272732] hover:border-zinc-500'
-              }`}
-              title="CHOPPER_RAP_PUNCH: Single-word replacement with 4-frame 120% -> 100% scale & -3px -> 0px tracking"
+          {/* Quick Preset Switchers */}
+          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+            <CinemaToolHUD
+              title="RAP CHOPPER"
+              en="Single-word kinetic pop with 120% -> 100% scale & rapid tracking snap."
+              bn="র‍্যাপ বা দ্রুত কথার তালে প্রতিটি শব্দ আলাদাভাবে পপ করাতে এটি চাপুন।"
+              accent="amber"
             >
-              <Zap className="w-2.5 h-2.5" />
-              <span>[ RAP CHOPPER ]</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => handleSelectAutonomousPreset('CHOPPER_RAP_PUNCH')}
+                data-active={kineticOcclusion.preset === 'CHOPPER_RAP_PUNCH' ? 'true' : 'false'}
+                className="cinema-tile cinema-tile-amber px-2 py-1 rounded-md text-[10px] font-black tracking-wider uppercase flex items-center gap-1 cursor-pointer"
+              >
+                <Zap className="w-3 h-3 cinema-tile-icon" strokeWidth={2.2} />
+                <span>RAP CHOPPER</span>
+              </button>
+            </CinemaToolHUD>
 
-            <button
-              type="button"
-              onClick={() => handleSelectAutonomousPreset('COMMERCIAL_TITAN_DROP')}
-              className={`px-2 py-0.5 rounded-[2px] text-[9px] font-mono font-bold tracking-wider uppercase transition-all flex items-center gap-1 cursor-pointer ${
-                kineticOcclusion.preset === 'COMMERCIAL_TITAN_DROP'
-                  ? 'bg-[#F5A623] text-black border border-[#F5A623]'
-                  : 'bg-[#0D0F16] text-zinc-400 hover:text-white border border-[#272732] hover:border-zinc-500'
-              }`}
-              title="COMMERCIAL_TITAN_DROP: Heavy Bengali Unicode + laser-line wipe + directional motion blur fragment pass"
+            <CinemaToolHUD
+              title="AD TITAN"
+              en="Heavy commercial frame slam with bilingual title lock and motion trail."
+              bn="বিজ্ঞাপনের মতো শক্তিশালী বাংলা ও ইংরেজি টাইটেল স্ল্যাম পেতে চাপুন।"
+              accent="crimson"
             >
-              <Flame className="w-2.5 h-2.5" />
-              <span>[ AD TITAN ]</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => handleSelectAutonomousPreset('COMMERCIAL_TITAN_DROP')}
+                data-active={kineticOcclusion.preset === 'COMMERCIAL_TITAN_DROP' ? 'true' : 'false'}
+                className="cinema-tile cinema-tile-crimson px-2 py-1 rounded-md text-[10px] font-black tracking-wider uppercase flex items-center gap-1 cursor-pointer"
+              >
+                <Flame className="w-3 h-3 cinema-tile-icon" strokeWidth={2.2} />
+                <span>AD TITAN</span>
+              </button>
+            </CinemaToolHUD>
 
-            <button
-              type="button"
-              onClick={() => handleSelectAutonomousPreset('MINIMAL')}
-              className={`px-2 py-0.5 rounded-[2px] text-[9px] font-mono font-bold tracking-wider uppercase transition-all flex items-center gap-1 cursor-pointer ${
-                kineticOcclusion.preset === 'MINIMAL'
-                  ? 'bg-[#EDEDED] text-black border border-[#EDEDED]'
-                  : 'bg-[#0D0F16] text-zinc-400 hover:text-white border border-[#272732] hover:border-zinc-500'
-              }`}
-              title="Minimal console typography"
+            <CinemaToolHUD
+              title="MINIMAL TITLE"
+              en="Clean console typography style without aggressive kinetic transients."
+              bn="সিম্পল ও পরিচ্ছন্ন সাবটাইটেল লুকের জন্য MINIMAL চাপুন।"
+              accent="cyan"
             >
-              <span>[ MINIMAL ]</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => handleSelectAutonomousPreset('MINIMAL')}
+                data-active={kineticOcclusion.preset === 'MINIMAL' ? 'true' : 'false'}
+                className="cinema-tile cinema-tile-cyan px-2 py-1 rounded-md text-[10px] font-black tracking-wider uppercase flex items-center gap-1 cursor-pointer"
+              >
+                <span>MINIMAL</span>
+              </button>
+            </CinemaToolHUD>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setIsManuallyExpanded(!isManuallyExpanded)}
-            className="p-1 text-zinc-500 hover:text-zinc-200 rounded-[2px] cursor-pointer"
-            title="Pin / Unpin Brutalist Occlusion & Transient Strip"
+          <CinemaToolHUD
+            title={isManuallyExpanded ? 'COLLAPSE HUD' : 'PIN HUD'}
+            en="Pins or unpins the 3D occlusion matrix and timed lyric word chips."
+            bn="৩ডি অক্লুশন কন্ট্রোল ও ওয়ার্ড-টাইমিং প্যানেল খোলা রাখতে চাপুন।"
+            accent="amber"
           >
-            {isManuallyExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-          </button>
+            <button
+              type="button"
+              onClick={() => setIsManuallyExpanded(!isManuallyExpanded)}
+              className="cinema-tile cinema-tile-amber p-1 rounded-md cursor-pointer"
+              aria-label="Pin Kinetic HUD"
+            >
+              {isManuallyExpanded ? <ChevronUp className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} /> : <ChevronDown className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />}
+            </button>
+          </CinemaToolHUD>
         </div>
 
-        {/* CSS Hover-Triggered Brutalist Control Strip + Word Cadence Matrix */}
+        {/* Hover-Triggered Control Strip + Word Cadence Matrix */}
         <div
           className={`overflow-hidden transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] ${
             isManuallyExpanded
@@ -200,8 +218,8 @@ export const KineticAdTextDrawer: React.FC<KineticAdTextDrawerProps> = ({
             ))}
 
             {frameOutput.words.length === 0 && (
-              <span className="text-[10px] font-mono text-zinc-500 italic">
-                No timed lyrics on this shot. Add lyrics in the caption editor.
+              <span className="text-[9.5px] font-black tracking-wider uppercase text-zinc-500">
+                NO LYRICS
               </span>
             )}
           </div>

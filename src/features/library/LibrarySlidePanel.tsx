@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { useStudioStore } from '../../core/store';
 import { AnthologyFrame, LutPreset } from '../../types/anthology';
+import { CinemaToolHUD, CinemaBadgeHeader } from '../../components/ui/CinemaToolHUD';
 
 interface LibrarySlidePanelProps {
   currentFrame?: AnthologyFrame;
@@ -267,107 +268,117 @@ export const LibrarySlidePanel: React.FC<LibrarySlidePanelProps> = ({
   };
 
   return (
-    <div className="space-y-6">
-      {/* 1. Header Banner */}
-      <div className="bg-[#12131a] border border-[#F5A623]/40 rounded p-4 relative overflow-hidden shadow-[0_0_20px_rgba(245,166,35,0.15)]">
-        <div className="flex items-center gap-2 text-[#F5A623] mb-1">
-          <Library className="w-4 h-4 animate-pulse" />
-          <span className="font-mono-tech text-[11px] font-bold tracking-widest uppercase">
-            [ MODULE 14 // ASSET & LOOK LIBRARY ]
-          </span>
-        </div>
-        <p className="text-xs text-zinc-400 font-mono-tech">
-          Tactile sound synthesis, 8 film LUTs & curated bilingual typography stacks
-        </p>
+    <div className="space-y-4">
+      <div className="space-y-3">
+        <CinemaBadgeHeader
+          icon={<Library className="w-4 h-4" strokeWidth={2.2} />}
+          label="LOOK LIBRARY"
+          accent="amber"
+        />
 
         {/* Tabbed Switcher */}
-        <div className="mt-3 grid grid-cols-3 gap-1 font-mono-tech text-[10px]">
+        <div className="grid grid-cols-3 gap-1.5">
           {[
             { id: 'sfx', label: 'SFX PACK', icon: Volume2 },
             { id: 'luts', label: '3D LUTS', icon: Palette },
-            { id: 'type', label: 'TYPE PRESETS', icon: Type }
+            { id: 'type', label: 'TYPE FX', icon: Type }
           ].map((tab) => {
             const Icon = tab.icon;
             const isSelected = activeTab === tab.id;
             return (
-              <button
+              <CinemaToolHUD
                 key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`py-1.5 px-2 rounded flex items-center justify-center gap-1.5 transition-all cursor-pointer border ${
-                  isSelected
-                    ? 'bg-[#F5A623] text-black font-bold border-[#F5A623] shadow-[0_0_8px_rgba(245,166,35,0.4)]'
-                    : 'bg-black/50 text-zinc-400 border-white/10 hover:text-white'
-                }`}
+                title={tab.label}
+                en={`Switch library browser to ${tab.label} presets.`}
+                bn={`${tab.label} প্রিসেট দেখতে এই ট্যাবে চাপুন।`}
+                accent="amber"
+                blockWrapper
               >
-                <Icon className="w-3 h-3" />
-                <span>{tab.label}</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab(tab.id as any)}
+                  data-active={isSelected ? 'true' : 'false'}
+                  className="cinema-tile cinema-tile-amber w-full min-h-[44px] py-2 px-1.5 rounded-md flex items-center justify-center gap-1.5 font-black tracking-wider text-[10px] sm:text-[11px] uppercase cursor-pointer"
+                >
+                  <Icon className="w-4 h-4 cinema-tile-icon shrink-0" strokeWidth={2.2} />
+                  <span>{tab.label}</span>
+                </button>
+              </CinemaToolHUD>
             );
           })}
         </div>
       </div>
 
       {appliedNotification && (
-        <div className="p-2 bg-emerald-950/60 border border-emerald-500/40 rounded text-center text-[10.5px] font-mono-tech text-emerald-300 animate-in fade-in">
-          ✓ {appliedNotification}
+        <div className="p-2 bg-emerald-950/60 border border-emerald-500/40 rounded text-center text-[10.5px] font-black uppercase text-emerald-300">
+          {appliedNotification}
         </div>
       )}
 
-      {/* 2. TAB 1: SFX PACK */}
+      {/* TAB 1: SFX PACK */}
       {activeTab === 'sfx' && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between text-xs font-mono-tech font-bold uppercase tracking-wider text-white">
-            <span>WebAudio Built-In Synthesizer</span>
-            <span className="text-[10px] text-[#F5A623]">24-BIT / 48kHz</span>
-          </div>
+        <div className="space-y-2.5">
+          <CinemaBadgeHeader
+            icon={<Volume2 className="w-3.5 h-3.5" strokeWidth={2.2} />}
+            label="SFX SYNTH"
+            accent="amber"
+            rightSlot={<span className="text-[10px] font-black text-amber-400">48KHZ</span>}
+          />
 
-          <div className="space-y-2 font-mono-tech text-[11px]">
+          <div className="space-y-2">
             {[
-              { id: 'whoosh' as const, name: 'Cinematic Whoosh', desc: 'Filtered noise sweep with exponential pitch drop', track: 'A1 WHOOSH' },
-              { id: 'sub_bass' as const, name: 'Deep Sub-Bass Drop (40Hz)', desc: 'Analog 40Hz sub-frequency room resonator', track: 'A2 SUB' },
-              { id: 'glitch' as const, name: 'Cyberpunk Glitch Hit', desc: 'Square wave transient bitcrush burst', track: 'A1 GLITCH' },
-              { id: 'braam' as const, name: 'Cinematic Trailer Braam', desc: 'Resonant low-brass Hollywood trailer hit', track: 'A2 BRAAM' },
-              { id: 'shutter' as const, name: 'Mechanical Shutter Click', desc: '35mm optical camera shutter transient', track: 'A1 CLICK' },
-              { id: 'drone' as const, name: 'Binaural Cyber Drone', desc: '43.6Hz continuous atmospheric tone', track: 'A2 DRONE' }
+              { id: 'whoosh' as const, short: 'WHOOSH', desc: 'Filtered noise sweep with exponential pitch drop', track: 'A1 WHOOSH' },
+              { id: 'sub_bass' as const, short: '40HZ DROP', desc: 'Analog 40Hz sub-frequency room resonator', track: 'A2 SUB' },
+              { id: 'glitch' as const, short: 'GLITCH', desc: 'Square wave transient bitcrush burst', track: 'A1 GLITCH' },
+              { id: 'braam' as const, short: 'BRAAM', desc: 'Resonant low-brass Hollywood trailer hit', track: 'A2 BRAAM' },
+              { id: 'shutter' as const, short: 'SHUTTER', desc: '35mm optical camera shutter transient', track: 'A1 CLICK' },
+              { id: 'drone' as const, short: 'DRONE', desc: '43.6Hz continuous atmospheric tone', track: 'A2 DRONE' }
             ].map((sfx) => {
               const isPlaying = auditioningSfx === sfx.id;
               return (
                 <div
                   key={sfx.id}
-                  className="p-2.5 rounded bg-[#101117] border border-white/10 hover:border-white/20 transition-all flex items-center justify-between gap-2"
+                  className="p-2 rounded-md bg-[#111215] border border-[#26282E] flex items-center justify-between gap-2"
                 >
-                  <div className="min-w-0">
-                    <div className="font-bold text-white flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#F5A623]" />
-                      <span className="truncate">{sfx.name}</span>
-                    </div>
-                    <div className="text-[9.5px] text-zinc-400 truncate">{sfx.desc}</div>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Radio className="w-4 h-4 text-[#F59E0B] shrink-0" strokeWidth={2.2} />
+                    <span className="font-black tracking-wider text-[11px] uppercase text-white truncate">
+                      {sfx.short}
+                    </span>
                   </div>
 
                   <div className="flex items-center gap-1.5 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => playWebAudioSfx(sfx.id)}
-                      className={`px-2.5 py-1 rounded border text-[10px] flex items-center gap-1 cursor-pointer transition-colors ${
-                        isPlaying 
-                          ? 'bg-[#F5A623] text-black border-[#F5A623] font-bold' 
-                          : 'bg-white/5 text-zinc-300 hover:text-white border-white/10 hover:bg-white/10'
-                      }`}
-                      title="Audition live sound in browser"
+                    <CinemaToolHUD
+                      title={`AUDITION ${sfx.short}`}
+                      en={sfx.desc}
+                      bn={`${sfx.short} সাউন্ডটি ব্রাউজারে সরাসরি শুনতে PLAY চাপুন।`}
+                      accent="cyan"
                     >
-                      <Play className="w-3 h-3" />
-                      <span>{isPlaying ? 'PLAYING...' : 'AUDITION'}</span>
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => playWebAudioSfx(sfx.id)}
+                        data-active={isPlaying ? 'true' : 'false'}
+                        className="cinema-tile cinema-tile-cyan px-2.5 min-h-[40px] rounded-md text-[10px] font-black tracking-wider uppercase flex items-center gap-1 cursor-pointer"
+                      >
+                        <Play className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+                        <span>{isPlaying ? 'PLAYING' : 'PLAY'}</span>
+                      </button>
+                    </CinemaToolHUD>
 
-                    <button
-                      type="button"
-                      onClick={() => handleAssignSfx(sfx.track)}
-                      className="px-2 py-1 rounded bg-[#F5A623]/20 hover:bg-[#F5A623]/35 text-[#F5A623] border border-[#F5A623]/50 text-[10px] font-bold cursor-pointer"
-                      title="Assign to active shot track"
+                    <CinemaToolHUD
+                      title={`ASSIGN ${sfx.track}`}
+                      en="Attach synthesized sound cue to active shot audio track."
+                      bn="এই সাউন্ড ইফেক্টটি বর্তমান শটের অডিও ট্র্যাকে যুক্ত করতে + TRACK চাপুন।"
+                      accent="amber"
                     >
-                      + A1/A2
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => handleAssignSfx(sfx.track)}
+                        className="cinema-tile cinema-tile-amber px-2.5 min-h-[40px] rounded-md text-[10px] font-black tracking-wider uppercase cursor-pointer"
+                      >
+                        + TRACK
+                      </button>
+                    </CinemaToolHUD>
                   </div>
                 </div>
               );
@@ -376,82 +387,95 @@ export const LibrarySlidePanel: React.FC<LibrarySlidePanelProps> = ({
         </div>
       )}
 
-      {/* 3. TAB 2: 3D LUTS (8 Film Looks with hover live-preview) */}
+      {/* TAB 2: 3D LUTS */}
       {activeTab === 'luts' && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between text-xs font-mono-tech font-bold uppercase tracking-wider text-white">
-            <span>8 Cinematic 3D LUTs (Hover to Preview)</span>
-            <span className="text-[10px] text-cyan-400">ACTIVE: {currentFrame?.lutFilter?.toUpperCase() || 'RAW'}</span>
-          </div>
+        <div className="space-y-2.5">
+          <CinemaBadgeHeader
+            icon={<Palette className="w-3.5 h-3.5" strokeWidth={2.2} />}
+            label="3D LUTS"
+            accent="cyan"
+            rightSlot={
+              <span className="text-[10px] font-black text-cyan-400 uppercase">
+                {currentFrame?.lutFilter?.toUpperCase() || 'RAW'}
+              </span>
+            }
+          />
 
-          <div className="grid grid-cols-2 gap-2 font-mono-tech text-[10.5px]">
+          <div className="grid grid-cols-2 gap-1.5">
             {lutsList.map((lut) => {
               const isSelected = currentFrame?.lutFilter === lut.id;
               return (
-                <div
+                <CinemaToolHUD
                   key={lut.id}
-                  onClick={() => handleApplyLut(lut.id)}
-                  onMouseEnter={() => {
-                    if (onPreviewLut) onPreviewLut(lut.id);
-                  }}
-                  onMouseLeave={() => {
-                    if (onPreviewLut) onPreviewLut(null);
-                  }}
-                  className={`p-2.5 rounded border transition-all cursor-pointer relative group ${
-                    isSelected 
-                      ? 'bg-[#181a24] border-[#F5A623] shadow-[0_0_15px_rgba(245,166,35,0.25)]' 
-                      : 'bg-[#101117] border-white/10 hover:border-white/30'
-                  }`}
+                  title={`LUT: ${lut.name.toUpperCase()}`}
+                  en={lut.desc}
+                  bn={`হোভার করলে প্রিভিউ দেখাবে এবং ক্লিক করলে বর্তমান শটে ${lut.name} কালার গ্রেড বসবে।`}
+                  accent="amber"
+                  blockWrapper
                 >
-                  <div className="flex items-center justify-between mb-1">
-                    <span 
-                      className="w-2.5 h-2.5 rounded-full shrink-0" 
-                      style={{ backgroundColor: lut.color, boxShadow: `0 0 6px ${lut.color}` }}
+                  <button
+                    type="button"
+                    onClick={() => handleApplyLut(lut.id)}
+                    onMouseEnter={() => {
+                      if (onPreviewLut) onPreviewLut(lut.id);
+                    }}
+                    onMouseLeave={() => {
+                      if (onPreviewLut) onPreviewLut(null);
+                    }}
+                    data-active={isSelected ? 'true' : 'false'}
+                    className="cinema-tile cinema-tile-amber w-full min-h-[56px] p-2.5 rounded-lg flex flex-col items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <span
+                      className="w-3.5 h-3.5 rounded-full shrink-0"
+                      style={{ backgroundColor: lut.color, boxShadow: `0 0 8px ${lut.color}` }}
                     />
-                    {isSelected && <Check className="w-3.5 h-3.5 text-[#F5A623]" />}
-                  </div>
-
-                  <div className="font-bold text-white text-[11px] truncate">
-                    {lut.name}
-                  </div>
-                  <div className="text-[9px] text-zinc-400 truncate">
-                    {lut.subtitle}
-                  </div>
-                </div>
+                    <span className="font-black tracking-wider text-[10px] sm:text-[11px] uppercase truncate max-w-full">
+                      {lut.name}
+                    </span>
+                  </button>
+                </CinemaToolHUD>
               );
             })}
           </div>
         </div>
       )}
 
-      {/* 4. TAB 3: BILINGUAL TYPE PRESETS */}
+      {/* TAB 3: BILINGUAL TYPE PRESETS */}
       {activeTab === 'type' && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between text-xs font-mono-tech font-bold uppercase tracking-wider text-white">
-            <span>Curated Typography Stacks</span>
-            <span className="text-[10px] text-amber-400">BANGLA + ENGLISH</span>
-          </div>
+        <div className="space-y-2.5">
+          <CinemaBadgeHeader
+            icon={<Type className="w-3.5 h-3.5" strokeWidth={2.2} />}
+            label="TYPE STACKS"
+            accent="amber"
+            rightSlot={<span className="text-[10px] font-black text-amber-400">BN + EN</span>}
+          />
 
-          <div className="space-y-2.5">
-            {typePresets.map((preset) => (
-              <div
+          <div className="space-y-2">
+            {typePresets.map((preset, idx) => (
+              <CinemaToolHUD
                 key={preset.id}
-                onClick={() => handleApplyTypePreset(preset)}
-                className="p-3 rounded bg-[#101117] border border-white/10 hover:border-[#F5A623]/60 transition-all cursor-pointer group space-y-1"
+                title={`TYPE STACK ${idx + 1}: ${preset.english}`}
+                en={preset.fontDesc}
+                bn={`ক্লিক করে "${preset.bangla}" বাংলা ও ইংরেজি টাইটেল বর্তমান শটে প্রয়োগ করুন।`}
+                accent="amber"
+                blockWrapper
               >
-                <div className="font-bengali text-sm text-[#F5A623] font-bold group-hover:text-amber-300">
-                  {preset.bangla}
-                </div>
-                <div className="font-mono-tech text-[10.5px] text-white font-bold tracking-wider">
-                  {preset.english}
-                </div>
-                <div className="text-[9px] font-mono-tech text-zinc-500 pt-1 border-t border-white/5 flex items-center justify-between">
-                  <span>{preset.fontDesc}</span>
-                  <span className="text-[#F5A623] group-hover:translate-x-0.5 transition-transform">
-                    Apply ➔
-                  </span>
-                </div>
-              </div>
+                <button
+                  type="button"
+                  onClick={() => handleApplyTypePreset(preset)}
+                  className="cinema-tile cinema-tile-amber w-full p-3 rounded-lg text-left flex items-center justify-between gap-2 cursor-pointer"
+                >
+                  <div className="min-w-0">
+                    <div className="font-bengali text-sm text-[#F59E0B] font-bold truncate">
+                      {preset.bangla}
+                    </div>
+                    <div className="font-mono-tech text-[10px] font-black tracking-wider uppercase truncate opacity-85">
+                      {preset.english}
+                    </div>
+                  </div>
+                  <ArrowRight className="w-4 h-4 cinema-tile-icon shrink-0" strokeWidth={2.2} />
+                </button>
+              </CinemaToolHUD>
             ))}
           </div>
         </div>

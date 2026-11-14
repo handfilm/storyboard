@@ -22,23 +22,26 @@ import { CloudR2SlidePanel } from '../features/cloud/CloudR2SlidePanel';
 import { LibrarySlidePanel } from '../features/library/LibrarySlidePanel';
 import { SettingsSlidePanel } from '../features/settings/SettingsSlidePanel';
 import { CapCutProSuitePanel, ProSuiteTab, CapCutProSuitePanelProps } from './stage/CapCutProSuitePanel';
+import { CinemaBadgeHeader, CinemaToolHUD } from './ui/CinemaToolHUD';
 import { eventBus } from '../core/eventBus';
 import { AnthologyFrame, AspectRatio, LutPreset } from '../types/anthology';
-import { 
-  X, 
-  BookOpen, 
-  Image as ImageIcon, 
-  Type, 
-  Volume2, 
-  PlaySquare, 
-  Clapperboard, 
-  MessageSquare, 
-  Library, 
-  Sparkles, 
-  Sliders, 
-  Cloud, 
+import {
+  X,
+  BookOpen,
+  Image as ImageIcon,
+  Type,
+  Volume2,
+  PlaySquare,
+  Clapperboard,
+  MessageSquare,
+  Library,
+  Sparkles,
+  Sliders,
+  Cloud,
   Wand2,
-  Settings
+  Settings,
+  Zap,
+  LayoutGrid
 } from 'lucide-react';
 
 interface StudioDrawerProps {
@@ -107,96 +110,31 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
   const getModuleMeta = () => {
     switch (activeModule) {
       case 'PRODUCTION':
-        return {
-          title: '10 PRODUCTION // SHOOT PLANNER',
-          subtitle: 'Interactive Shoot Planner & Call Sheet',
-          icon: Clapperboard,
-          badge: 'DAY BOARD'
-        };
+        return { title: 'CALL SHEET', icon: Clapperboard, accent: 'amber' as const };
       case 'REVIEW':
-        return {
-          title: '11 REVIEW // FRAME MARKUP',
-          subtitle: 'Frame-Accurate Video Markup & Client Notes',
-          icon: MessageSquare,
-          badge: 'CLIENT ANNOTATION'
-        };
+        return { title: 'MARKUP', icon: MessageSquare, accent: 'amber' as const };
       case 'AI':
-        return {
-          title: '12 AI DIRECTOR // PROMPT MATRIX',
-          subtitle: 'Visual Cine Prompt Engine & Consistency Matrix',
-          icon: Sparkles,
-          badge: 'VEO / FLOW'
-        };
+        return { title: 'AI PROMPT', icon: Sparkles, accent: 'cyan' as const };
       case 'R2_STORAGE':
-        return {
-          title: '13 CLOUD & R2 // VAULT SYNC',
-          subtitle: 'Zero-Config Bucket Streaming & Vault Sync',
-          icon: Cloud,
-          badge: 'S3 ARCHIVE'
-        };
+        return { title: 'CLOUD R2', icon: Cloud, accent: 'cyan' as const };
       case 'LIBRARY':
-        return {
-          title: '14 LIBRARY // ASSETS & LOOKS',
-          subtitle: 'Asset Presets, Sound FX & Typography',
-          icon: Library,
-          badge: 'PRESETS & SFX'
-        };
+        return { title: 'LUT LAB', icon: Library, accent: 'amber' as const };
       case 'SETTINGS':
-        return {
-          title: '15 SETTINGS // TELEMETRY',
-          subtitle: 'Hardware Acceleration & Storage Quota',
-          icon: Settings,
-          badge: 'WEBCODECS'
-        };
+        return { title: 'SETTINGS', icon: Settings, accent: 'cyan' as const };
       case 'STORY':
-        return {
-          title: '02 STORY NOTEBOOK',
-          subtitle: 'Scene Beats, Screenplay & AI Copilot',
-          icon: BookOpen,
-          badge: 'SCREENPLAY'
-        };
+        return { title: 'STORY', icon: BookOpen, accent: 'amber' as const };
       case 'MEDIA':
-        return {
-          title: '03 MEDIA ASSET VAULT',
-          subtitle: '4K Footage, Presets & Ingestion',
-          icon: ImageIcon,
-          badge: 'INGEST'
-        };
+        return { title: 'MEDIA BIN', icon: ImageIcon, accent: 'cyan' as const };
       case 'TEXT':
-        return {
-          title: '06 SUPER TITLE STUDIO',
-          subtitle: 'Kinetic Typography & Glowing Subtitles',
-          icon: Type,
-          badge: 'TYPOGRAPHY'
-        };
+        return { title: 'TITLE FX', icon: Type, accent: 'amber' as const };
       case 'SOUND':
-        return {
-          title: '08 SOUND STUDIO & DSP',
-          subtitle: '43.6Hz Sub Drone & Web Audio Synth',
-          icon: Volume2,
-          badge: 'DSP SYNTH'
-        };
+        return { title: 'SOUND DSP', icon: Volume2, accent: 'emerald' as const };
       case 'PLAYER':
-        return {
-          title: '01 ANIMATIC PREVIS PLAYER',
-          subtitle: 'J-K-L Jog Shuttle & Loop Transport',
-          icon: PlaySquare,
-          badge: 'TRANSPORT'
-        };
+        return { title: 'PREVIS', icon: PlaySquare, accent: 'amber' as const };
       case 'LIQUIFY':
-        return {
-          title: '09 PHOTO EDIT & BULK RESIZER',
-          subtitle: 'Liquify Warp Suite & Batch Resizer',
-          icon: Wand2,
-          badge: 'PHOTO SUITE'
-        };
+        return { title: 'LIQUIFY', icon: Wand2, accent: 'crimson' as const };
       default:
-        return {
-          title: '07 EDIT & CAM',
-          subtitle: '3D Virtual Rig & Optics Rack',
-          icon: Sliders,
-          badge: 'OPTICS'
-        };
+        return { title: 'OPTICS', icon: Sliders, accent: 'cyan' as const };
     }
   };
 
@@ -206,51 +144,54 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
   // Use the exact required container styling for modules 10-15
   if (isBottomSix) {
     return (
-      <aside 
+      <aside
         aria-label="Studio Slide-Over Panel"
         className="w-[420px] md:w-[480px] bg-[#0c0d10]/95 backdrop-blur-2xl border-r border-[#F5A623]/30 p-5 flex flex-col h-full overflow-y-auto space-y-6 text-white shrink-0 z-40 select-none animate-in slide-in-from-left duration-200 custom-scrollbar shadow-[0_0_50px_rgba(0,0,0,0.9)]"
       >
         {/* Slide-Over Top Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-[#F5A623]/20 shrink-0">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded bg-[#F5A623]/15 border border-[#F5A623]/50 flex items-center justify-center shrink-0 shadow-[0_0_10px_rgba(245,166,35,0.25)]">
-              <Icon className="w-4 h-4 text-[#F5A623]" />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <h3 className="font-mono-tech text-xs font-bold text-white tracking-wider truncate">
-                  {meta.title}
-                </h3>
-              </div>
-              <p className="text-[9px] text-zinc-400 font-mono-tech truncate mt-0.5">
-                {meta.subtitle}
-              </p>
-            </div>
-          </div>
+        <div className="flex items-center justify-between pb-3 border-b border-white/[0.08] shrink-0 gap-2">
+          <CinemaBadgeHeader
+            icon={<Icon className="w-4 h-4" strokeWidth={2.2} />}
+            label={meta.title}
+            accent={meta.accent}
+          />
 
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              type="button"
-              data-testid="drawer-toggle-pro-suite"
-              onClick={() => setShowProSuite((v) => !v)}
-              className={`px-2 py-1 rounded text-[8.5px] font-mono font-bold uppercase tracking-wider cursor-pointer transition-colors border ${
-                showProSuite
-                  ? 'bg-[#22D3EE] text-[#0B0B0D] border-[#22D3EE]'
-                  : 'bg-[#22D3EE]/10 text-[#22D3EE] border-[#22D3EE]/40 hover:bg-[#22D3EE]/20'
-              }`}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <CinemaToolHUD
+              title={showProSuite ? 'STANDARD VIEW' : 'PRO FX SUITE'}
+              en="Switch between standard module view and CapCut Pro FX Suite."
+              bn="প্রো ইফেক্টস (ক্যাপশন, কীফ্রেম, স্পিড র‍্যাম্প, কালার) চালু বা বন্ধ করতে চাপুন।"
+              accent="cyan"
+              side="bottom"
             >
-              {showProSuite ? 'STANDARD' : '⚡ PRO FX'}
-            </button>
-            <span className="text-[8px] px-1.5 py-0.5 bg-[#F5A623]/15 border border-[#F5A623]/40 text-[#F5A623] font-mono-tech rounded font-bold uppercase tracking-wider">
-              {meta.badge}
-            </span>
-            <button
-              onClick={onClose}
-              className="p-1 rounded bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white cursor-pointer transition-colors border border-white/10"
-              title="Close Slide-Over (Esc)"
+              <button
+                type="button"
+                data-testid="drawer-toggle-pro-suite"
+                data-active={showProSuite ? 'true' : 'false'}
+                onClick={() => setShowProSuite((v) => !v)}
+                className="cinema-tile cinema-tile-cyan px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer flex items-center gap-1"
+              >
+                <Zap className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+                <span>{showProSuite ? 'STANDARD' : 'PRO FX'}</span>
+              </button>
+            </CinemaToolHUD>
+            <CinemaToolHUD
+              title="CLOSE DRAWER"
+              en="Close the active studio slide-over drawer."
+              bn="এই ড্রয়ার প্যানেলটি বন্ধ করতে X চাপুন।"
+              shortcut="ESC"
+              accent="crimson"
+              side="bottom"
             >
-              <X className="w-4 h-4" />
-            </button>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close drawer"
+                className="cinema-tile cinema-tile-crimson p-1.5 rounded-lg cursor-pointer"
+              >
+                <X className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+              </button>
+            </CinemaToolHUD>
           </div>
         </div>
 
@@ -317,62 +258,65 @@ export const StudioDrawer: React.FC<StudioDrawerProps> = ({
   return (
     <div className="w-[420px] sm:w-[480px] xl:w-[560px] h-full bg-[#0a0a10]/98 border-r border-[#272732] shadow-[0_0_50px_rgba(0,0,0,0.95)] flex flex-col z-30 shrink-0 select-none overflow-hidden backdrop-blur-2xl animate-in slide-in-from-left duration-200">
       {/* Drawer Header */}
-      <div className="h-12 bg-[#0c0c10] border-b border-[#272732] px-3 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="w-7 h-7 rounded-[2px] bg-[#d4af37]/15 border border-[#d4af37]/50 flex items-center justify-center shrink-0">
-            <Icon className="w-3.5 h-3.5 text-[#fbbf24]" />
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5">
-              <h3 className="font-cinzel text-xs font-bold text-white tracking-[0.16em] truncate">
-                {meta.title}
-              </h3>
-              <span className="text-[7.5px] px-1.5 py-0.2 bg-[#d4af37]/20 border border-[#d4af37]/50 text-[#fbbf24] font-mono-tech rounded-[1px] shrink-0 font-bold">
-                {meta.badge}
-              </span>
-            </div>
-            <p className="text-[8.5px] text-zinc-400 font-mono-tech truncate">
-              {meta.subtitle}
-            </p>
-          </div>
-        </div>
+      <div className="h-12 bg-[#0c0c10] border-b border-[#272732] px-3 flex items-center justify-between shrink-0 gap-2">
+        <CinemaBadgeHeader
+          icon={<Icon className="w-4 h-4" strokeWidth={2.2} />}
+          label={meta.title}
+          accent={meta.accent}
+        />
 
         {/* Header Right Actions */}
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            type="button"
-            data-testid="drawer-toggle-pro-suite"
-            onClick={() => setShowProSuite((v) => !v)}
-            className={`px-2 py-1 rounded text-[9px] font-mono font-bold uppercase cursor-pointer transition-colors border ${
-              showProSuite
-                ? 'bg-[#22D3EE] text-[#0B0B0D] border-[#22D3EE]'
-                : 'bg-[#22D3EE]/10 text-[#22D3EE] border-[#22D3EE]/40 hover:bg-[#22D3EE]/20'
-            }`}
-            title="Switch to CapCut Pro FX Suite (AI Captions, Keyframes, Speed Ramp, Color Wheels)"
+        <div className="flex items-center gap-1.5 shrink-0">
+          <CinemaToolHUD
+            title={showProSuite ? 'MODULE VIEW' : 'PRO FX SUITE'}
+            en="Switch between standard drawer tools and Pro FX Suite."
+            bn="প্রো ইফেক্টস স্যুট (AI ক্যাপশন, কীফ্রেম, স্পিড র‍্যাম্প, কালার) চালু করতে চাপুন।"
+            accent="cyan"
+            side="bottom"
           >
-            {showProSuite ? 'MODULE' : '⚡ PRO FX'}
-          </button>
-
-          {activeModule === 'OPTICS' && onOpenMultiCam && (
             <button
               type="button"
-              onClick={onOpenMultiCam}
-              className="px-2 py-1 bg-gradient-to-r from-amber-500/20 to-amber-600/20 hover:from-amber-500/35 hover:to-amber-600/35 border border-[#F5A623]/70 text-[#F5A623] hover:text-white font-mono text-[9px] font-bold rounded flex items-center gap-1 transition-all shadow-sm cursor-pointer active:scale-95"
-              title="⊞ Multi-Cam Angle Grid (CapCut Mode) (Shift+M)"
+              data-testid="drawer-toggle-pro-suite"
+              data-active={showProSuite ? 'true' : 'false'}
+              onClick={() => setShowProSuite((v) => !v)}
+              className="cinema-tile cinema-tile-cyan px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer flex items-center gap-1"
             >
-              <span>⊞</span>
-              <span className="hidden sm:inline">Multi-Cam Grid</span>
+              <Zap className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+              <span>{showProSuite ? 'MODULE' : 'PRO FX'}</span>
             </button>
+          </CinemaToolHUD>
+
+          {activeModule === 'OPTICS' && onOpenMultiCam && (
+            <CinemaToolHUD hudId="nav-multicam" side="bottom">
+              <button
+                type="button"
+                onClick={onOpenMultiCam}
+                className="cinema-tile cinema-tile-amber px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+              >
+                <LayoutGrid className="w-3.5 h-3.5 cinema-tile-icon" strokeWidth={2.2} />
+                <span className="hidden sm:inline">MULTI-CAM</span>
+              </button>
+            </CinemaToolHUD>
           )}
 
           {/* Close Button */}
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-[1px] bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white cursor-pointer transition-colors border border-[#272732]"
-            title="Close Panel (Esc)"
+          <CinemaToolHUD
+            title="CLOSE PANEL"
+            en="Close this studio tool drawer."
+            bn="এই টুল প্যানেলটি বন্ধ করতে X বাটনে চাপুন।"
+            shortcut="ESC"
+            accent="crimson"
+            side="bottom"
           >
-            <X className="w-3.5 h-3.5" />
-          </button>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close panel"
+              className="cinema-tile cinema-tile-crimson p-1.5 rounded-lg cursor-pointer"
+            >
+              <X className="w-4 h-4 cinema-tile-icon" strokeWidth={2.2} />
+            </button>
+          </CinemaToolHUD>
         </div>
       </div>
 
